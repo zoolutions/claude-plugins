@@ -37,6 +37,8 @@ One message, parallel `Agent` calls. Every agent gets the same preamble: the pat
 | `lode:gate-tests` | yes | the single-file test command, the test directory names |
 | `lode:gate-parser` | only when the diff touches parsing | run: `grep -E '^\+.*(%r\{|/\\[A-Za-z]|=~|\.match\(|\.scan\(|StringScanner|\.split\(|Regexp|re\.compile|new RegExp)' lode/tmp/gate/diff.patch` and spawn it if anything matches |
 
+Plugin agents register at session start. If `Agent` answers `Agent type 'lode:gate-…' not found` (the plugin was installed mid-session), spawn `general-purpose` instead and open the prompt with: "First read `${CLAUDE_PLUGIN_ROOT}/agents/<name>.md` and adopt it as your role, method and output format exactly." The result is the same agent; only the registration differs.
+
 If the `pstack` plugin is installed, also invoke `pstack:interrogate` on the same diff; its reviewers run on different models, which is a signal the agents above do not have. Merge only its **Act on** findings.
 
 ## 2. Merge and verify
