@@ -1,29 +1,31 @@
 ---
 name: gate
 description: The pre-PR gate. Run before git push or gh pr create and at the verify phase of any implementation workflow. Fresh-context agents review the branch diff against the repo's rules, its lode and the shared checklists; every new test is proven to fail without the change; findings are fixed and re-reviewed until no P1 or P2 remains; then the pass is recorded so the push hook lets the branch through.
-argument-hint: "[base ref, default origin/main] [--rounds N]"
-allowed-tools: Bash(git *), Bash(gh *), Bash(ls *), Bash(cat *), Bash(mkdir *), Bash(grep *), Read, Grep, Glob, Agent, Edit, Write
+argument-hint: "[base ref, default: the profile's default branch] [--rounds N]"
+allowed-tools: Bash(*), Read, Grep, Glob, Agent, Edit, Write, Skill
 ---
 
 # /lode:gate
 
 The author of a diff is the worst reviewer of it. This skill puts the diff in front of reviewers that have never seen the conversation, gives them the repository's own rules and memory, and loops until they are satisfied. It is what an external review bot would do, one round earlier and with the repo's learnings in hand.
 
-The gate reads, in this order: `CLAUDE.md`, every `.claude/rules/*.md`, `lode/practices.md`, every `lode/review/*.md`, and the plugin's shared checklists at `${CLAUDE_PLUGIN_ROOT}/checklists/`. If the repo has no `lode/`, stop and run `/lode:seed` first; the gate has nothing to enforce.
+The gate reads, in this order: `CLAUDE.md`, every `.claude/rules/*.md`, `lode/workflow.md`, `lode/practices.md`, every `lode/review/*.md`, and the plugin's shared checklists at `${CLAUDE_PLUGIN_ROOT}/checklists/`. If the repo has no `lode/`, stop and run `/lode:seed` first; the gate has nothing to enforce.
 
 ## 0. Preconditions
 
+`$ARGUMENTS` carries two optional things: a base ref, and `--rounds N`. The base is the default branch named under **Branches and PRs** in `lode/workflow.md`, or `origin/main` when there is no profile to say. `--rounds N` sets the round limit in step 4 and defaults to 3. Resolve the base, set `BASE` to it, then:
+
 ```bash
-BASE="${1:-origin/main}"; git fetch -q origin
+git fetch -q origin
 git status --porcelain            # must be empty: the gate reviews commits, not a dirty tree
 git diff --stat "$BASE"...HEAD
 mkdir -p lode/tmp/gate && git diff "$BASE"...HEAD > lode/tmp/gate/diff.patch
 git log --format='%s%n%n%b' "$BASE"..HEAD > lode/tmp/gate/intent.md
 ```
 
-If a PR body draft exists (for example `implementation-notes.md`, or an open PR for this branch via `gh pr view --json body`), append it to `intent.md`. The reviewers judge the diff against the stated intent; an unstated intent is the first finding.
+If a PR body draft exists (for example `lode/tmp/implementation-notes.md`, or an open PR for this branch via `gh pr view --json body`), append it to `intent.md`. The reviewers judge the diff against the stated intent; an unstated intent is the first finding.
 
-Record the test commands from `CLAUDE.md` (full suite and single file). The test agent needs the single-file form.
+Record the test commands from **Commands** in `lode/workflow.md` — full suite and single file, and `CLAUDE.md` only where there is no profile. The test agent needs the single-file form.
 
 ## 1. Fan out
 
@@ -61,7 +63,7 @@ P3 findings: fix when the fix is a line or two, otherwise record them as deferre
 
 ## 4. Loop
 
-Regenerate `diff.patch` and re-run only the agents whose findings were fixed, plus `gate-rules` always (a fix can break a rule). Stop when a round produces no confirmed P1 or P2, or after the round limit (default 3). Hitting the limit is a failure: report it and do not record a pass.
+Regenerate `diff.patch` and re-run only the agents whose findings were fixed, plus `gate-rules` always (a fix can break a rule). Stop when a round produces no confirmed P1 or P2, or after the `--rounds` limit from `$ARGUMENTS` (default 3). Hitting the limit is a failure: report it and do not record a pass.
 
 ## 5. Record the pass
 
@@ -95,4 +97,4 @@ Learned: <lode/review files touched>
 
 ## Escape hatch
 
-`LODE_SKIP_GATE=1 git push` bypasses the hook. Use it for a revert, a hotfix, or a docs typo, and say so in the PR body. Using it on a feature branch defeats the purpose; the next review bot will find what the gate would have.
+`LODE_SKIP_GATE=1 git push` bypasses the hook. Use it for a revert, a hotfix, or a docs typo, and say so in the PR body. Using it on a feature branch defeats the purpose: whatever the gate would have caught goes to the human reviewer, or to production, instead.

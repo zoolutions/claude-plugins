@@ -4,7 +4,7 @@ Claude Code marketplace for the zoolutions, hldesign and getzazu repositories. T
 
 | Plugin | What it does |
 |---|---|
-| [`lode`](plugins/lode) | Durable per-repo memory in `lode/` (Lode Coding by fjzeit) plus a pre-PR gate: fresh-context reviewers check the branch diff against the repo's rules and its own review learnings, every new test is proven to fail without the change, and nothing pushes until the gate has passed. Accepted findings are written back so the next gate is stricter. |
+| [`lode`](plugins/lode) | Three layers. **Memory**: `lode/` per repo (Lode Coding by fjzeit), with `lode/review/` holding accepted review findings as rules. **Gate**: fresh-context reviewers check the branch diff against the repo's rules and lode, every new test is proven to fail without the change, and a hook refuses any push until the gate has passed. **Workflows**: `/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, `/lode:debug-flaky`, `/lode:tdd`, `/lode:plan`, one copy for every repository, reading `lode/workflow.md` for what differs. |
 
 ## Enable in a repository
 
@@ -19,7 +19,7 @@ Commit this in the repository's `.claude/settings.json`; everyone who clones it 
 }
 ```
 
-Then, once per repository, `/lode:seed` builds the lode and opens the PR that turns the gate on. `/lode:seed` does that settings edit for you.
+Then, once per repository, `/lode:seed` builds the lode, writes `lode/workflow.md`, retires the repo's local copies of the workflow commands, and opens the PR that turns the gate on. `/lode:seed` does that settings edit for you. A repository that already has a lode runs `/lode:seed workflow` to add the profile.
 
 ## Try it on one machine
 

@@ -2,7 +2,7 @@
 name: learn
 description: Write accepted review findings back into the repository's lode as current-state rules so the next /lode:gate enforces them, and promote a finding to the shared plugin checklists when it applies to more than one repo. Run after processing PR review comments (cubic, CodeRabbit, a human), after /lode:gate, or with a finding described in words.
 argument-hint: "<PR number> | gate | \"<a finding in words>\""
-allowed-tools: Bash(git *), Bash(gh *), Bash(ls *), Bash(cat *), Bash(mkdir *), Bash(grep *), Read, Grep, Glob, Edit, Write
+allowed-tools: Bash(*), Read, Grep, Glob, Edit, Write
 ---
 
 # /lode:learn

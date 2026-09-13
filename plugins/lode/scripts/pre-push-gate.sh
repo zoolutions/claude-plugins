@@ -16,11 +16,13 @@ allow() { exit 0; }
 deny() { echo "[lode:gate] $1" >&2; exit 2; }
 
 INPUT="$(cat || true)"
-COMMAND=""
+COMMAND=""; CWD=""
 if command -v jq >/dev/null 2>&1; then
   COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // .toolInput.command // ""' 2>/dev/null || true)"
+  CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // ""' 2>/dev/null || true)"
 elif command -v ruby >/dev/null 2>&1; then
   COMMAND="$(printf '%s' "$INPUT" | ruby -rjson -e 'begin; d=JSON.parse(STDIN.read); i=d["tool_input"]||d["toolInput"]||{}; print(i["command"].to_s); rescue StandardError; print ""; end' 2>/dev/null || true)"
+  CWD="$(printf '%s' "$INPUT" | ruby -rjson -e 'begin; print(JSON.parse(STDIN.read)["cwd"].to_s); rescue StandardError; print ""; end' 2>/dev/null || true)"
 fi
 [[ -n "$COMMAND" ]] || allow
 
@@ -36,7 +38,19 @@ if [[ "${LODE_SKIP_GATE:-}" == "1" ]] || printf '%s' "$COMMAND" | grep -Eq '(^[[
   allow
 fi
 
-ROOT="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# The repository being pushed is the one the command runs in, not the one
+# the session opened: a session in repo A that runs `cd ../B && git push`
+# is pushing B. Take the hook input's cwd, honour a leading `cd <dir>`
+# in the command, and resolve that to a git toplevel. CLAUDE_PROJECT_DIR is
+# only the fallback.
+START="${CWD:-${CLAUDE_PROJECT_DIR:-$PWD}}"
+if [[ "$COMMAND" =~ ^[[:space:]]*cd[[:space:]]+([^[:space:]\;\&\|]+) ]]; then
+  CDTARGET="${BASH_REMATCH[1]}"; CDTARGET="${CDTARGET/#\~/$HOME}"
+  [[ "$CDTARGET" = /* ]] || CDTARGET="$START/$CDTARGET"
+  [[ -d "$CDTARGET" ]] && START="$CDTARGET"
+fi
+ROOT="$(git -C "$START" rev-parse --show-toplevel 2>/dev/null || true)"
+[[ -n "$ROOT" ]] || allow
 
 # A repo without a lode has not been seeded; the gate has nothing to read.
 # Allow, but say so, so enabling the plugin before /lode:seed blocks nobody.

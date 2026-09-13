@@ -24,6 +24,7 @@ The lode is the assistant's memory of this repository. Its value is measured one
 lode/
   summary.md  terminology.md  practices.md  lode-map.md
   review/<area>.md      accepted review findings as rules (the gate reads these)
+  workflow.md           the profile the shared workflow skills read: commands, constraints, shapes, conflicts, CI
   plans/                roadmaps, or a link to where they live
   tmp/                  git-ignored
   <area>/summary.md + focused topic files
@@ -33,7 +34,7 @@ Create a missing part when the code has grown a subsystem the lode does not name
 
 ## Modes
 
-**After a change (default).** Identify which lode files describe the behaviour or structure that changed. Rewrite those passages so they are true now. Add a new topic file when the change introduced a concept with no home. Update `lode-map.md`. Stage `lode/` and commit `docs(lode): <what is now described>` on the current branch, so the memory lands with the code.
+**After a change (default).** Identify which lode files describe the behaviour or structure that changed. A change to a test command, a workflow file, a lockfile convention or a branch rule is a change to `workflow.md`. Rewrite those passages so they are true now. Add a new topic file when the change introduced a concept with no home. Update `lode-map.md`. Stage `lode/` and commit `docs(lode): <what is now described>` on the current branch, so the memory lands with the code.
 
 **`audit`.** Walk every lode file. For each claim, find the code that makes it true. Fix what drifted. Report a table of claims that were wrong and what the code actually does; any of those that reveal a code bug become a note for the user, not a code edit.
 

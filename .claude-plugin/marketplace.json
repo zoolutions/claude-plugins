@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "zoolutions",
-  "description": "Shared Claude Code machinery for the zoolutions, enode and getzazu repositories. Knowledge stays in each repo; the machinery that reads and grows it lives here.",
+  "description": "Shared Claude Code machinery for the zoolutions, hldesign and getzazu repositories. Knowledge stays in each repo; the machinery that reads and grows it lives here.",
   "owner": {
     "name": "Zoolutions"
   },
@@ -9,10 +9,18 @@
     {
       "name": "lode",
       "source": "./plugins/lode",
-      "description": "Durable per-repo project memory (a lode) plus a pre-PR gate: fresh-context reviewers check the branch diff against the repo's own rules and learnings before anything is pushed, and every accepted finding is written back so the next gate is stricter.",
-      "version": "0.1.0",
+      "description": "Per-repo memory (lode/), a pre-PR gate enforced by a push hook, and the shared workflows /lode:lfg, /lode:review-pr, /lode:finish-prs, /lode:debug-flaky, /lode:tdd and /lode:plan, which read lode/workflow.md so one copy serves every repository.",
+      "version": "0.2.0",
       "category": "productivity",
-      "keywords": ["review", "memory", "lode", "gate", "pre-pr"]
+      "keywords": [
+        "review",
+        "memory",
+        "lode",
+        "gate",
+        "pre-pr",
+        "workflow",
+        "lfg"
+      ]
     }
   ]
 }

@@ -1,10 +1,12 @@
 # lode
 
-Two things, kept apart on purpose.
+Three things, kept apart on purpose.
 
 **The lode** is a repository's durable memory: `lode/` in the repo, plain markdown, tool-agnostic, following [Lode Coding](https://fjzeit.github.io/lode). It describes the system as it is now, with rationale, invariants and lessons. `lode/review/` is the part this plugin adds: every review finding the maintainers accepted, rewritten as a rule about the system, so it is read before the next diff is written rather than after.
 
-**The gate** is what runs before a push. Reviewers with no memory of the conversation read the diff, the repo's rules and its lode, and report only what they can state as a failing input. New tests are proven to fail without the change. Findings are fixed and re-reviewed until none at P1 or P2 remain. A hook refuses `git push` and `gh pr create` until that has happened on the exact tree being pushed.
+**The gate** is what runs before a push. Reviewers with no memory of the conversation read the diff, the repo's rules and its lode, and report only what they can state as a failing input. New tests are proven to fail without the change. Findings are fixed and re-reviewed until none at P1 or P2 remain. A `PreToolUse` hook on Bash then refuses `git push` and `gh pr create` unless `lode/tmp/gate-passed` names the current `HEAD^{tree}`. It sees only commands issued through the Bash tool, and it fails open — no git, no JSON parser, input it cannot parse, and it allows; only an explicit tree mismatch denies.
+
+**The workflows** are the engineering playbooks, one copy for every repository: implement to a PR, drive a PR to merge-ready, land a stack, root-cause a flake, test-first, plan. What differs between repositories is not the shape of the work; it is the commands, constraints, shapes, conflict rules and CI quirks. Those live in one profile per repository, `lode/workflow.md` (template in `templates/workflow.md`), which the skills read instead of carrying facts about any one codebase.
 
 ## Skills
 
@@ -14,6 +16,14 @@ Two things, kept apart on purpose.
 | `/lode:gate` | before every push; at the verify phase of `/lfg` or any implementation workflow |
 | `/lode:learn` | after review comments are processed, after a gate, or with a finding in words: write the rule into `lode/review/`, promote it here if it generalises |
 | `/lode:sync` | after "ship it", after any behaviour change, `audit` to reconcile with the code, `handover` for a fresh session |
+| `/lode:lfg` | implement a feature, an issue or a plan file end to end: branch → understand → explore → plan → TDD → verify → gate → PR, with a deviation log and a comprehension close-out |
+| `/lode:review-pr` | a PR needs a full pass: merge conflicts, then CI failures, then review comments, in that order and for a stated reason; one phase on request |
+| `/lode:finish-prs` | land several open PRs in a given order, one at a time, stacks included |
+| `/lode:debug-flaky` | an intermittent test: evidence → forced reproduction → root cause → a proof that fails on the old code → its own PR; never a retry, sleep or skip |
+| `/lode:tdd` | RED → GREEN → REFACTOR in whatever framework the repo's rules name |
+| `/lode:plan` | read-only design before `/lode:lfg`; produces an issue or a plan file with binding Decision and Out of scope sections |
+
+Every workflow skill starts by reading `lode/workflow.md` and `lode/lode-map.md`, with `CLAUDE.md` and `.claude/rules/` behind them. Without the profile it says so, derives what it can, and keeps going.
 
 ## Agents
 
@@ -21,12 +31,16 @@ Two things, kept apart on purpose.
 
 ## Hooks
 
-- `PreToolUse` on Bash: denies `git push` and `gh pr create` unless `lode/tmp/gate-passed` names the tree at `HEAD`. Allows silently when the repo has no `lode/`, so enabling the plugin before seeding blocks nobody. Bypass with `LODE_SKIP_GATE=1` and say why in the PR.
+- `PreToolUse` on Bash: denies `git push` and `gh pr create` unless `lode/tmp/gate-passed` names the tree at `HEAD`. Allows, with a message on stderr, when the repo has no `lode/`, so enabling the plugin before seeding blocks nobody; allows the same way on anything it cannot parse. Bypass with `LODE_SKIP_GATE=1` and say why in the PR.
 - `SessionStart`: prints `lode/summary.md` and `lode/lode-map.md` into context.
 
 ## Checklists
 
 `checklists/*.md` are failure classes seen in more than one repository. The gate agents read them alongside `lode/review/`. They grow through `/lode:learn` PRs.
+
+## The profile
+
+`lode/workflow.md` has ten fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands it retires; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
 
 ## Working with pstack
 
