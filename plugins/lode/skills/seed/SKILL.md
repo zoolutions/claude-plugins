@@ -35,7 +35,7 @@ lode/
   <area>/summary.md one per subsystem named in the architecture: invariants, contracts, the shape of its data, a Mermaid diagram where a flow exists
 ```
 
-Each file covers one topic, stays under 250 lines (if the `Write` tool refuses a `summary.md`, write it with a shell heredoc; the refusal is a harness guard against report files, not a rule of the lode), states current behaviour with its rationale, and links related files by relative path. Every claim is checkable against the code; where a doc and the code disagree, write what the code does and list the disagreement in the PR body.
+Each file covers one topic, stays under 250 lines (if the `Write` tool refuses a `summary.md`, write it with a shell heredoc; the refusal is a harness guard against report files, not a rule of the lode), states current behaviour with its rationale, and links related files by relative path. Every claim is checkable against the code; where a doc and the code disagree, write what the code does and list the disagreement in `lode/tmp/seed-discrepancies.md` for the PR body — never as a section inside a lode file, which would describe a state the same PR is about to change. Compute every line range (`def` to its `end`) and every count with a script and paste the output; the first seeding gate found nine off-by-a-few citations and two wrong counts in otherwise exact files.
 
 ## 3. Seed `lode/review/`
 

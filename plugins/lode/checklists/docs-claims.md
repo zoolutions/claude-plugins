@@ -10,3 +10,5 @@ Accepted findings in importmap-plus, dash, pgbus, docs-kit and phlex-reactive. P
 - **Grammar sections enumerate everything.** A new reason, status, option or provenance token added in prose must also be added to the list that claims to be complete.
 - **Wording that implies a guarantee** ("always", "atomic", "never lost") is a claim about code; find the line that makes it true.
 - **Broken grammar in a doc** is a P3 finding, not a nit: a sentence that fuses two clauses is read two ways.
+- **A "Discrepancies" or "known gaps" section goes stale on the branch that fixes the gap.** Seen in importmap-plus: two lode summaries recorded a CLAUDE.md gap that the same PR closed, so the memory shipped describing a state that no longer existed. Fixed gaps go in the PR body; a document states only what is true of the tree it ships in.
+- **Line ranges and counts are computed, not eyeballed.** Seen in importmap-plus: nine citations were off by one to four lines and two counts were wrong, all in files whose other citations were exact, which makes the wrong ones trusted. Derive `def`-to-`end` ranges and test counts with a script and paste the output.
