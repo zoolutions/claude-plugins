@@ -1,0 +1,12 @@
+{
+  "name": "lode",
+  "version": "0.1.0",
+  "description": "Durable per-repo project memory (a lode) plus a pre-PR gate that reviews the branch diff with fresh-context agents against the repo's own rules and learnings, and writes accepted findings back so the next gate is stricter.",
+  "author": {
+    "name": "Zoolutions"
+  },
+  "homepage": "https://github.com/zoolutions/claude-plugins",
+  "repository": "https://github.com/zoolutions/claude-plugins",
+  "license": "MIT",
+  "keywords": ["review", "memory", "lode", "gate", "pre-pr"]
+}
