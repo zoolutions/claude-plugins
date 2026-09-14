@@ -72,7 +72,7 @@ If the repo has an implementation workflow command (`/lfg` or similar), add one 
 
 The shared workflow skills (`/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, `/lode:debug-flaky`, `/lode:tdd`, `/lode:plan`) are one copy for every repository; `lode/workflow.md` is what makes them behave as if written for this one. Copy `${CLAUDE_PLUGIN_ROOT}/templates/workflow.md` to `lode/workflow.md` and fill every heading from three sources, in this order of authority: the code and config as they are (commands that exist, workflows that run), `CLAUDE.md` and `.claude/rules/*.md`, and any local `.claude/commands/{lfg,github-review-pr,github-review-failures,github-review-comments,finish-prs,debug-flaky,tdd,plan}.md` — those carry the repo's constraint tables, shape lists, conflict rules and CI quirks, and this is where they move to. Keep every heading even when its body is "none". Run each command under Commands once to prove it exists. Do not copy a rule that `.claude/rules` already states; link it.
 
-Then retire the local commands the plugin now supersedes: delete those eight files where they exist, and replace their rows in `CLAUDE.md`'s command table with the `/lode:` names. A local command that wraps a plugin skill with repo-specific arguments may stay; say so in the PR body. Any local command the plugin does not cover is untouched.
+Then retire the local commands the plugin now supersedes. First check whether anything else in the repository embeds or points at those files — a parallel tooling directory such as `.grok/` with a `sync-skills` or `check-parity` script, a README table, a skill's "see also" list — because a deletion that breaks the repo's own pre-push check blocks every push. Where something depends on them, move the files to `.claude/references/workflows/` and repoint the dependents; otherwise delete those eight files where they exist, and replace their rows in `CLAUDE.md`'s command table with the `/lode:` names. A local command that wraps a plugin skill with repo-specific arguments may stay; say so in the PR body. Any local command the plugin does not cover is untouched.
 
 ## 5. Audit (also the `audit` mode)
 
@@ -84,7 +84,9 @@ The push hook will now demand a gate pass. Run `/lode:gate` on this branch (the 
 
 ```bash
 git push -u origin HEAD
-gh pr create --title "chore: seed the lode and enable the pre-PR gate" --body-file <body>
+gh pr create --repo <owner/repo> --head <branch> --title "chore: seed the lode and enable the pre-PR gate" --body-file <body>
 ```
+
+Always pass `--repo`: in a fresh clone of a fork, `gh` defaults to the fork parent and opens the PR on the wrong repository.
 
 The body lists: the files created, the number of review rules imported and from which source, every doc-versus-code disagreement found, which local commands were retired in favour of the plugin's, and the gate report.
