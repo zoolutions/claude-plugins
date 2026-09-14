@@ -1,0 +1,20 @@
+plugins/lode/skills/gate/SKILL.md
+  s_7cff6a4ae32dd0::t_04f45240cc6dd0 24
+  s_7cff6a4ae32dd0::t_b8992971390040 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d66be853accb650ee78f4d952b3d4561f35e4fe8",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
