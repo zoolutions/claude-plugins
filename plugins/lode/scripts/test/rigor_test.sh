@@ -154,6 +154,7 @@ check "bad base ref -> standard"    standard "$(cd "$REPO" && bash "$RIGOR" nope
 make_repo ondisk "$PROFILE_LIGHT"
 mkdir -p "$REPO/app/services/ledger" "$REPO/lib/engine/sub" "$REPO/db/migrate"
 echo x > "$REPO/app/services/old.rb"; echo x > "$REPO/lib/engine/old.rb"
+git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm ondisk   # so the utf8 commit below holds only the non-ASCII file
 check "rule stays a pattern when its dir exists"   critical "$(tier_for_files "$REPO" app/services/ledger/post.rb)"
 check "rule stays a pattern for a new file"        critical "$(tier_for_files "$REPO" app/services/new.rb)"
 check "*.rb rule with existing siblings"           standard "$(tier_for_files "$REPO" lib/engine/new.rb)"
