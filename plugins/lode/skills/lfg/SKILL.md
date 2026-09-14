@@ -1,7 +1,7 @@
 ---
 name: lfg
 description: The full autonomous engineering workflow, from an empty branch to an open PR. Use when implementing a feature, taking on a GitHub issue, or executing a plan file — understand, explore, plan, TDD, verify, gate, PR, and a comprehension close-out. Not for a one-line fix or a question.
-argument-hint: "<GitHub issue number or URL | path to a plan file | a description of the work>"
+argument-hint: "<GitHub issue number or URL | path to a plan file | a description of the work> [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent, Skill
 ---
 
@@ -13,7 +13,7 @@ One pass from nothing to a reviewable PR, with a check at every phase. The phase
 
 Before Phase 0, read in this order:
 
-1. `lode/workflow.md` — the profile. Its headings (Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification) are what the phases below point at by name.
+1. `lode/workflow.md` — the profile. Its headings (Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification, Rigor) are what the phases below point at by name. Rigor decides how much of this workflow a change buys; the tier is resolved at the end of Phase 1, once the files are known.
 2. `CLAUDE.md` — the never-do list there binds every phase.
 3. `.claude/rules/*.md` — the long form of anything the profile states in a line.
 4. `lode/lode-map.md`, then the lode files it indexes for the subsystems you are about to touch, and every `lode/review/*.md` for those areas. Those are findings the repository has already paid for.
@@ -55,13 +55,35 @@ You must be able to state all five before proceeding:
 
 If you cannot complete all five, investigate further. This gate is the cheapest phase to fail.
 
+### 1.3a Tier
+
+Question 5 named the files. Classify them against the profile's **Rigor** heading:
+
+```bash
+printf '%s\n' <the files from question 5> | bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" --files
+```
+
+That prints `critical`, `standard` or `light` (`standard` when the profile has no Rigor heading). `--tier <t>` in `$ARGUMENTS` overrides it; lowering needs `--why "<reason>"`, and the reason goes in the PR body. The tier changes what follows:
+
+| | light | standard | critical |
+|---|---|---|---|
+| Comprehension gate | questions 1, 3 and 5 | all five | all five |
+| Input must carry a Decision | no | no | **yes** — an issue or plan file with a `## Decision` section and at least one sentence under it. A bare description on a critical path stops here: "This touches a critical path; run `/lode:plan` first." Do not design a money-path change inside an implementation session. |
+| Phase 2 Explore agent | no — grep yourself | yes | yes |
+| Deviation log | created on the first deviation | always | always |
+| Phase 8 close-out | decisions only | decisions + three questions | decisions + three questions |
+
+Phase 6.5's gate resolves the same tier from the profile on its own; `--tier` and `--why` are forwarded to it only when `$ARGUMENTS` carried them.
+
+At `light`, the tier check is question 5 done twice; at `critical`, it is the one check that stops an implementation from starting where a design should have.
+
 ### 1.4 Task list
 
 Write the concrete implementation steps as a task list.
 
 ## Phase 2: Explore
 
-1. Sweep for related code with an Explore agent on a cheap model; read the load-bearing files yourself.
+1. Sweep for related code with an Explore agent on a cheap model; read the load-bearing files yourself. At `light`, skip the agent: grep for the callers and read them directly.
 2. Walk the layers the change crosses, in the order Layers gives them, and read the tests that already cover each.
 3. For every file you intend to edit, apply its Layers edit rule. Owned here: normal rules. Owned elsewhere (upstream, generated, vendored): the rule says what is allowed, and usually it is "additive, in the other owner's style" or "edit the source instead".
 4. Find the docs that describe the behaviour, using the mapping rule under Docs.
@@ -86,7 +108,7 @@ The plan is the map; the codebase is the territory. The moment reality forces a 
 - **Discoveries** — facts about the codebase the plan did not know
 - **Judgment calls** — choices the user might have made differently: defaults, naming, wording, scope cuts
 
-Pick the conservative option and keep going. `lode/tmp/` is git-ignored, and `/lode:seed` adds that ignore, so the log never lands in a commit; its contents move into the PR body in Phase 7.
+Pick the conservative option and keep going. `lode/tmp/` is git-ignored, and `/lode:seed` adds that ignore, so the log never lands in a commit; its contents move into the PR body in Phase 7. At `light`, create the file on the first deviation rather than up front; a light change with none has no file and no section.
 
 Then, for each logical unit:
 
@@ -176,7 +198,7 @@ EOF
 )"
 ```
 
-Then run `/lode:gate`. It reviews the diff against `CLAUDE.md`, the rules and `lode/review/`, proves every new test fails without the change, and loops until nothing at P1 or P2 remains. Each round's fixes are their own commit, so when the gate is clean the tree is already committed. Let it run `/lode:learn gate`, so the confirmed findings land in `lode/review/` in this same PR, and keep the `## Gate` section it prints.
+Then run `/lode:gate`, passing `--tier` and `--why` through when `$ARGUMENTS` carried them (the gate resolves the same tier from the profile on its own otherwise). It reviews the diff against `CLAUDE.md`, the rules and `lode/review/`, proves every new test fails without the change, and loops until nothing at P1 or P2 remains. Each round's fixes are their own commit, so when the gate is clean the tree is already committed. Let it run `/lode:learn gate`, so the confirmed findings land in `lode/review/` in this same PR, and keep the `## Gate` section it prints.
 
 The push hook refuses `git push` and `gh pr create` until the gate has passed on the exact tree at `HEAD`. Any edit after a pass means another round. If the gate hits its round limit it records no pass and reports why — that is a failure to put in front of the user, not something to push around.
 
@@ -206,6 +228,8 @@ EOF
 gh pr create --title "<type>(<scope>): <subject>" --body-file lode/tmp/pr-body.md
 ```
 
+At `light` with no deviation log, omit the Deviations section; the Gate section always stays, and a lowered tier's `--why` reason appears there.
+
 Always `--body-file`. It sidesteps shell interpretation entirely, which matters because these bodies quote code. Inside a single-quoted heredoc, backticks and `$` pass through verbatim — never escape them.
 
 The sections come in the order **Branches and PRs** lists them; the four above are the default when it names none. Deviations & judgment calls and Gate go last, and reviewers read those first: one is the audit trail for every decision the plan did not make, the other is what the gate already caught.
@@ -217,14 +241,15 @@ If Branches and PRs names a non-default base or an attribution line to add or om
 The tests prove the code is right; this keeps the user's mental model right. End your final message with:
 
 1. **The decisions, not the diff** — the three to five non-obvious choices someone must understand to maintain this. Lead with the deviation log; the user has not seen it.
-2. **Three merge-gate questions** the user should be able to answer before merging. If an answer is not obvious to them, offer a walkthrough. An unanswerable question is comprehension debt, and merging anyway is how it compounds.
+2. **Three merge-gate questions** the user should be able to answer before merging. If an answer is not obvious to them, offer a walkthrough. An unanswerable question is comprehension debt, and merging anyway is how it compounds. At `light`, deliver the decisions and stop; a change the repo has called light does not carry that debt.
 
 ## Verification checklist
 
 - [ ] Profile read, or its absence reported and `/lode:seed workflow` recommended
 - [ ] Branch rooted off fresh default, per Branches and PRs
 - [ ] Acceptance criteria written as GIVEN / WHEN / THEN before any code
-- [ ] All five comprehension-gate questions answered
+- [ ] Comprehension-gate questions answered (five, or 1, 3 and 5 at light)
+- [ ] Tier resolved from Rigor; a critical path had a Decision section before any code
 - [ ] Every test written before its implementation and seen red
 - [ ] Every entry under Shapes checked
 - [ ] Every file owned elsewhere obeys its Layers edit rule

@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: One full pass over an open pull request — resolve merge conflicts with the base, fix red CI, then answer and resolve every unresolved review comment. Run it when a PR needs a full pass, when CI is red, or when there are review comments to process; pass a phase name to run only that phase.
-argument-hint: "<PR number or URL> [conflicts|failures|comments]"
+argument-hint: "<PR number or URL> [conflicts|failures|comments] [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent, Skill
 ---
 
@@ -11,7 +11,7 @@ A PR is merge-ready when three things are true at once: it merges, it is green, 
 
 ## What it reads first
 
-`CLAUDE.md`, every `.claude/rules/*.md`, `lode/lode-map.md` and the files it indexes (especially `lode/review/*.md`), and `lode/workflow.md`. The workflow profile supplies the repository-specific halves of this skill: **Commands** (how to verify a fix), **Branches and PRs** (base branch, merge policy, attribution), **Layers** (where a fix belongs and what is owned elsewhere), **Shapes** (what every fix must be checked against), **Constraints** (reviewer suggestions that are wrong here), **Docs** (what a change must update), **CI** (workflows, matrix, how to fetch a failure, what green means, known not-this-branch failures), **Flake sources**, **Conflicts** (the per-file resolution table), **Verification**.
+`CLAUDE.md`, every `.claude/rules/*.md`, `lode/lode-map.md` and the files it indexes (especially `lode/review/*.md`), and `lode/workflow.md`. The workflow profile supplies the repository-specific halves of this skill: **Commands** (how to verify a fix), **Branches and PRs** (base branch, merge policy, attribution), **Layers** (where a fix belongs and what is owned elsewhere), **Shapes** (what every fix must be checked against), **Constraints** (reviewer suggestions that are wrong here), **Docs** (what a change must update), **CI** (workflows, matrix, how to fetch a failure, what green means, known not-this-branch failures), **Flake sources**, **Conflicts** (the per-file resolution table), **Verification**, **Rigor** (how many gates and pushes this pass buys).
 
 No `lode/workflow.md`? Say so in the first line of your report, derive what you can from `CLAUDE.md` and `.claude/rules/`, point the user at `/lode:seed workflow` to write the profile, and carry on. A missing profile degrades the pass; it does not stop it.
 
@@ -153,4 +153,5 @@ mergeability + CI status on the latest commit, per workflow
 - **Never rebase a published branch.** Merge the base forward, always.
 - **Batch fixes into one commit per phase.** Every push buys a full CI run; buy one per phase.
 - **Every accepted fix goes through `/lode:gate` before the push** — the hook requires it, and the gate is a cheaper reviewer than the one who is waiting.
+- **At `light`, one gate and one push per pass.** Resolve the tier first (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<base>` on the PR's checkout, or `--tier` in `$ARGUMENTS`). When it is `light`: each phase still makes its one commit, but does not gate or push; Phase A0's local verification of a resolution is all the checking a merge gets, and Phase A reads the last completed CI run rather than a fresh one; after the last phase run, one `/lode:gate --tier light` (with the `--why` reason when the tier was lowered by hand, so it reaches the gate report and the PR), one push, and the CI status in Phase C is read from that single run. The per-phase CI cycle is what standard and critical pay for a clean failure diagnosis; a light repo has said that diagnosis is cheap to redo.
 - **Clean, green, nothing unresolved** → report "PR is clean" and stop.

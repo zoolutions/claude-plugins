@@ -1,7 +1,7 @@
 ---
 name: finish-prs
 description: Drive a set of open PRs to merge-ready, one at a time, in a given order. Use when several open PRs need to land in order, or a stack of PRs based on each other's branches. Reads lode/workflow.md → Conflicts to auto-resolve the recurring mechanical conflicts (a changelog union, a lockfile regenerate), runs /lode:review-pr on each, then waits for the user to merge before syncing the rest and advancing. Handles stacked PRs, including GitHub's base retargeting when the lower PR merges.
-argument-hint: "<PR numbers in order, e.g. 12 14 15>"
+argument-hint: "<PR numbers in order, e.g. 12 14 15> [automerge] [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Skill
 ---
 
@@ -84,6 +84,8 @@ git push origin <branch>
 ```
 
 A merge commit needs no force. If a force is ever truly unavoidable, `--force-with-lease`, never bare `--force` — and only after confirming nobody else pushed to the branch since your fetch.
+
+At `light` (the profile's **Rigor** heading, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<default>` in the worktree, or `--tier` in `$ARGUMENTS`): commit the merge and neither gate nor push here. `/lode:review-pr` runs one gate and one push at the end of its pass, and that covers the merge commit; pass `--tier` and `--why` through to it when `$ARGUMENTS` carried them.
 
 ### 2d. Full review pass
 

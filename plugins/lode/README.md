@@ -40,8 +40,23 @@ Every workflow skill starts by reading `lode/workflow.md` and `lode/lode-map.md`
 
 ## The profile
 
-`lode/workflow.md` has ten fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands it retires; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
+`lode/workflow.md` has eleven fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification, Rigor. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands it retires; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
+
+## Rigor tiers
+
+Not every repository is a money path, and not every path in one is. The **Rigor** heading names a default tier and a table of path patterns that raise or lower it; `scripts/rigor.sh` classifies a diff as the highest tier any changed file matches (a file no rule names counts as the default) and prints `standard` when the heading is absent, so a repo seeded before the heading existed behaves as it did. `/lode:gate`, `/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs` and `/lode:plan` take `--tier <t>` to override; lowering needs `--why "<reason>"`, which the gate writes into its report and the PR body, and which `/lode:plan` records in the plan's Decision section. `/lode:tdd`, `/lode:debug-flaky`, `/lode:learn`, `/lode:sync` and `/lode:seed` do not change with the tier.
+
+| | light | standard | critical |
+|---|---|---|---|
+| gate agents | tests, rules (+ parser when the diff parses) | + correctness, claims, pstack when installed | + a second correctness pass on the concurrency checklist only |
+| gate rounds | 1 | 3 | 5 |
+| `/lode:learn` after the gate | only when a finding was confirmed | always | always |
+| `/lode:lfg` | comprehension questions 1, 3, 5; no Explore agent; deviation log only on a deviation; close-out without merge-gate questions | full | full, and refuses a critical path without an issue or plan carrying a Decision section |
+| `/lode:review-pr`, `/lode:finish-prs` | one gate and one push per review-pr pass; finish-prs leaves its merge commit to that pass | one per phase | one per phase |
+| `/lode:plan` | no subagents for a small sweep; at most one interview question; options may be one paragraph | full | full |
+
+The push hook does not change with the tier: at every tier a push needs a gate pass on the exact tree, short of the `LODE_SKIP_GATE=1` emergency bypass, which was there before tiers and ignores them.
 
 ## Working with pstack
 
-If [pstack](https://github.com/michael-denyer/pstack-claude) is installed, `/lode:gate` also runs `pstack:interrogate` for multi-model diversity and merges its *Act on* findings. pstack's playbooks and principles govern how work is done; this plugin governs what the repository remembers and what may be pushed. They compose.
+If [pstack](https://github.com/michael-denyer/pstack-claude) is installed, `/lode:gate` also runs `pstack:interrogate` for multi-model diversity at the standard and critical tiers and merges its *Act on* findings; the light tier skips it. pstack's playbooks and principles govern how work is done; this plugin governs what the repository remembers and what may be pushed. They compose.
