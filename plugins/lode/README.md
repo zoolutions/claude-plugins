@@ -52,7 +52,7 @@ Not every repository is a money path, and not every path in one is. The **Rigor*
 | gate rounds | 1 | 3 | 5 |
 | `/lode:learn` after the gate | only when a finding was confirmed | always | always |
 | `/lode:lfg` | comprehension questions 1, 3, 5; no Explore agent; deviation log only on a deviation; close-out without merge-gate questions | full | full, and refuses a critical path without an issue or plan carrying a Decision section |
-| `/lode:review-pr`, `/lode:finish-prs` | one gate and one push per pass | one per phase | one per phase |
+| `/lode:review-pr`, `/lode:finish-prs` | one gate and one push per review-pr pass; finish-prs leaves its merge commit to that pass | one per phase | one per phase |
 | `/lode:plan` | no subagents for a small sweep; at most one interview question; options may be one paragraph | full | full |
 
 The push hook does not change with the tier: at every tier a push needs a gate pass on the exact tree, short of the `LODE_SKIP_GATE=1` emergency bypass, which was there before tiers and ignores them.
