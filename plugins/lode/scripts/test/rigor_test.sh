@@ -147,7 +147,123 @@ git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit 
 check "git diff base...HEAD"        critical "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
 git -C "$REPO" switch -qc empty main
 check "git diff with no changes"    light    "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
-check "bad base ref -> default"     light    "$(cd "$REPO" && bash "$RIGOR" nope 2>/dev/null)"
+check "bad base ref -> standard"    standard "$(cd "$REPO" && bash "$RIGOR" nope 2>/dev/null)"
+
+# 17. round-2 gate findings
+# P1: rule patterns must stay literal even when the directory exists on disk (pathname expansion)
+make_repo ondisk "$PROFILE_LIGHT"
+mkdir -p "$REPO/app/services/ledger" "$REPO/lib/engine/sub" "$REPO/db/migrate"
+echo x > "$REPO/app/services/old.rb"; echo x > "$REPO/lib/engine/old.rb"
+check "rule stays a pattern when its dir exists"   critical "$(tier_for_files "$REPO" app/services/ledger/post.rb)"
+check "rule stays a pattern for a new file"        critical "$(tier_for_files "$REPO" app/services/new.rb)"
+check "*.rb rule with existing siblings"           standard "$(tier_for_files "$REPO" lib/engine/new.rb)"
+check "trailing-slash rule with existing dir"      critical "$(tier_for_files "$REPO" db/migrate/002_y.rb)"
+# P2: git quotes non-ASCII paths unless told not to
+git -C "$REPO" switch -qc utf8
+echo x > "$REPO/app/services/über.rb"; git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm utf8
+check "non-ASCII path from git"                    critical "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
+# P2: tier cells that are not a bare lowercase word
+make_repo tiercells '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/**` | Critical |
+| `lib/**` | **standard** |
+| `docs/**` | `standard` (docs are reviewed) |'
+check "capitalised tier cell"                      critical "$(tier_for_files "$REPO" app/x.rb)"
+check "bold tier cell"                             standard "$(tier_for_files "$REPO" lib/x.rb)"
+check "annotated tier cell"                        standard "$(tier_for_files "$REPO" docs/x.md)"
+err="$(cd "$TMP/badrow" && printf 'app/x.rb\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"
+check "unknown tier row is reported"               yes "$([[ "$err" == *"urgent"* ]] && echo yes || echo no)"
+# P2: ./ and / prefixes on paths and rules
+make_repo prefixes '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `/app/**` | critical |
+| `./lib/**` | standard |
+| `docs` | standard |'
+mkdir -p "$REPO/docs"
+check "./ on a stdin path"                        critical "$(tier_for_files "$REPO" ./app/x.rb)"
+check "/ anchor on a rule"                          critical "$(tier_for_files "$REPO" app/x.rb)"
+check "./ on a rule"                               standard "$(tier_for_files "$REPO" lib/x.rb)"
+check "rule naming an existing dir is a prefix"    standard "$(tier_for_files "$REPO" docs/x.md)"
+# P2: a fenced example inside or before the section is not parsed
+make_repo fenced '# profile
+
+## Docs
+
+```
+## Rigor
+- Default: critical
+```
+
+## Rigor
+
+An example of the shape:
+
+```
+- Default: critical
+| `docs/` | critical |
+```
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `lib/**` | standard |'
+check "fenced Default before the heading ignored"  light    "$(tier_for_files "$REPO" README.md)"
+check "fenced row inside the section ignored"     light    "$(tier_for_files "$REPO" docs/x.md)"
+check "real row after the fence still parsed"     standard "$(tier_for_files "$REPO" lib/x.rb)"
+# P3: Default line variants
+make_repo bolddefault '## Rigor
+
+  - **Default:** Light'
+check "bold, indented, capitalised Default"        light    "$(tier_for_files "$REPO" README.md)"
+make_repo ishdefault '## Rigor
+
+- Default: light-ish'
+check "Default: light-ish is unknown"              standard "$(tier_for_files "$REPO" README.md)"
+make_repo prosedefault '## Rigor
+
+- Default: `critical` (see the table)
+
+| Paths | Tier |
+|---|---|
+| docs/** | light | why |
+'
+check "CRLF, prose after Default, 3 cols, no ticks" light   "$(tier_for_files "$REPO" docs/x.md)"
+check "CRLF default"                               critical "$(tier_for_files "$REPO" lib/x.rb)"
+# P3: the stderr reason names only the file that decided the tier
+err="$(cd "$TMP/lowers" && printf 'docs/a.md\nlib/x.rb\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"
+check "no stale reason when the default decided"   no "$([[ "$err" == *"docs/a.md"* ]] && echo yes || echo no)"
+
+# 18. three-dot range: a commit on main after the branch point must not count
+make_repo threedot "$PROFILE_LIGHT"
+git -C "$REPO" switch -qc feat2 && echo x > "$REPO/README.md" && git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm feat2
+git -C "$REPO" switch -q main && mkdir -p "$REPO/app/services" && echo x > "$REPO/app/services/pay.rb" && git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm main-moved
+git -C "$REPO" switch -q feat2
+check "main moving after the branch point is ignored" light "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
+check "no base argument, no origin -> standard"       standard "$(cd "$REPO" && bash "$RIGOR" 2>/dev/null)"
+# 19. comma-separated patterns in one cell
+make_repo commas '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/services/**`, `config/routes.rb`, | critical |'
+check "first pattern of a comma cell"   critical "$(tier_for_files "$REPO" app/services/x.rb)"
+check "second pattern of a comma cell"  critical "$(tier_for_files "$REPO" config/routes.rb)"
+# 20. every fail-open path says why
+err="$(cd "$TMP/noheading" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "no-heading reason on stderr" yes "$([[ "$err" == *"no ## Rigor"* ]] && echo yes || echo no)"
+err="$(cd "$TMP/baddefault" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "unknown-default reason on stderr" yes "$([[ "$err" == *"reckless"* ]] && echo yes || echo no)"
+err="$(cd "$TMP/gitdiff" && bash "$RIGOR" nope 2>&1 >/dev/null)"; check "bad-ref reason on stderr" yes "$([[ "$err" == *"nope"* ]] && echo yes || echo no)"
+err="$(cd "$TMP/rules" && printf 'config/routes.rb\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "match reason names file and rule" yes "$([[ "$err" == *"config/routes.rb matches"* ]] && echo yes || echo no)"
 
 # 16. exit code is always 0
 ( cd "$TMP/noprofile" && printf 'x\n' | bash "$RIGOR" --files >/dev/null 2>&1 ); check "exit 0 without profile" 0 "$?"
