@@ -265,6 +265,121 @@ err="$(cd "$TMP/baddefault" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/n
 err="$(cd "$TMP/gitdiff" && bash "$RIGOR" nope 2>&1 >/dev/null)"; check "bad-ref reason on stderr" yes "$([[ "$err" == *"nope"* ]] && echo yes || echo no)"
 err="$(cd "$TMP/rules" && printf 'config/routes.rb\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "match reason names file and rule" yes "$([[ "$err" == *"config/routes.rb matches"* ]] && echo yes || echo no)"
 
+# 21. round-3 gate findings
+make_repo nomergebase "$PROFILE_LIGHT"
+git -C "$REPO" switch -q --orphan orphan && mkdir -p "$REPO/lode" && printf "%s\n" "$PROFILE_LIGHT" > "$REPO/lode/workflow.md" && mkdir -p "$REPO/app/services" && echo x > "$REPO/app/services/pay.rb" && git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm orphan
+check "no merge base -> standard"  standard "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
+err="$(cd "$REPO" && bash "$RIGOR" main 2>&1 >/dev/null)"; check "no merge base says why" yes "$([[ "$err" == *"merge base"* ]] && echo yes || echo no)"
+make_repo renamed "$PROFILE_LIGHT"
+mkdir -p "$REPO/app/services" && echo "a long enough body to be detected as a rename by git" > "$REPO/app/services/pay.rb" && git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm add
+git -C "$REPO" switch -qc mv && mkdir -p "$REPO/lib" && git -C "$REPO" mv app/services/pay.rb lib/pay.rb && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm mv
+check "rename out of a critical dir counts" critical "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
+make_repo indented '## Rigor
+
+- Default: **standard**
+  | Path pattern | Rigor tier |
+  |:---|:---:|
+  | `docs/` | light |'
+check "table nested under the Default bullet"  light    "$(tier_for_files "$REPO" docs/x.md)"
+check "bold Default value"                      standard "$(tier_for_files "$REPO" lib/x.rb)"
+err="$(cd "$REPO" && printf 'lib/x.rb\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "header and alignment rows make no noise" no "$([[ "$err" == *"unknown tier"* ]] && echo yes || echo no)"
+make_repo fence4 '# p
+
+## Docs
+
+````
+```
+````
+
+## Rigor
+
+- Default: critical'
+check "a longer fence is not closed by a shorter one" critical "$(tier_for_files "$REPO" README.md)"
+make_repo bareddir "$PROFILE_LIGHT"
+mkdir -p "$REPO/app/services"
+check "a bare directory on stdin matches its rule" critical "$(tier_for_files "$REPO" app/services)"
+
+# 22. parser round-2 findings
+make_repo globstar '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `spec/**/*_spec.rb` | critical |
+| `**/*.md` | standard |'
+check "**/ matches zero directory levels"      critical "$(tier_for_files "$REPO" spec/foo_spec.rb)"
+check "**/ matches nested levels"            critical "$(tier_for_files "$REPO" spec/models/foo_spec.rb)"
+check "leading **/ matches the root"          standard "$(tier_for_files "$REPO" README.md)"
+check "leading **/ matches nested"            standard "$(tier_for_files "$REPO" docs/a/b.md)"
+make_repo htmlcomment '## Rigor
+
+- Default: critical
+
+<!-- | `app/**` | light | -->
+<!--
+| `lib/**` | light |
+-->
+
+| Paths | Tier |
+|---|---|
+| `docs/` | standard |'
+check "single-line HTML comment ignored"      critical "$(tier_for_files "$REPO" app/x.rb)"
+check "multi-line HTML comment ignored"       critical "$(tier_for_files "$REPO" lib/x.rb)"
+check "row after the comments still parsed"   standard "$(tier_for_files "$REPO" docs/x.md)"
+make_repo rootrules '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `/` | standard |
+| `app/**` `lib/**` | critical |
+| `config/**` | critical, money path |'
+check "rule / means everything"               standard "$(tier_for_files "$REPO" README.md)"
+check "space-separated patterns are skipped"  standard "$(tier_for_files "$REPO" app/x.rb)"
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "space-separated patterns are reported" yes "$([[ "$err" == *"comma"* ]] && echo yes || echo no)"
+check "tier annotated after a comma"          critical "$(tier_for_files "$REPO" config/x.rb)"
+make_repo quotedpath "$PROFILE_LIGHT"
+git -C "$REPO" switch -qc q && mkdir -p "$REPO/app/services" && echo x > "$REPO/app/services/a\"b.rb" && git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -qm q
+check "path with a double quote from git"     critical "$(cd "$REPO" && bash "$RIGOR" main 2>/dev/null)"
+make_repo misc '## Rigor ##
+
+- Default: critical.
+
+~~~
+| `docs/` | light |
+~~~
+
+| Paths | Tier |
+| :--- | ---: |
+| `<e.g. app/services/ledger/**, config/routes.rb>` | light |
+| `a/**`, , `b/**` | light |'
+check "Default with a full stop"              critical "$(cd "$REPO" && printf "" | bash "$RIGOR" --files 2>/dev/null)"
+check "~~~ fence ignored"                     critical "$(tier_for_files "$REPO" docs/x.md)"
+check "template placeholder row is inert"     critical "$(tier_for_files "$REPO" app/services/ledger/x.rb)"
+check "empty middle pattern"                  light    "$(tier_for_files "$REPO" b/x.rb)"
+make_repo indentedcode '## Rigor
+
+- Default: light
+
+    ```
+
+| Paths | Tier |
+|---|---|
+| `app/**` | critical |'
+check "an indented code line is not a fence"  critical "$(tier_for_files "$REPO" app/x.rb)"
+make_repo unclosed '# p
+
+## Docs
+
+```
+
+## Rigor
+
+- Default: critical'
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "an unclosed fence is reported" yes "$([[ "$err" == *"fence"* ]] && echo yes || echo no)"
+
 # 16. exit code is always 0
 ( cd "$TMP/noprofile" && printf 'x\n' | bash "$RIGOR" --files >/dev/null 2>&1 ); check "exit 0 without profile" 0 "$?"
 ( cd "$TMP/gitdiff" && bash "$RIGOR" nope >/dev/null 2>&1 ); check "exit 0 on bad ref" 0 "$?"

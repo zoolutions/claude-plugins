@@ -13,23 +13,29 @@
 #   | `app/services/**`, `config/routes.rb` | critical |
 #   | `docs/` | light |
 #
-# A rule is a bash pattern matched against the repo-relative path (`*` spans `/`,
-# so `**` and `*` are the same; `[...]` is a character class). A rule ending in
-# `/`, or naming a directory that exists, is a prefix; anything else is an exact
-# path. Leading `./` or `/` on a rule or a path is ignored. Commas separate rules
-# inside a cell, so a rule cannot contain one. Fenced code blocks are skipped.
+# A rule is a bash pattern matched against the repo-relative path: `*` spans `/`,
+# `**/` also matches zero directory levels (gitignore style), `[...]` is a
+# character class. A rule ending in `/`, or naming a directory that exists, is a
+# prefix; `/` alone is everything; anything else is an exact path. Leading `./`
+# or `/` on a rule or a path is ignored, and a path that names an existing
+# directory counts as everything under it. Commas separate rules inside a cell,
+# so a rule cannot contain one; two backticked rules with no comma between them
+# are reported and the row is skipped. Fenced code blocks and HTML comments are
+# skipped. The first row of a table is its header; alignment rows are structure.
 #
 # A file no rule names counts as the default; the diff takes the highest tier over
 # its files. So a critical row in a light repo raises the diff, and a light row in a
-# standard repo lowers a diff that touches only that path.
+# standard repo lowers a diff that touches only that path. A rename counts on both
+# sides, so moving a file out of a critical directory is a critical change.
 #
 # Fails open to "standard", with the reason on stderr: no profile, no heading, no
-# or unknown Default, a git ref that does not resolve. A row whose tier is not
-# critical, standard or light is skipped with a note. Exit is always 0; the tier
-# is the one word on stdout. Bash 3.2.
+# or unknown Default, a git ref that does not resolve, a range git cannot diff. A
+# data row whose tier is not critical, standard or light is skipped with a note.
+# Exit is always 0; the tier is the one word on stdout. Bash 3.2.
 
 set -u
 set -f   # rules are patterns for [[ == ]], never for the filesystem
+set -o pipefail
 
 BASE="origin/main"; FROM_STDIN=0
 for arg in "$@"; do
@@ -53,19 +59,33 @@ if [[ ! -f "$PROFILE" ]]; then
   note "no lode/workflow.md — tier standard"; echo standard; exit 0
 fi
 
-# The section body, minus fenced code blocks anywhere in the file, minus CRs.
+# The section body, minus fenced code blocks and HTML comments anywhere in the
+# file, minus CRs. A fence closes only on the same character with at least the
+# opening length; an indented code line (four spaces or a tab) is not a fence.
 SECTION="$(tr -d '\r' < "$PROFILE" | awk '
-  /^[[:space:]]*(```|~~~)/ { fence = !fence; next }
-  fence { next }
-  /^## Rigor[[:space:]]*$/ { f = 1; next }
-  /^## / { f = 0 }
-  f')"
+  function fence_of(line,   s) {
+    if (line ~ /^(    |\t)/) return ""
+    s = line; sub(/^[[:space:]]*/, "", s)
+    if (s ~ /^```/) { sub(/[^`].*$/, "", s); return s }
+    if (s ~ /^~~~/) { sub(/[^~].*$/, "", s); return s }
+    return ""
+  }
+  comment { if (index($0, "-->")) { comment = 0; sub(/^.*-->/, "") } else next }
+  { gsub(/<!--.*-->/, "") }
+  index($0, "<!--") { sub(/<!--.*$/, ""); comment = 1 }
+  { f = fence_of($0) }
+  open == "" && f != "" { open = f; open_line = NR; next }
+  open != "" { if (f != "" && substr(f, 1, 1) == substr(open, 1, 1) && length(f) >= length(open)) open = ""; next }
+  /^## Rigor[[:space:]]*#*[[:space:]]*$/ { in_section = 1; next }
+  /^## / { in_section = 0 }
+  in_section
+  END { if (open != "") print "[lode:rigor] a fenced block opened at line " open_line " of lode/workflow.md is never closed; everything after it was skipped" > "/dev/stderr" }')"
 if [[ -z "$(trim "$SECTION")" ]]; then
   note "no ## Rigor heading in lode/workflow.md — tier standard"; echo standard; exit 0
 fi
 
 DEFAULT="$(printf '%s\n' "$SECTION" \
-  | sed -n 's/^[[:space:]]*[-*]*[[:space:]]*\**[Dd]efault\**:\**[[:space:]]*`\{0,1\}\([A-Za-z_-]*\).*$/\1/p' | head -1)"
+  | sed -n 's/^[[:space:]]*[-*]*[[:space:]]*\**[Dd]efault\**:\**[[:space:]]*[*_"]*`\{0,1\}\([A-Za-z_-]*\).*$/\1/p' | head -1)"
 DEFAULT="$(lower "$DEFAULT")"
 case "$DEFAULT" in
   critical|standard|light) ;;
@@ -73,23 +93,30 @@ case "$DEFAULT" in
   *) note "unknown default '$DEFAULT' under ## Rigor — tier standard"; DEFAULT=standard ;;
 esac
 
-# Rules: one "<pattern><TAB><tier>" per line, from every table row with a known tier.
-RULES=""
+# Rules: one "<pattern><TAB><tier>" per line, from every data row with a known tier.
+RULES=""; prev_was_row=0
 while IFS= read -r line; do
-  [[ "$line" == \|* ]] || continue
+  line="$(trim "$line")"
+  if [[ "$line" != \|* ]]; then prev_was_row=0; continue; fi
+  first_row=$(( prev_was_row == 0 )); prev_was_row=1
   body="${line#|}"
   paths="$(trim "${body%%|*}")"
   rest="${body#*|}"; tier="$(trim "${rest%%|*}")"
-  tier="${tier//\`/}"; tier="${tier//\*/}"; tier="$(lower "$(trim "$tier")")"; tier="${tier%%[[:space:](]*}"
+  tier="${tier//\`/}"; tier="${tier//\*/}"; tier="${tier//_/}"; tier="$(lower "$(trim "$tier")")"; tier="${tier%%[[:space:](,]*}"
   case "$tier" in
     critical|standard|light) ;;
-    tier|"") continue ;;                        # the header row, the separator, an empty cell
-    *) [[ "$tier" == -* ]] || note "row skipped, unknown tier '$tier': $line"; continue ;;
+    -*|:*|"") continue ;;                       # the alignment row, an empty cell
+    *) (( first_row )) || note "row skipped, unknown tier '$tier': $line"; continue ;;   # a header, or a typo
+  esac
+  case "$paths" in
+    *\`*\`*\`*) [[ "$paths" == *,* ]] || { note "row skipped, patterns must be comma-separated: $line"; continue; } ;;
   esac
   paths="${paths//\`/}"
   oldifs="$IFS"; IFS=','
   for pat in $paths; do
-    pat="$(unprefix "$(trim "$pat")")"
+    pat="$(trim "$pat")"
+    [[ -n "$pat" ]] || continue
+    case "$pat" in /|./|.) pat='*' ;; *) pat="$(unprefix "$pat")"; pat="${pat//\*\*\//}" ;; esac
     [[ -n "$pat" ]] || continue
     RULES="${RULES}${pat}	${tier}
 "
@@ -104,13 +131,16 @@ else
   if ! git -C "$ROOT" rev-parse --verify --quiet "${BASE}^{commit}" >/dev/null; then
     note "base ref '$BASE' does not resolve — tier standard"; echo standard; exit 0
   fi
-  FILES="$(git -C "$ROOT" -c core.quotepath=off diff --name-only "${BASE}...HEAD" 2>/dev/null)"
+  if ! FILES="$(git -C "$ROOT" diff --name-only --no-renames -z "${BASE}...HEAD" 2>/dev/null | tr '\0' '\n')"; then
+    note "git cannot diff ${BASE}...HEAD (no merge base?) — tier standard"; echo standard; exit 0
+  fi
 fi
 
 best=0; reason=""
 while IFS= read -r file; do
   file="$(unprefix "$(trim "$file")")"
   [[ -n "$file" ]] || continue
+  [[ "$file" != */ && -d "$ROOT/$file" ]] && file="$file/"
   fbest=0; freason=""
   while IFS='	' read -r pat tier; do
     [[ -n "$pat" ]] || continue
