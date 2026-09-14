@@ -48,7 +48,7 @@ Not every repository is a money path, and not every path in one is. The **Rigor*
 
 | | light | standard | critical |
 |---|---|---|---|
-| gate agents | tests, rules (+ parser when the diff parses) | + correctness, claims | + a second correctness pass on the concurrency checklist only, + pstack when installed |
+| gate agents | tests, rules (+ parser when the diff parses) | + correctness, claims, pstack when installed | + a second correctness pass on the concurrency checklist only |
 | gate rounds | 1 | 3 | 5 |
 | `/lode:learn` after the gate | only when a finding was confirmed | always | always |
 | `/lode:lfg` | comprehension questions 1, 3, 5; no Explore agent; deviation log only on a deviation; close-out without merge-gate questions | full | full, and refuses a critical path without an issue or plan carrying a Decision section |

@@ -89,7 +89,7 @@ Per-file rules for `git merge` conflicts, beyond "read both sides".
 
 ## Rigor
 
-How much review a change here buys. `critical` is a money path: every gate agent plus a second correctness pass on concurrency, up to five rounds, and no implementation without a plan. `standard` is the default set. `light` is tests and rules only, one round, and the shorter ceremony in every workflow skill. The push hook is the same at every tier.
+How much review a change here buys. `critical` is a money path: every gate agent plus a second correctness pass on concurrency, up to five rounds, and no implementation without an issue or plan that carries a Decision section. `standard` is the default set. `light` is tests and rules only, one round, and the shorter ceremony in every workflow skill. The push hook is the same at every tier.
 
 - Default: `standard`
 

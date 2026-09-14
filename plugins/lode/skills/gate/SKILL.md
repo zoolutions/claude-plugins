@@ -47,7 +47,7 @@ At `light` the gate is two agents (three when parsing is touched): the mutation 
 
 Plugin agents register at session start. If `Agent` answers `Agent type 'lode:gate-…' not found` (the plugin was installed mid-session), spawn `general-purpose` instead and open the prompt with: "First read `${CLAUDE_PLUGIN_ROOT}/agents/<name>.md` and adopt it as your role, method and output format exactly." The result is the same agent; only the registration differs.
 
-At `critical`, if the `pstack` plugin is installed, also invoke `pstack:interrogate` on the same diff; its reviewers run on different models, which is a signal the agents above do not have. Merge only its **Act on** findings. Standard and light do not spend on pstack.
+At `standard` and `critical`, if the `pstack` plugin is installed, also invoke `pstack:interrogate` on the same diff; its reviewers run on different models, which is a signal the agents above do not have. Merge only its **Act on** findings. Light does not spend on pstack.
 
 ## 2. Merge and verify
 
