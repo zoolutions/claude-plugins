@@ -1,0 +1,25 @@
+plugins/lode/skills/review-pr/SKILL.md
+  s_7cff6a4ae32dd0::t_613335a755aa47 156
+plugins/lode/templates/workflow.md
+  s_7cff6a4ae32dd0::t_1438295642b2d4 92
+plugins/lode/skills/gate/SKILL.md
+  s_7cff6a4ae32dd0::t_9ce02240ab8bc9 50
+plugins/lode/README.md
+  s_7cff6a4ae32dd0::t_eb6c102a09058e 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9f875620b96ef63d2836cca6256151c7f8015ed3",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "unknown"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
