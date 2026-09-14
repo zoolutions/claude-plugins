@@ -44,7 +44,7 @@ Dedupe before writing either: `gh issue list --search "<keywords>"` and a look t
 
 Delegate the mechanical sweeps, keep the judgment. Launch independent `Agent` explorations in one message; pass a cheap model for file discovery and naming sweeps.
 
-The profile's **Rigor** heading sets how much this plan spends. Classify the files the request will touch (`printf '%s\n' <files> | bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" --files`, or `--tier` in `$ARGUMENTS`). At `light`: no subagents unless the sweep is more than a handful of files, at most one interview question in step 4, and the options in step 5 may be one paragraph. Standard and critical get the full method below; a critical path is exactly where the rejected options earn their keep.
+The profile's **Rigor** heading sets how much this plan spends. Classify the files the request will touch (`printf '%s\n' <files> | bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" --files`, or `--tier` in `$ARGUMENTS`; lowering needs `--why`, and the reason goes under Decision in the plan so the executor sees it). At `light`: no subagents unless the sweep is more than a handful of files, at most one interview question in step 4, and the options in step 5 may be one paragraph. Standard and critical get the full method below; a critical path is exactly where the rejected options earn their keep.
 
 - Read the load-bearing files yourself — the ones the decision actually hinges on. Do not design from subagent summaries alone.
 - For every file the change will touch, record its **Layers** row: owned here, owned elsewhere and additive-only, generated, or vendored. The edit rule travels into the plan; an executor who does not know a file is generated will edit the artifact instead of its source.

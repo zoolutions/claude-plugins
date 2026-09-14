@@ -85,7 +85,7 @@ git push origin <branch>
 
 A merge commit needs no force. If a force is ever truly unavoidable, `--force-with-lease`, never bare `--force` — and only after confirming nobody else pushed to the branch since your fetch.
 
-At `light` (the profile's **Rigor** heading, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<default>` in the worktree, or `--tier` in `$ARGUMENTS`): commit the merge and neither gate nor push here. `/lode:review-pr` runs one gate and one push at the end of its pass, and that covers the merge commit.
+At `light` (the profile's **Rigor** heading, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<default>` in the worktree, or `--tier` in `$ARGUMENTS`): commit the merge and neither gate nor push here. `/lode:review-pr` runs one gate and one push at the end of its pass, and that covers the merge commit; pass `--tier` and `--why` through to it when `$ARGUMENTS` carried them.
 
 ### 2d. Full review pass
 
