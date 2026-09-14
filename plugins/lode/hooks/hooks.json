@@ -1,0 +1,28 @@
+{
+  "description": "lode: block git push and gh pr create until /lode:gate has passed on the tree being pushed; load the lode's summary and map at session start.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/pre-push-gate.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
