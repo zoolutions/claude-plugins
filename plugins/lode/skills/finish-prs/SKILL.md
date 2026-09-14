@@ -1,7 +1,7 @@
 ---
 name: finish-prs
 description: Drive a set of open PRs to merge-ready, one at a time, in a given order. Use when several open PRs need to land in order, or a stack of PRs based on each other's branches. Reads lode/workflow.md → Conflicts to auto-resolve the recurring mechanical conflicts (a changelog union, a lockfile regenerate), runs /lode:review-pr on each, then waits for the user to merge before syncing the rest and advancing. Handles stacked PRs, including GitHub's base retargeting when the lower PR merges.
-argument-hint: "<PR numbers in order, e.g. 12 14 15>"
+argument-hint: "<PR numbers in order, e.g. 12 14 15> [automerge] [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Skill
 ---
 

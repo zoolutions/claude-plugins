@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: One full pass over an open pull request — resolve merge conflicts with the base, fix red CI, then answer and resolve every unresolved review comment. Run it when a PR needs a full pass, when CI is red, or when there are review comments to process; pass a phase name to run only that phase.
-argument-hint: "<PR number or URL> [conflicts|failures|comments]"
+argument-hint: "<PR number or URL> [conflicts|failures|comments] [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent, Skill
 ---
 

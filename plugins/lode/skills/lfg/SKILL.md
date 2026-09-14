@@ -71,8 +71,9 @@ That prints `critical`, `standard` or `light` (`standard` when the profile has n
 | Input must carry a Decision | no | no | **yes** — an issue or plan file with a `## Decision` section and at least one sentence under it. A bare description on a critical path stops here: "This touches a critical path; run `/lode:plan` first." Do not design a money-path change inside an implementation session. |
 | Phase 2 Explore agent | no — grep yourself | yes | yes |
 | Deviation log | created on the first deviation | always | always |
-| Phase 6.5 gate | `--tier light` set | as resolved | as resolved |
 | Phase 8 close-out | decisions only | decisions + three questions | decisions + three questions |
+
+Phase 6.5's gate resolves the same tier from the profile on its own; `--tier` and `--why` are forwarded to it only when `$ARGUMENTS` carried them.
 
 At `light`, the tier check is question 5 done twice; at `critical`, it is the one check that stops an implementation from starting where a design should have.
 

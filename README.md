@@ -4,7 +4,7 @@ A Claude Code plugin marketplace. The rule that shapes it: **knowledge lives in 
 
 | Plugin | What it does |
 |---|---|
-| [`lode`](plugins/lode) | Three layers. **Memory**: `lode/` per repo (Lode Coding by fjzeit), with `lode/review/` holding accepted review findings as rules. **Gate**: fresh-context reviewers check the branch diff against the repo's rules and lode, every new test is proven to fail without the change, and a hook refuses any push until the gate has passed. **Workflows**: `/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, `/lode:debug-flaky`, `/lode:tdd`, `/lode:plan`, one copy for every repository, reading `lode/workflow.md` for what differs, including how much rigor a change there buys (its **Rigor** tier: critical, standard or light, per path). |
+| [`lode`](plugins/lode) | Three layers. **Memory**: `lode/` per repo (Lode Coding by fjzeit), with `lode/review/` holding accepted review findings as rules. **Gate**: fresh-context reviewers check the branch diff against the repo's rules and lode, every new test is proven to fail without the change, and a hook refuses any push until the gate has passed. **Workflows**: `/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, `/lode:debug-flaky`, `/lode:tdd`, `/lode:plan`, one copy for every repository, reading `lode/workflow.md` for what differs. Its **Rigor** tier (critical, standard or light, per path) sets how much review the gate, `/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs` and `/lode:plan` buy a change. |
 
 ## Enable in a repository
 

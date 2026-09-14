@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Design a change before building it. Use for anything non-trivial before /lode:lfg or any implementation session — a feature crossing layers, a change to a persisted format, a fix whose shape is not obvious. Read-only, never edits application code; it investigates from the lode, interviews the open decisions, and leaves a durable plan as a GitHub issue or a plan file the executor can implement without this conversation.
-argument-hint: "<feature or problem> [--issue | --file]"
+argument-hint: "<feature or problem> [--issue | --file] [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(git *), Bash(gh *), Read, Write, Edit, Glob, Grep, Agent
 ---
 

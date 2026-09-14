@@ -44,7 +44,7 @@ Every workflow skill starts by reading `lode/workflow.md` and `lode/lode-map.md`
 
 ## Rigor tiers
 
-Not every repository is a money path, and not every path in one is. The **Rigor** heading names a default tier and a table of path patterns that raise or lower it; `scripts/rigor.sh` classifies a diff as the highest tier any changed file matches (a file no rule names counts as the default) and prints `standard` when the heading is absent, so a repo seeded before the heading existed behaves as it did. Every skill takes `--tier <t>` to override; lowering needs `--why "<reason>"`, which lands in the gate report and the PR body.
+Not every repository is a money path, and not every path in one is. The **Rigor** heading names a default tier and a table of path patterns that raise or lower it; `scripts/rigor.sh` classifies a diff as the highest tier any changed file matches (a file no rule names counts as the default) and prints `standard` when the heading is absent, so a repo seeded before the heading existed behaves as it did. `/lode:gate`, `/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs` and `/lode:plan` take `--tier <t>` to override; lowering needs `--why "<reason>"`, which lands in the gate report and the PR body. `/lode:tdd`, `/lode:debug-flaky`, `/lode:learn`, `/lode:sync` and `/lode:seed` do not change with the tier.
 
 | | light | standard | critical |
 |---|---|---|---|
@@ -55,7 +55,7 @@ Not every repository is a money path, and not every path in one is. The **Rigor*
 | `/lode:review-pr`, `/lode:finish-prs` | one gate and one push per pass | one per phase | one per phase |
 | `/lode:plan` | at most one interview question; options may be one paragraph | full | full |
 
-The push hook does not change with the tier: at every tier a push needs a gate pass on the exact tree.
+The push hook does not change with the tier: at every tier a push needs a gate pass on the exact tree, short of the `LODE_SKIP_GATE=1` emergency bypass, which was there before tiers and ignores them.
 
 ## Working with pstack
 
