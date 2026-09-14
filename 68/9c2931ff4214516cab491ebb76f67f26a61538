@@ -1,0 +1,22 @@
+plugins/lode/scripts/test/rigor_test.sh
+  s_7cff6a4ae32dd0::t_2a748c8fd9fbe9 268-269,271-300,382
+  s_7cff6a4ae32dd0::t_7f80c81819369d 356-360
+plugins/lode/scripts/rigor.sh
+  s_7cff6a4ae32dd0::t_d8a78c549c98b2 16-24,28-29,32-34,38,62-64,66-82,88,96-97,99-101,105,108-112,117-119,134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "689c2931ff4214516cab491ebb76f67f26a61538",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "unknown"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
