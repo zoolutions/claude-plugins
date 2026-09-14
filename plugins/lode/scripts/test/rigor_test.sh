@@ -368,7 +368,8 @@ make_repo indentedcode '## Rigor
 | Paths | Tier |
 |---|---|
 | `app/**` | critical |'
-check "an indented code line is not a fence"  critical "$(tier_for_files "$REPO" app/x.rb)"
+check "an indented unclosed fence swallows the rest, with a note" light "$(tier_for_files "$REPO" app/x.rb)"
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "the indented unclosed fence is reported" yes "$([[ "$err" == *"never closed"* ]] && echo yes || echo no)"
 make_repo unclosed '# p
 
 ## Docs
@@ -512,6 +513,90 @@ make_repo quotedefault '## Rigor
 | `app/**` | _critical_ |'
 check "Default in double quotes"                light    "$(tier_for_files "$REPO" README.md)"
 check "tier in underscores"                     critical "$(tier_for_files "$REPO" app/x.rb)"
+
+# 24. round-4 gate findings
+make_repo deep '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `**/*.md` | standard |
+| `app/**/ledger/**` | critical |'
+DEEP="app"; for i in $(seq 1 40); do DEEP="$DEEP/d$i"; done
+check "a 40-level non-matching path finishes"  light "$(cd "$REPO" && printf "%s\n" "$DEEP/y.rb" | perl -e 'alarm 20; exec @ARGV' bash "$RIGOR" --files 2>/dev/null)"
+check "a 40-level matching path"               standard "$(cd "$REPO" && printf "%s\n" "$DEEP/y.md" | perl -e 'alarm 20; exec @ARGV' bash "$RIGOR" --files 2>/dev/null)"
+make_repo trailglob '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/**/` | critical |
+| `./**/` | standard |'
+check "a rule ending in **/ is a prefix"       critical "$(tier_for_files "$REPO" app/x.rb)"
+check "a rule ending in **/ is a prefix, nested" critical "$(tier_for_files "$REPO" app/sub/x.rb)"
+check "./**/ alone means everything"          standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo fourspace '## Rigor
+
+- Default: light
+    | Paths | Tier |
+    |---|---|
+    | `app/**` | critical |'
+check "a table indented four spaces under the bullet" critical "$(tier_for_files "$REPO" app/x.rb)"
+make_repo nopipe '## Rigor
+
+- Default: light
+
+Paths | Tier
+--- | ---
+`app/**` | critical
+| `lib/**` | |
+| `docs/**` | ((standard)) |'
+check "a row without a leading pipe"           critical "$(tier_for_files "$REPO" app/x.rb)"
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "an empty tier cell is reported" yes "$([[ "$err" == *"lib/**"* ]] && echo yes || echo no)"
+check "a tier in double parentheses"           standard "$(tier_for_files "$REPO" docs/x.md)"
+make_repo squote '  ## Rigor
+
+- Default: '"'"'critical'"'"'
+
+| Paths | Tier |
+|---|---|
+| `app/api/\[id\]/route.ts` | light |
+
+  ## Other
+
+| Paths | Tier |
+|---|---|
+| `lib/**` | light |'
+check "Default in single quotes, heading indented" critical "$(tier_for_files "$REPO" README.md)"
+check "an escaped bracket names a literal path"  light    "$(tier_for_files "$REPO" "app/api/[id]/route.ts")"
+check "an indented heading ends the section"     critical "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo strayalign '## Rigor
+
+- Default: light
+
+| `app/**` | critical |
+
+|---|---|'
+check "a data row before a stray alignment row is kept" critical "$(tier_for_files "$REPO" app/x.rb)"
+make_repo reopen '## Rigor
+
+- Default: light
+
+<!--
+x
+--> | `docs/` | standard | <!-- still open
+| `lib/**` | critical |
+-->'
+check "a line that closes and reopens a comment" standard "$(tier_for_files "$REPO" docs/x.md)"
+check "the reopened comment hides the next row"  light    "$(tier_for_files "$REPO" lib/x.rb)"
+err="$(cd "$TMP/deep" && printf 'config/routes.md\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "the reason shows the rule as written" yes "$([[ "$err" == *'`**/*.md`'* ]] && echo yes || echo no)"
+make_repo emptysection '## Rigor
+
+## Verification
+none'
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "an empty section is reported as empty" yes "$([[ "$err" == *"empty"* ]] && echo yes || echo no)"
 
 # 16. exit code is always 0
 ( cd "$TMP/noprofile" && printf 'x\n' | bash "$RIGOR" --files >/dev/null 2>&1 ); check "exit 0 without profile" 0 "$?"
