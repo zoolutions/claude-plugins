@@ -524,8 +524,9 @@ make_repo deep '## Rigor
 | `**/*.md` | standard |
 | `app/**/ledger/**` | critical |'
 DEEP="app"; for i in $(seq 1 40); do DEEP="$DEEP/d$i"; done
-check "a 40-level non-matching path finishes"  light "$(cd "$REPO" && printf "%s\n" "$DEEP/y.rb" | perl -e 'alarm 20; exec @ARGV' bash "$RIGOR" --files 2>/dev/null)"
-check "a 40-level matching path"               standard "$(cd "$REPO" && printf "%s\n" "$DEEP/y.md" | perl -e 'alarm 20; exec @ARGV' bash "$RIGOR" --files 2>/dev/null)"
+if command -v perl >/dev/null 2>&1; then ALARM=(perl -e 'alarm 20; exec @ARGV'); else ALARM=(env); fi   # a hang fails the case within 20 s where perl exists
+check "a 40-level non-matching path finishes"  light "$(cd "$REPO" && printf "%s\n" "$DEEP/y.rb" | "${ALARM[@]}" bash "$RIGOR" --files 2>/dev/null)"
+check "a 40-level matching path"               standard "$(cd "$REPO" && printf "%s\n" "$DEEP/y.md" | "${ALARM[@]}" bash "$RIGOR" --files 2>/dev/null)"
 make_repo trailglob '## Rigor
 
 - Default: light
@@ -597,6 +598,84 @@ make_repo emptysection '## Rigor
 ## Verification
 none'
 err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "an empty section is reported as empty" yes "$([[ "$err" == *"empty"* ]] && echo yes || echo no)"
+
+# 25. round-5 gate findings
+make_repo template "$(cat "$HERE/../../templates/workflow.md")"
+err="$(cd "$REPO" && printf 'README.md\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "the shipped template makes no row-skipped note" no "$([[ "$err" == *"row skipped"* ]] && echo yes || echo no)"
+check "the shipped template classifies as its default" standard "$(tier_for_files "$REPO" README.md)"
+make_repo pipeprose '## Rigor
+
+- Default: light | see the table
+
+Rules are either `a` | `b` style.
+
+| Paths | Tier |
+|---|---|
+| `lib/**` | standard |'
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "prose with a pipe makes no note" no "$([[ "$err" == *"row skipped"* ]] && echo yes || echo no)"
+check "the Default with a pipe still parses"      light    "$(tier_for_files "$REPO" README.md)"
+check "the table after the prose still parses"   standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo escdir '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/\[id\]` | critical |
+| `lib/+(x)` | critical |
+| `**` | standard |'
+mkdir -p "$REPO/app/[id]" "$REPO/lib/+(x)"
+check "an escaped-bracket rule naming a directory is a prefix" critical "$(tier_for_files "$REPO" "app/[id]/page.tsx")"
+check "an extglob rule stays a pattern even when a directory matches its text" critical "$(tier_for_files "$REPO" lib/xx)"
+check "a rule with an extglob does not become a prefix" standard "$(tier_for_files "$REPO" "lib/+(x)/f")"
+check "bare ** alone means everything"           standard "$(tier_for_files "$REPO" docs/x.md)"
+make_repo doubletrail '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/**/**/` | critical |
+| `**/**/` | standard |
+| `.///` | standard |'
+check "a doubled trailing **/ is a prefix"        critical "$(tier_for_files "$REPO" app/sub/x.rb)"
+check "**/**/ alone means everything"            standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo slashes '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `.///` | standard |'
+check "./// means everything"                    standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo datathenalign '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/**` | critical |
+|---|---|'
+check "a data row directly before a stray alignment row is kept" critical "$(tier_for_files "$REPO" app/x.rb)"
+make_repo twosections '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/**` | critical |
+
+## Docs
+
+## Rigor
+
+- Default: critical
+
+| Paths | Tier |
+|---|---|
+| `lib/**` | standard |'
+check "two sections: the first Default wins"     light    "$(tier_for_files "$REPO" README.md)"
+check "two sections: rules from both apply"     standard "$(tier_for_files "$REPO" lib/x.rb)"
 
 # 16. exit code is always 0
 ( cd "$TMP/noprofile" && printf 'x\n' | bash "$RIGOR" --files >/dev/null 2>&1 ); check "exit 0 without profile" 0 "$?"
