@@ -1,0 +1,11 @@
+.claude-plugin/marketplace.json
+  ai_agent 13
+plugins/lode/.claude-plugin/plugin.json
+  ai_agent 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b7b001875b5dbd21e904618eedbf276e6a642d5b",
+  "prompts": {}
+}
