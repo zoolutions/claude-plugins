@@ -1,0 +1,22 @@
+plugins/lode/templates/workflow.md
+  s_7cff6a4ae32dd0::t_8867a9ceb3439f 101
+  s_7cff6a4ae32dd0::t_378676ef4da9fe 92
+plugins/lode/skills/review-pr/SKILL.md
+  s_7cff6a4ae32dd0::t_0105b82139ff57 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9de073958c2a646f67d88be96bdcf46df08c76fe",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
