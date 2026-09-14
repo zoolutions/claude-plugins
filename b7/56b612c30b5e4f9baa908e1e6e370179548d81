@@ -1,0 +1,31 @@
+plugins/lode/skills/plan/SKILL.md
+  s_7cff6a4ae32dd0::t_f8bbdcc1ca4a9a 47
+plugins/lode/README.md
+  s_7cff6a4ae32dd0::t_86bd4309530cc2 47
+  s_7cff6a4ae32dd0::t_bd3854703eec96 56
+  s_7cff6a4ae32dd0::t_369506711dfd4c 62
+plugins/lode/skills/review-pr/SKILL.md
+  s_7cff6a4ae32dd0::t_6bdac679cd04ab 156
+plugins/lode/skills/seed/SKILL.md
+  s_7cff6a4ae32dd0::t_4d357e5f1ed891 75
+plugins/lode/skills/finish-prs/SKILL.md
+  s_7cff6a4ae32dd0::t_3e9cc61bbad1c3 88
+plugins/lode/templates/workflow.md
+  s_7cff6a4ae32dd0::t_8b2956d0a91efa 92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b756b612c30b5e4f9baa908e1e6e370179548d81",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
