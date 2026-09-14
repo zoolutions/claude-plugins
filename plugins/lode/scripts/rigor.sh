@@ -14,14 +14,17 @@
 #   | `docs/` | light |
 #
 # A rule is a bash pattern matched against the repo-relative path: `*` spans `/`,
-# `**/` also matches zero directory levels (gitignore style), `[...]` is a
-# character class. A rule ending in `/`, or naming a directory that exists, is a
-# prefix; `/` alone is everything; anything else is an exact path. Leading `./`
-# or `/` on a rule or a path is ignored, and a path that names an existing
-# directory counts as everything under it. Commas separate rules inside a cell,
-# so a rule cannot contain one; two backticked rules with no comma between them
-# are reported and the row is skipped. Fenced code blocks and HTML comments are
-# skipped. The first row of a table is its header; alignment rows are structure.
+# `**/` matches zero or more directory levels (gitignore style), `[...]` is a
+# character class, and a rule with no pattern characters is an exact path. A rule
+# ending in `/`, or naming a directory that exists, is a prefix; `/`, `.`, `**`
+# and `**/` alone are everything. Leading `./` or `/` on a rule or a path is
+# ignored, and a path that names an existing directory counts as everything
+# under it. Commas separate rules inside a cell, so a rule cannot contain one;
+# two backticked rules with no comma between them are reported and the row is
+# skipped. Fenced code blocks, HTML comments and lines indented four spaces or a
+# tab (code) are skipped; a `<!--` inside inline code is text. A table's header
+# is a row followed by an alignment row; a first row with no alignment row after
+# it is data, so a typo in it is reported.
 #
 # A file no rule names counts as the default; the diff takes the highest tier over
 # its files. So a critical row in a light repo raises the diff, and a light row in a
@@ -30,12 +33,14 @@
 #
 # Fails open to "standard", with the reason on stderr: no profile, no heading, no
 # or unknown Default, a git ref that does not resolve, a range git cannot diff. A
-# data row whose tier is not critical, standard or light is skipped with a note.
-# Exit is always 0; the tier is the one word on stdout. Bash 3.2.
+# data row whose tier is not critical, standard or light is skipped with a note,
+# and so is an unclosed fence or comment and an indented row. Exit is always 0;
+# the tier is the one word on stdout. Bash 3.2.
 
 set -u
 set -f   # rules are patterns for [[ == ]], never for the filesystem
 set -o pipefail
+shopt -s extglob   # `**/` becomes *(*/)
 
 BASE="origin/main"; FROM_STDIN=0
 for arg in "$@"; do
@@ -59,9 +64,10 @@ if [[ ! -f "$PROFILE" ]]; then
   note "no lode/workflow.md — tier standard"; echo standard; exit 0
 fi
 
-# The section body, minus fenced code blocks and HTML comments anywhere in the
-# file, minus CRs. A fence closes only on the same character with at least the
-# opening length; an indented code line (four spaces or a tab) is not a fence.
+# The section body, minus fenced code blocks, HTML comments and indented code
+# anywhere in the file, minus CRs. A fence closes only on a bare line of the same
+# character with at least the opening length. Inside a fence nothing is a comment;
+# inside a comment nothing is a fence.
 SECTION="$(tr -d '\r' < "$PROFILE" | awk '
   function fence_of(line,   s) {
     if (line ~ /^(    |\t)/) return ""
@@ -70,22 +76,40 @@ SECTION="$(tr -d '\r' < "$PROFILE" | awk '
     if (s ~ /^~~~/) { sub(/[^~].*$/, "", s); return s }
     return ""
   }
-  comment { if (index($0, "-->")) { comment = 0; sub(/^.*-->/, "") } else next }
-  { gsub(/<!--.*-->/, "") }
-  index($0, "<!--") { sub(/<!--.*$/, ""); comment = 1 }
-  { f = fence_of($0) }
-  open == "" && f != "" { open = f; open_line = NR; next }
-  open != "" { if (f != "" && substr(f, 1, 1) == substr(open, 1, 1) && length(f) >= length(open)) open = ""; next }
+  function closer_of(line,   s) {
+    s = line; sub(/^[[:space:]]*/, "", s); sub(/[[:space:]]*$/, "", s)
+    if (s ~ /^(`+|~+)$/) return s
+    return ""
+  }
+  function strip_comments(line,   d, a, b) {
+    while (1) {
+      d = line; gsub(/`[^`]*`/, "", d)                # a <!-- inside inline code is text
+      if (index(d, "<!--") == 0) return line
+      a = index(line, "<!--")
+      b = index(substr(line, a + 4), "-->")
+      if (b == 0) { comment = 1; comment_line = NR; return substr(line, 1, a - 1) }
+      line = substr(line, 1, a - 1) substr(line, a + 4 + b + 2)
+    }
+  }
+  comment { b = index($0, "-->"); if (b == 0) next; comment = 0; $0 = substr($0, b + 3) }
+  open == "" { $0 = strip_comments($0) }
+  open == "" { f = fence_of($0); if (f != "") { open = f; open_line = NR; next } }
+  open != "" { c = closer_of($0); if (c != "" && substr(c, 1, 1) == substr(open, 1, 1) && length(c) >= length(open)) open = ""; next }
+  /^(    |\t)/ { if ($0 ~ /^[[:space:]]*\|/) indented_row = NR; next }
   /^## Rigor[[:space:]]*#*[[:space:]]*$/ { in_section = 1; next }
   /^## / { in_section = 0 }
   in_section
-  END { if (open != "") print "[lode:rigor] a fenced block opened at line " open_line " of lode/workflow.md is never closed; everything after it was skipped" > "/dev/stderr" }')"
+  END {
+    if (open != "") print "[lode:rigor] a fenced block opened at line " open_line " of lode/workflow.md is never closed; everything after it was skipped" > "/dev/stderr"
+    if (comment) print "[lode:rigor] an HTML comment opened at line " comment_line " of lode/workflow.md is never closed; everything after it was skipped" > "/dev/stderr"
+    if (indented_row) print "[lode:rigor] a table row indented four spaces or a tab (line " indented_row " of lode/workflow.md) is code, not a rule" > "/dev/stderr"
+  }')"
 if [[ -z "$(trim "$SECTION")" ]]; then
   note "no ## Rigor heading in lode/workflow.md — tier standard"; echo standard; exit 0
 fi
 
 DEFAULT="$(printf '%s\n' "$SECTION" \
-  | sed -n 's/^[[:space:]]*[-*]*[[:space:]]*\**[Dd]efault\**:\**[[:space:]]*[*_"]*`\{0,1\}\([A-Za-z_-]*\).*$/\1/p' | head -1)"
+  | sed -n 's/^[[:space:]]*[-*]*[[:space:]]*\**[Dd]efault\**:\**[[:space:]]*[*_"]*`\{0,1\}\([A-Za-z-]*\).*$/\1/p' | head -1)"
 DEFAULT="$(lower "$DEFAULT")"
 case "$DEFAULT" in
   critical|standard|light) ;;
@@ -94,19 +118,26 @@ case "$DEFAULT" in
 esac
 
 # Rules: one "<pattern><TAB><tier>" per line, from every data row with a known tier.
-RULES=""; prev_was_row=0
-while IFS= read -r line; do
-  line="$(trim "$line")"
-  if [[ "$line" != \|* ]]; then prev_was_row=0; continue; fi
-  first_row=$(( prev_was_row == 0 )); prev_was_row=1
+lines=()
+while IFS= read -r l; do lines+=("$(trim "$l")"); done <<< "$SECTION"
+is_alignment() { local s="${1//[|: -]/}"; [[ "$1" == \|* && -z "$s" ]]; }
+RULES=""; n=${#lines[@]}
+for (( i = 0; i < n; i++ )); do
+  line="${lines[$i]}"
+  [[ "$line" == \|* ]] || continue
+  is_alignment "$line" && continue
+  # a row followed by an alignment row is a header
+  j=$(( i + 1 )); while (( j < n )) && [[ -z "${lines[$j]}" ]]; do j=$(( j + 1 )); done
+  (( j < n )) && is_alignment "${lines[$j]}" && continue
   body="${line#|}"
   paths="$(trim "${body%%|*}")"
   rest="${body#*|}"; tier="$(trim "${rest%%|*}")"
-  tier="${tier//\`/}"; tier="${tier//\*/}"; tier="${tier//_/}"; tier="$(lower "$(trim "$tier")")"; tier="${tier%%[[:space:](,]*}"
+  tier="${tier//\`/}"; tier="${tier//\*/}"; tier="${tier//_/}"; tier="$(trim "$tier")"; tier="${tier#(}"
+  tier="$(lower "$tier")"; tier="${tier%%[[:space:](),]*}"
   case "$tier" in
     critical|standard|light) ;;
-    -*|:*|"") continue ;;                       # the alignment row, an empty cell
-    *) (( first_row )) || note "row skipped, unknown tier '$tier': $line"; continue ;;   # a header, or a typo
+    "") continue ;;                                   # an empty cell
+    *) note "row skipped, unknown tier '$tier': $line"; continue ;;
   esac
   case "$paths" in
     *\`*\`*\`*) [[ "$paths" == *,* ]] || { note "row skipped, patterns must be comma-separated: $line"; continue; } ;;
@@ -116,13 +147,16 @@ while IFS= read -r line; do
   for pat in $paths; do
     pat="$(trim "$pat")"
     [[ -n "$pat" ]] || continue
-    case "$pat" in /|./|.) pat='*' ;; *) pat="$(unprefix "$pat")"; pat="${pat//\*\*\//}" ;; esac
+    case "$pat" in
+      /|./|.|'**'|'**/'|'./**/') pat='*' ;;
+      *) pat="$(unprefix "$pat")"; pat="${pat//\*\*\//*(*\/)}" ;;
+    esac
     [[ -n "$pat" ]] || continue
     RULES="${RULES}${pat}	${tier}
 "
   done
   IFS="$oldifs"
-done <<< "$SECTION"
+done
 
 # Changed files.
 if [[ "$FROM_STDIN" == "1" ]]; then

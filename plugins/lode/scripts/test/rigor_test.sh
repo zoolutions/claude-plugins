@@ -338,7 +338,6 @@ make_repo rootrules '## Rigor
 | `app/**` `lib/**` | critical |
 | `config/**` | critical, money path |'
 check "rule / means everything"               standard "$(tier_for_files "$REPO" README.md)"
-check "space-separated patterns are skipped"  standard "$(tier_for_files "$REPO" app/x.rb)"
 err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "space-separated patterns are reported" yes "$([[ "$err" == *"comma"* ]] && echo yes || echo no)"
 check "tier annotated after a comma"          critical "$(tier_for_files "$REPO" config/x.rb)"
 make_repo quotedpath "$PROFILE_LIGHT"
@@ -380,6 +379,139 @@ make_repo unclosed '# p
 
 - Default: critical'
 err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "an unclosed fence is reported" yes "$([[ "$err" == *"fence"* ]] && echo yes || echo no)"
+
+# 23. round-3 gate findings
+make_repo globmid '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `app/**/ledger/**` | critical |
+| `a/**/b/**/c` | critical |
+| `**/routes.rb` | standard |'
+check "**/ in the middle, nested"           critical "$(tier_for_files "$REPO" app/services/ledger/post.rb)"
+check "**/ in the middle, zero levels"      critical "$(tier_for_files "$REPO" app/ledger/post.rb)"
+check "**/ in the middle does not over-match" light   "$(tier_for_files "$REPO" app/ledgerx/y.rb)"
+check "**/ twice, nested"                   critical "$(tier_for_files "$REPO" a/x/b/y/c)"
+check "**/ twice, zero levels"              critical "$(tier_for_files "$REPO" a/b/c)"
+check "leading **/ with a name, nested"     standard "$(tier_for_files "$REPO" config/routes.rb)"
+make_repo starslash '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `**/` | standard |'
+check "**/ alone means everything"          standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo dotrules '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `./` | standard |'
+check "rule ./ means everything"            standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo dotrule '## Rigor
+
+- Default: light
+
+| Paths | Tier |
+|---|---|
+| `.` | standard |'
+check "rule . means everything"             standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo commentfence '# p
+
+## Docs
+
+```html
+<!--
+an open comment inside a fence
+```
+
+## Rigor
+
+- Default: critical
+
+<!--
+```
+-->
+
+| Paths | Tier |
+|---|---|
+| `docs/` | light | <!-- reviewed -->
+| <!-- a --> `lib/**` | standard | <!-- b --> |'
+check "<!-- inside a fence is not a comment"     critical "$(tier_for_files "$REPO" README.md)"
+check "a fence inside a comment is not a fence"  light    "$(tier_for_files "$REPO" docs/x.md)"
+check "a row between two comments is kept"       standard "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo opencomment '## Rigor
+
+- Default: critical
+
+HTML comments (`<!--`) are skipped.
+
+| Paths | Tier |
+|---|---|
+| `docs/` | light |'
+check "<!-- in inline code is not a comment"     light    "$(tier_for_files "$REPO" docs/x.md)"
+make_repo opencomment2 '## Rigor
+
+- Default: critical
+
+<!-- never closed
+
+| Paths | Tier |
+|---|---|
+| `docs/` | light |'
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "an unclosed comment is reported" yes "$([[ "$err" == *"comment"* ]] && echo yes || echo no)"
+make_repo indentedfence '## Rigor
+
+- Default: light
+- Example:
+    ```
+    | `docs/` | critical |
+    ```
+
+| Paths | Tier |
+|---|---|
+| `lib/**` | standard |'
+check "rows in a four-space-indented example are not rules" light "$(tier_for_files "$REPO" docs/x.md)"
+make_repo closertext '## Rigor
+
+- Default: light
+
+```markdown
+| `docs/` | critical |
+``` trailing
+| `lib/**` | critical |
+```
+
+| Paths | Tier |
+|---|---|
+| `app/**` | standard |'
+check "a closing fence carries no text"         light    "$(tier_for_files "$REPO" lib/x.rb)"
+check "the real table after it is parsed"       standard "$(tier_for_files "$REPO" app/x.rb)"
+make_repo headerless '## Rigor
+
+- Default: light
+
+| `app/**` | critcal |
+| `lib/**` | (critical) |'
+err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "a typo in a headerless first row is reported" yes "$([[ "$err" == *"critcal"* ]] && echo yes || echo no)"
+check "a tier in parentheses"                   critical "$(tier_for_files "$REPO" lib/x.rb)"
+make_repo emphdefault '## Rigor
+
+- Default: _light_'
+check "Default in underscores"                  light    "$(tier_for_files "$REPO" README.md)"
+make_repo quotedefault '## Rigor
+
+- Default: "light"
+
+| Paths | Tier |
+|---|---|
+| `app/**` | _critical_ |'
+check "Default in double quotes"                light    "$(tier_for_files "$REPO" README.md)"
+check "tier in underscores"                     critical "$(tier_for_files "$REPO" app/x.rb)"
 
 # 16. exit code is always 0
 ( cd "$TMP/noprofile" && printf 'x\n' | bash "$RIGOR" --files >/dev/null 2>&1 ); check "exit 0 without profile" 0 "$?"
