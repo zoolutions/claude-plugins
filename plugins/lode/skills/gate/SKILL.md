@@ -21,10 +21,10 @@ git status --porcelain            # must be empty: the gate reviews commits, not
 git diff --stat "$BASE"...HEAD
 mkdir -p lode/tmp/gate && git diff "$BASE"...HEAD > lode/tmp/gate/diff.patch
 git log --format='%s%n%n%b' "$BASE"..HEAD > lode/tmp/gate/intent.md
-TIER=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" "$BASE")   # critical | standard | light, from the profile's Rigor heading
+TIER=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" "$BASE")   # critical | standard | light, from the profile's Rigor heading; --tier in $ARGUMENTS replaces it| standard | light, from the profile's Rigor heading
 ```
 
-The tier is what the profile's **Rigor** heading says for the files this diff touches: the highest tier any changed file matches, else the repo's default, and `standard` when the heading is absent. `--tier <t>` overrides it. Raising is free. Lowering (`--tier light` on a diff the profile calls standard or critical) needs `--why "<reason>"`; without it, refuse and ask for the reason. Both the tier and any override travel into the marker and the report below.
+The tier is what the profile's **Rigor** heading says for the files this diff touches: the highest tier any changed file matches, else the repo's default, and `standard` when the heading is absent. `--tier <t>` overrides it. Raising is free. Lowering (`--tier light` on a diff the profile calls   # critical | standard | light, from the profile's Rigor heading; --tier in $ARGUMENTS replaces itor critical) needs `--why "<reason>"`; without it, refuse and ask for the reason. Both the tier and any override travel into the marker and the report below.
 
 If a PR body draft exists (for example `lode/tmp/implementation-notes.md`, or an open PR for this branch via `gh pr view --json body`), append it to `intent.md`. The reviewers judge the diff against the stated intent; an unstated intent is the first finding.
 

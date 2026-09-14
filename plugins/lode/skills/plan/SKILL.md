@@ -25,7 +25,7 @@ In this order, before any search:
 2. `lode/summary.md` and `lode/terminology.md` — the system's invariants and its own words. Use its words in the plan.
 3. `lode/<area>/summary.md` and its topic files, for each area picked.
 4. `lode/review/<area>.md` — rules the repository has already paid for in review. A design that breaks one of these is a design that will fail the gate.
-5. `lode/workflow.md`: **Layers** (who owns which files and the edit rule for each), **Shapes** (what every change must be checked against), **Constraints** (suggestions that are wrong here), **Commands**, **Docs**, **CI**, **Flake sources**, **Conflicts**, **Verification**, **Rigor** (how much this plan and its execution spend).
+5. `lode/workflow.md`: **Branches and PRs** (default branch, PR body sections), **Layers** (who owns which files and the edit rule for each), **Shapes** (what every change must be checked against), **Constraints** (suggestions that are wrong here), **Commands**, **Docs**, **CI**, **Flake sources**, **Conflicts**, **Verification**, **Rigor** (how much this plan and its execution spend).
 
 When the lode already answers a question, cite the file rather than re-deriving it from code.
 
