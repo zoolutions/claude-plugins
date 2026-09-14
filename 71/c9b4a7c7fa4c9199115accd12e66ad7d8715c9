@@ -1,0 +1,19 @@
+plugins/lode/checklists/README.md
+  s_7cff6a4ae32dd0::t_96662498a6f0b0 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "71c9b4a7c7fa4c9199115accd12e66ad7d8715c9",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
