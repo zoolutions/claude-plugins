@@ -1,7 +1,7 @@
 ---
 name: gate
 description: The pre-PR gate. Run before git push or gh pr create and at the verify phase of any implementation workflow. Fresh-context agents review the branch diff against the repo's rules, its lode and the shared checklists; every new test is proven to fail without the change; findings are fixed and re-reviewed until no P1 or P2 remains; then the pass is recorded so the push hook lets the branch through.
-argument-hint: "[base ref, default: the profile's default branch] [--rounds N]"
+argument-hint: "[base ref, default: the profile's default branch] [--rounds N] [--tier critical|standard|light [--why \"<reason>\"]]"
 allowed-tools: Bash(*), Read, Grep, Glob, Agent, Edit, Write, Skill
 ---
 
@@ -13,7 +13,7 @@ The gate reads, in this order: `CLAUDE.md`, every `.claude/rules/*.md`, `lode/wo
 
 ## 0. Preconditions
 
-`$ARGUMENTS` carries two optional things: a base ref, and `--rounds N`. The base is the default branch named under **Branches and PRs** in `lode/workflow.md`, or `origin/main` when there is no profile to say. `--rounds N` sets the round limit in step 4 and defaults to 3. Resolve the base, set `BASE` to it, then:
+`$ARGUMENTS` carries three optional things: a base ref, `--rounds N`, and `--tier <t>`. The base is the default branch named under **Branches and PRs** in `lode/workflow.md`, or `origin/main` when there is no profile to say. `--rounds N` sets the round limit in step 4; its default depends on the tier. Resolve the base, set `BASE` to it, then:
 
 ```bash
 git fetch -q origin
@@ -21,7 +21,10 @@ git status --porcelain            # must be empty: the gate reviews commits, not
 git diff --stat "$BASE"...HEAD
 mkdir -p lode/tmp/gate && git diff "$BASE"...HEAD > lode/tmp/gate/diff.patch
 git log --format='%s%n%n%b' "$BASE"..HEAD > lode/tmp/gate/intent.md
+TIER=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" "$BASE")   # critical | standard | light, from the profile's Rigor heading
 ```
+
+The tier is what the profile's **Rigor** heading says for the files this diff touches: the highest tier any changed file matches, else the repo's default, and `standard` when the heading is absent. `--tier <t>` overrides it. Raising is free. Lowering (`--tier light` on a diff the profile calls standard or critical) needs `--why "<reason>"`; without it, refuse and ask for the reason. Both the tier and any override travel into the marker and the report below.
 
 If a PR body draft exists (for example `lode/tmp/implementation-notes.md`, or an open PR for this branch via `gh pr view --json body`), append it to `intent.md`. The reviewers judge the diff against the stated intent; an unstated intent is the first finding.
 
@@ -31,17 +34,20 @@ Record the test commands from **Commands** in `lode/workflow.md` — full suite 
 
 One message, parallel `Agent` calls. Every agent gets the same preamble: the path of `lode/tmp/gate/diff.patch`, the base ref, the path of `intent.md`, the list of context files above, and the instruction to read the context files before the diff. Pass file paths, not contents.
 
-| Agent (`subagent_type`) | Always | Extra input |
+| Agent (`subagent_type`) | Tiers | Extra input |
 |---|---|---|
-| `lode:gate-correctness` | yes | |
-| `lode:gate-rules` | yes | |
-| `lode:gate-claims` | yes | the PR body draft, if any |
-| `lode:gate-tests` | yes | the single-file test command, the test directory names |
-| `lode:gate-parser` | only when the diff touches parsing | run: `grep -E '^\+.*(%r\{|/\\[A-Za-z]|=~|\.match\(|\.scan\(|StringScanner|\.split\(|Regexp|re\.compile|new RegExp)' lode/tmp/gate/diff.patch` and spawn it if anything matches |
+| `lode:gate-tests` | all | the single-file test command, the test directory names |
+| `lode:gate-rules` | all | |
+| `lode:gate-parser` | all, only when the diff touches parsing | run: `grep -E '^\+.*(%r\{|/\\[A-Za-z]|=~|\.match\(|\.scan\(|StringScanner|\.split\(|Regexp|re\.compile|new RegExp)' lode/tmp/gate/diff.patch` and spawn it if anything matches |
+| `lode:gate-correctness` | standard, critical | |
+| `lode:gate-claims` | standard, critical | the PR body draft, if any |
+| `lode:gate-correctness`, second run | critical | the concurrency lens: "Read only `${CLAUDE_PLUGIN_ROOT}/checklists/state-and-concurrency.md` and the concurrency entries under Shapes in `lode/workflow.md`. Walk the diff for concurrent actors only: two callers, a redelivered webhook, a sweep overlapping a user action, a row read outside its lock, a partial write. Report nothing else." |
+
+At `light` the gate is two agents (three when parsing is touched): the mutation check and the rules audit are the two highest-value reviews per token, and the repo's Rigor heading has said the rest is not worth buying here. At `critical` the diff gets a second correctness reviewer whose only lens is concurrency, because that is where money-path defects live and a general pass spreads its attention across everything else.
 
 Plugin agents register at session start. If `Agent` answers `Agent type 'lode:gate-…' not found` (the plugin was installed mid-session), spawn `general-purpose` instead and open the prompt with: "First read `${CLAUDE_PLUGIN_ROOT}/agents/<name>.md` and adopt it as your role, method and output format exactly." The result is the same agent; only the registration differs.
 
-If the `pstack` plugin is installed, also invoke `pstack:interrogate` on the same diff; its reviewers run on different models, which is a signal the agents above do not have. Merge only its **Act on** findings.
+At `critical`, if the `pstack` plugin is installed, also invoke `pstack:interrogate` on the same diff; its reviewers run on different models, which is a signal the agents above do not have. Merge only its **Act on** findings. Standard and light do not spend on pstack.
 
 ## 2. Merge and verify
 
@@ -63,7 +69,7 @@ P3 findings: fix when the fix is a line or two, otherwise record them as deferre
 
 ## 4. Loop
 
-Regenerate `diff.patch` and re-run only the agents whose findings were fixed, plus `gate-rules` always (a fix can break a rule). Stop when a round produces no confirmed P1 or P2, or after the `--rounds` limit from `$ARGUMENTS` (default 3). Hitting the limit is a failure: report it and do not record a pass.
+Regenerate `diff.patch` and re-run only the agents whose findings were fixed, plus `gate-rules` always (a fix can break a rule). Stop when a round produces no confirmed P1 or P2, or after the `--rounds` limit from `$ARGUMENTS`: default 1 at `light`, 3 at `standard`, 5 at `critical`. Hitting the limit is a failure: report it and do not record a pass.
 
 ## 5. Record the pass
 
@@ -71,14 +77,14 @@ Only when the working tree is clean and the last round was clean:
 
 ```bash
 cat > lode/tmp/gate/report.md   # rounds, findings table with verdict and outcome, mutation results, tests run
-printf 'tree=%s\nreport=lode/tmp/gate/report.md\nat=%s\n' "$(git rev-parse 'HEAD^{tree}')" "$(date -u +%FT%TZ)" > lode/tmp/gate-passed
+printf 'tree=%s\nreport=lode/tmp/gate/report.md\nat=%s\ntier=%s\noverride=%s\n' "$(git rev-parse 'HEAD^{tree}')" "$(date -u +%FT%TZ)" "$TIER" "<the --why reason, or none>" > lode/tmp/gate-passed
 ```
 
-The push hook compares `tree=` with `HEAD^{tree}`; any commit after this point invalidates the pass and the gate must run again (a rerun after a small fix is one round, not three).
+The push hook compares `tree=` with `HEAD^{tree}` and reads nothing else; any commit after this point invalidates the pass and the gate must run again (a rerun after a small fix is one round, not three). The `tier=` and `override=` lines are for the report and the PR body.
 
 ## 6. Learn
 
-Every **confirmed** finding is a lesson the repository has now paid for. Invoke `/lode:learn gate` before opening the PR so the rule lands in `lode/review/` in the same PR as the fix. Rejected findings that were plausible teach too: a one-line "not a bug because …" in the relevant `lode/review/` file stops the next reviewer from raising it.
+Every **confirmed** finding is a lesson the repository has now paid for. Invoke `/lode:learn gate` before opening the PR so the rule lands in `lode/review/` in the same PR as the fix. Rejected findings that were plausible teach too: a one-line "not a bug because …" in the relevant `lode/review/` file stops the next reviewer from raising it. At `light`, invoke it only when a finding was confirmed; a clean light round has nothing to write.
 
 ## 7. Report
 
@@ -86,6 +92,7 @@ End with a section the caller pastes into the PR body:
 
 ```
 ## Gate
+Tier: <critical|standard|light>[ (override: <reason>)]. Agents: <names>.
 Rounds: N. Findings: X confirmed and fixed, Y rejected, Z deferred.
 - [P1] <claim> — fixed in <sha>, test <file>:<name>
 - [P2] <claim> — rejected: <reason>

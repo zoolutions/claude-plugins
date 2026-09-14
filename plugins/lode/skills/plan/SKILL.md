@@ -44,6 +44,8 @@ Dedupe before writing either: `gh issue list --search "<keywords>"` and a look t
 
 Delegate the mechanical sweeps, keep the judgment. Launch independent `Agent` explorations in one message; pass a cheap model for file discovery and naming sweeps.
 
+The profile's **Rigor** heading sets how much this plan spends. Classify the files the request will touch (`printf '%s\n' <files> | bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" --files`, or `--tier` in `$ARGUMENTS`). At `light`: no subagents unless the sweep is more than a handful of files, at most one interview question in step 4, and the options in step 5 may be one paragraph. Standard and critical get the full method below; a critical path is exactly where the rejected options earn their keep.
+
 - Read the load-bearing files yourself — the ones the decision actually hinges on. Do not design from subagent summaries alone.
 - For every file the change will touch, record its **Layers** row: owned here, owned elsewhere and additive-only, generated, or vendored. The edit rule travels into the plan; an executor who does not know a file is generated will edit the artifact instead of its source.
 - Read the tests that already cover the area, and the docs page **Docs** maps to the behaviour.
@@ -55,13 +57,13 @@ Investigation says what the codebase does; this says what the *request* left out
 
 **Blindspot pass.** Write down what you are carrying: decisions the request leaves open (names, defaults, the public surface, the upgrade story for state written before this change existed); the entries in **Shapes** the request never mentions; anything with no precedent in the repo, flagged as such.
 
-**Interview.** Ask the user directly, one question per message, ordered by blast radius: the public or persisted surface first, then formats other tools read, then wording. Skip anything `CLAUDE.md`, the rules, the lode or an existing issue already answers. Two to five questions is the range; zero is fine when the request is genuinely unambiguous — say so rather than inventing one. Every question offers concrete options and names your recommended default.
+**Interview.** Ask the user directly, one question per message, ordered by blast radius: the public or persisted surface first, then formats other tools read, then wording. Skip anything `CLAUDE.md`, the rules, the lode or an existing issue already answers. Two to five questions is the range (at most one at `light`); zero is fine when the request is genuinely unambiguous — say so rather than inventing one. Every question offers concrete options and names your recommended default.
 
 Answers become `Settled in interview:` bullets under Decision. The executor may not re-litigate them.
 
 ## 5. Design
 
-Develop two or three candidate approaches with real trade-offs — not one plan and two strawmen. Pick one, say why, and record why each other lost; the rejected options are what stops the same debate reopening in review.
+Develop two or three candidate approaches with real trade-offs — not one plan and two strawmen. Pick one, say why, and record why each other lost; the rejected options are what stops the same debate reopening in review. At `light`, one paragraph naming the chosen approach and the one it beat is enough.
 
 The chosen design must survive the repository's own rules: the invariants in `lode/summary.md` and the area summaries, every rule in `lode/review/`, the edit rules in **Layers**, and **Constraints** — if an approach is something the Constraints table already calls wrong here, it is not a candidate.
 

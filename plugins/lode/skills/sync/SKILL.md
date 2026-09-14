@@ -24,7 +24,7 @@ The lode is the assistant's memory of this repository. Its value is measured one
 lode/
   summary.md  terminology.md  practices.md  lode-map.md
   review/<area>.md      accepted review findings as rules (the gate reads these)
-  workflow.md           the profile the shared workflow skills read: commands, constraints, shapes, conflicts, CI
+  workflow.md           the profile the shared workflow skills read: commands, constraints, shapes, conflicts, CI, rigor
   plans/                roadmaps, or a link to where they live
   tmp/                  git-ignored
   <area>/summary.md + focused topic files

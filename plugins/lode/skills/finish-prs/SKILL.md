@@ -85,6 +85,8 @@ git push origin <branch>
 
 A merge commit needs no force. If a force is ever truly unavoidable, `--force-with-lease`, never bare `--force` — and only after confirming nobody else pushed to the branch since your fetch.
 
+At `light` (the profile's **Rigor** heading, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<default>` in the worktree, or `--tier` in `$ARGUMENTS`): commit the merge and neither gate nor push here. `/lode:review-pr` runs one gate and one push at the end of its pass, and that covers the merge commit.
+
 ### 2d. Full review pass
 
 Invoke `/lode:review-pr <PR>` (Skill tool); don't re-implement its conflict/CI/comment logic. Wait for it. A persistent failure it can't fix, or a thread needing a human decision, marks this PR `needs-user` in your queue table — continue to the next PR and return to this one in the final report. One stuck PR must not block the rest.

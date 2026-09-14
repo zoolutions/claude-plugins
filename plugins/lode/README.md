@@ -40,7 +40,22 @@ Every workflow skill starts by reading `lode/workflow.md` and `lode/lode-map.md`
 
 ## The profile
 
-`lode/workflow.md` has ten fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands it retires; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
+`lode/workflow.md` has eleven fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification, Rigor. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands it retires; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
+
+## Rigor tiers
+
+Not every repository is a money path, and not every path in one is. The **Rigor** heading names a default tier and a table of path patterns that raise or lower it; `scripts/rigor.sh` classifies a diff as the highest tier any changed file matches (a file no rule names counts as the default) and prints `standard` when the heading is absent, so a repo seeded before the heading existed behaves as it did. Every skill takes `--tier <t>` to override; lowering needs `--why "<reason>"`, which lands in the gate report and the PR body.
+
+| | light | standard | critical |
+|---|---|---|---|
+| gate agents | tests, rules (+ parser when the diff parses) | + correctness, claims | + a second correctness pass on the concurrency checklist only, + pstack when installed |
+| gate rounds | 1 | 3 | 5 |
+| `/lode:learn` after the gate | only when a finding was confirmed | always | always |
+| `/lode:lfg` | comprehension questions 1, 3, 5; no Explore agent; deviation log only on a deviation; close-out without merge-gate questions | full | full, and refuses a critical path without an issue or plan carrying a Decision section |
+| `/lode:review-pr`, `/lode:finish-prs` | one gate and one push per pass | one per phase | one per phase |
+| `/lode:plan` | at most one interview question; options may be one paragraph | full | full |
+
+The push hook does not change with the tier: at every tier a push needs a gate pass on the exact tree.
 
 ## Working with pstack
 

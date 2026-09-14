@@ -86,3 +86,16 @@ Per-file rules for `git merge` conflicts, beyond "read both sides".
 - The manual check a user of this change would do: `<command and what to look at>`
 - Stress iterations for a flake proof: `<N>` (the count that makes a race show, e.g. 50)
 - Where evidence goes: `lode/tmp/` (never committed) unless the PR needs an auditable trail
+
+## Rigor
+
+How much review a change here buys. `critical` is a money path: every gate agent plus a second correctness pass on concurrency, up to five rounds, and no implementation without a plan. `standard` is the default set. `light` is tests and rules only, one round, and the shorter ceremony in every workflow skill. The push hook is the same at every tier.
+
+- Default: `standard`
+
+| Paths | Tier |
+|---|---|
+| `<e.g. app/services/ledger/**, config/routes.rb>` | critical |
+| `<e.g. docs/, app/views/**>` | light |
+
+A diff takes the highest tier any changed file matches, else the default. A rule is a bash pattern against the repo-relative path (`*` spans `/`), a rule ending in `/` is a directory prefix, anything else is an exact path. Several patterns in one cell are comma-separated. `${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh` prints the tier; `--tier <t>` on a skill overrides it, and lowering needs a stated reason.

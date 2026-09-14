@@ -153,4 +153,5 @@ mergeability + CI status on the latest commit, per workflow
 - **Never rebase a published branch.** Merge the base forward, always.
 - **Batch fixes into one commit per phase.** Every push buys a full CI run; buy one per phase.
 - **Every accepted fix goes through `/lode:gate` before the push** — the hook requires it, and the gate is a cheaper reviewer than the one who is waiting.
+- **At `light`, one gate and one push per pass.** Resolve the tier first (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<base>` on the PR's checkout, or `--tier` in `$ARGUMENTS`). When it is `light`: each phase still makes its one commit, but does not gate or push; Phase A verifies a conflict resolution with the full suite locally instead of reading a fresh CI run; after the last phase run, one `/lode:gate --tier light`, one push, and the CI status in Phase C is read from that single run. The per-phase CI cycle is what standard and critical pay for a clean failure diagnosis; a light repo has said that diagnosis is cheap to redo.
 - **Clean, green, nothing unresolved** → report "PR is clean" and stop.
