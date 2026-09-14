@@ -1,0 +1,22 @@
+plugins/lode/scripts/test/rigor_test.sh
+  s_7cff6a4ae32dd0::t_eb8469336a6fa6 527,602-678
+  s_7cff6a4ae32dd0::t_07cfb3ef231822 528-529
+plugins/lode/scripts/rigor.sh
+  s_7cff6a4ae32dd0::t_07cfb3ef231822 20-32,63-64,118-119,132-136,140,150-152,163-164,191,193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f807bb3e8d67a767c44a3ee1a4f3dec3bd80b629",
+  "prompts": {},
+  "sessions": {
+    "s_7cff6a4ae32dd0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2249c2fd-bf90-40c6-bd94-9c857b268553",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
