@@ -19,7 +19,7 @@ Commit this in the repository's `.claude/settings.json`; everyone who clones it 
 }
 ```
 
-Then, once per repository, `/lode:seed` builds the lode, writes `lode/workflow.md`, retires the repo's local copies of the workflow commands, and opens the PR that turns the gate on. `/lode:seed` does that settings edit for you. A repository that already has a lode runs `/lode:seed workflow` to add the profile.
+Then, once per repository, `/lode:seed` builds the lode, writes `lode/workflow.md`, leaves the repo's local workflow commands in place as the fallback, and opens the PR that turns the gate on. `/lode:seed` does that settings edit for you. A repository that already has a lode runs `/lode:seed workflow` to add the profile.
 
 ## Try it on one machine
 

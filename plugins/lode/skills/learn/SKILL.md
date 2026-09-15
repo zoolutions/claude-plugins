@@ -12,7 +12,7 @@ A review finding that was accepted is a fact about the system that nobody had wr
 ## 1. Collect the findings
 
 - **A PR number.** Fetch the review threads (`gh api repos/<owner>/<repo>/pulls/<n>/comments --paginate` and the GraphQL `reviewThreads` query for resolution state). A finding counts as accepted when the author's reply says so ("valid", "fixed in", "agreed", "correct") or the thread was resolved with a code change at that location. A finding the author rejected with a reason counts as a **non-finding** and is recorded as such; it is the cheapest way to stop the same bot raising it next month.
-- **`gate`.** Read `lode/tmp/gate/findings.md` and the report; take every finding with verdict confirmed or confirmed-differently, and every rejected one with a reason.
+- **`gate`.** Read `lode/tmp/gate/findings.md` (the gate runs learn before it writes its report and records the pass, so the findings file is the source); take every finding with verdict confirmed or confirmed-differently, and every rejected one with a reason.
 - **Words.** Take the finding as given, ask nothing, and verify it against the code before writing it.
 
 ## 2. Verify against the code

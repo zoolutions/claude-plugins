@@ -198,9 +198,9 @@ EOF
 )"
 ```
 
-Then run `/lode:gate`, passing `--tier` and `--why` through when `$ARGUMENTS` carried them (the gate resolves the same tier from the profile on its own otherwise). It reviews the diff against `CLAUDE.md`, the rules and `lode/review/`, proves every new test fails without the change, and loops until nothing at P1 or P2 remains. Each round's fixes are their own commit, so when the gate is clean the tree is already committed. Let it run `/lode:learn gate`, so the confirmed findings land in `lode/review/` in this same PR, and keep the `## Gate` section it prints.
+Then run `/lode:gate`, passing `--tier` and `--why` through when `$ARGUMENTS` carried them (the gate resolves the same tier from the profile on its own otherwise). It reviews the diff against `CLAUDE.md`, the rules and `lode/review/`, proves every new test fails without the change, and loops — each round on the delta of the previous round's fixes — until nothing at P1 or P2 remains or the tier's round cap is reached. Each round's fixes are their own commit, so when the gate is clean the tree is already committed. It runs `/lode:learn gate` before recording the pass, so the confirmed findings land in `lode/review/` inside the stamped tree; keep the `## Gate` section it prints, deferred P2s included.
 
-The push hook refuses `git push` and `gh pr create` until the gate has passed on the exact tree at `HEAD`. Any edit after a pass means another round. If the gate hits its round limit it records no pass and reports why — that is a failure to put in front of the user, not something to push around.
+The push hook refuses `git push` and `gh pr create` until the gate has passed on the exact tree at `HEAD`. Any edit after a pass means another round, on the delta. If the cap is reached with a confirmed P1 open, the gate records no pass and reports why — that is a failure to put in front of the user, not something to push around. P2s left at the cap are deferred into the PR body, not fixed by a round the tier did not buy.
 
 ## Phase 7: Push & PR
 

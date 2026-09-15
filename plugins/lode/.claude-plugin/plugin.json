@@ -1,6 +1,6 @@
 {
   "name": "lode",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Durable per-repo project memory (a lode), a pre-PR gate that reviews the branch diff with fresh-context agents against the repo's own rules and learnings, and the shared engineering workflows (lfg, review-pr, finish-prs, debug-flaky, tdd, plan) that read a per-repo profile instead of being copied into every repository. The gate, lfg, review-pr, finish-prs and plan spend review tokens per the profile's Rigor tier (critical, standard or light, per path).",
   "author": {
     "name": "Zoolutions"

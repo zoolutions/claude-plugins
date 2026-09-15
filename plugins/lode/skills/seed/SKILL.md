@@ -1,6 +1,6 @@
 ---
 name: seed
-description: Create a repository's lode from scratch and turn on the pre-PR gate; with "workflow", write or refresh lode/workflow.md (the profile the shared /lode:lfg, /lode:review-pr and sibling skills read) from CLAUDE.md, the rules and any local commands, and retire the local copies of those commands. Builds summary, terminology, practices, the map and one folder per subsystem from the code as it is; imports the repo's existing review learnings (cubic via MCP, and accepted findings from merged PR review threads) into lode/review; enables the plugin in .claude/settings.json; opens the PR. Run once per repository, or again with "audit" to reconcile a lode with the code.
+description: Create a repository's lode from scratch and turn on the pre-PR gate; with "workflow", write or refresh lode/workflow.md (the profile the shared /lode:lfg, /lode:review-pr and sibling skills read) from CLAUDE.md, the rules and any local commands, leaving the local copies of those commands in place as the fallback. Builds summary, terminology, practices, the map and one folder per subsystem from the code as it is; imports the repo's existing review learnings (cubic via MCP, and accepted findings from merged PR review threads) into lode/review; enables the plugin in .claude/settings.json; opens the PR. Run once per repository, or again with "audit" to reconcile a lode with the code.
 argument-hint: "[audit | workflow]"
 allowed-tools: Bash(*), Read, Grep, Glob, Edit, Write, Agent, Skill
 ---
@@ -66,7 +66,7 @@ Add to `CLAUDE.md`, near the top, so tools that do not run the SessionStart hook
 Durable project memory lives in `lode/` (index: `lode/lode-map.md`). Read it before exploring. `lode/review/` holds accepted review findings as rules; `/lode:gate` enforces them before any push, and `/lode:learn` adds to them.
 ```
 
-If the repo has an implementation workflow command (`/lfg` or similar), add one line to its verify phase: "Run `/lode:gate` and paste its report into the PR body before `gh pr create`." Do not restructure the command.
+If the repo has an implementation workflow command (`/lfg` or similar), add one line to its verify phase: "When the lode plugin is enabled, run `/lode:gate` and paste its report into the PR body before `gh pr create`." Do not restructure the command; it must keep working with the plugin turned off.
 
 ## 4a. The workflow profile
 
@@ -74,7 +74,7 @@ The shared workflow skills (`/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, 
 
 **Rigor** is the one heading the code cannot answer. Write `Default: standard` and an empty path table unless the user has stated a tier, and list "Rigor: set the default and name the money paths" as a maintainer decision in the PR body. A repo that leaves it at `standard` gets the same review it got before this heading existed; only the gate report gains a Tier line.
 
-Then retire the local commands the plugin now supersedes. First check whether anything else in the repository embeds or points at those files — a parallel tooling directory such as `.grok/` with a `sync-skills` or `check-parity` script, a README table, a skill's "see also" list — because a deletion that breaks the repo's own pre-push check blocks every push. Where something depends on them, move the files to `.claude/references/workflows/` and repoint the dependents; otherwise delete those eight files where they exist, and replace their rows in `CLAUDE.md`'s command table with the `/lode:` names. A local command that wraps a plugin skill with repo-specific arguments may stay; say so in the PR body. Any local command the plugin does not cover is untouched.
+Leave the local commands in place. The plugin's skills read the profile; the repository's own `.claude/commands/*.md` (and anything that embeds or points at them — a parallel tooling directory such as `.grok/`, a README table, a skill's "see also" list) keep working exactly as before, so the maintainers can turn the plugin off (`enabledPlugins` in `.claude/settings.json`) and lose nothing until they choose otherwise. Add the `/lode:` names next to the local ones in `CLAUDE.md`'s command table rather than replacing rows, and say in the PR body that both exist and which is the fallback. Retiring the local copies is a separate PR the maintainers open once the plugin has earned it; do not delete, move or thin a local command here.
 
 ## 5. Audit (also the `audit` mode)
 
@@ -91,4 +91,4 @@ gh pr create --repo <owner/repo> --head <branch> --title "chore: seed the lode a
 
 Always pass `--repo`: in a fresh clone of a fork, `gh` defaults to the fork parent and opens the PR on the wrong repository.
 
-The body lists: the files created, the number of review rules imported and from which source, every doc-versus-code disagreement found, which local commands were retired in favour of the plugin's, and the gate report.
+The body lists: the files created, the number of review rules imported and from which source, every doc-versus-code disagreement found, which local commands the plugin's skills now duplicate and that they stay as the fallback, and the gate report.

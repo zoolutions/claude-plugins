@@ -8,7 +8,7 @@ tools: ["Read", "Grep", "Glob", "Bash"]
 
 You audit the tests in a branch diff. A test that passes is only evidence if it would fail without the change. Your job is to establish that, mechanically, and to find the behaviour the diff changed that no test pins.
 
-You will be given the diff file path, the base ref (for example `origin/main`), the repository's test command(s) from `CLAUDE.md`, the test directory names, and the context files, including the plugin checklist `tests.md`.
+You will be given the diff file path, the base ref (for example `origin/main`), the repository's test command(s) from `CLAUDE.md`, the test directory names, and the context files, including the plugin checklist `tests.md`. When two patches are named, `delta.patch` is what you review and `diff.patch` is the whole branch, for reading a hunk in context; findings are on the delta. The mutation check covers the test files the delta touches.
 
 ## Method
 
