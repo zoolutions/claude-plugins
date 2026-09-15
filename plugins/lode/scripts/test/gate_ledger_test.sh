@@ -229,7 +229,8 @@ check "pass: rounds" 1 "$(field "$marker" rounds)"
 check "pass: deferred" 2 "$(field "$marker" deferred)"
 contains "pass: agents by name and model" "gate-rules x1 (sonnet)" "$(field "$marker" agents)"
 contains "pass: every spawned agent is listed" "gate-tests x1 (sonnet)" "$(field "$marker" agents)"
-check "pass: report and at keys" 2 "$(grep -c "^report=\|^at=" lode/tmp/gate-passed)"
+check "pass: report key" "lode/tmp/gate/report.md" "$(field "$marker" report)"
+check "pass: at is a UTC timestamp" 1 "$( [[ "$(field "$marker" at)" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] && echo 1 || echo 0 )"
 check "pass: reviewed is HEAD" "$(git rev-parse HEAD)" "$(ledger_get reviewed)"
 printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git push"}}' "$PWD" | bash "$PUSH_HOOK" 2>/dev/null; check "push hook: allows on the passed tree" 0 "$?"
 echo later > later.txt; G add -A && G commit -qm later
@@ -247,6 +248,13 @@ check "parallel: ledger keys intact" feat "$(ledger_get branch)"
 check "parallel: cap intact" 3 "$(ledger_get cap)"
 check "parallel: a later spawn still counts" 0 "$(spawn lode:gate-rules)"
 check "parallel: the cap still holds" 2 "$( spawn lode:gate-rules >/dev/null; spawn lode:gate-rules )"
+make_repo same-agent
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+for i in 1 2 3 4 5 6; do hook_json lode:gate-rules | bash "$HOOK" 2>/dev/null & done; wait
+check "parallel: six spawns of one agent at cap 3 record exactly 3" 3 "$(grep -c '^spawned=1:gate-rules:' lode/tmp/gate/ledger)"
+check "parallel: the lock is released" 0 "$( [[ -d lode/tmp/gate/spawn.lock ]] && echo 1 || echo 0 )"
+mkdir -p lode/tmp/gate/spawn.lock && touch -t 202001010000 lode/tmp/gate/spawn.lock
+check "parallel: a stale lock is taken over" 2 "$(spawn lode:gate-rules)"
 
 # --- the frontmatter reader --------------------------------------------------------------
 make_repo fm
@@ -255,10 +263,14 @@ AG="$TMP/agents"; mkdir -p "$AG"
 printf -- '---\nname: gate-rules\nmodel: "sonnet"   # pinned\r\n---\n\nmodel: opus\n' > "$AG/gate-rules.md"
 printf -- '---\nname: gate-claims\n---\nmodel: sonnet\n' > "$AG/gate-claims.md"
 printf -- 'not frontmatter\nmodel: sonnet\n' > "$AG/gate-tests.md"
+printf -- '---\r\nname: gate-parser\r\nmodel: sonnet\r\n---\r\n' > "$AG/gate-parser.md"
 check "frontmatter: quoted, commented, CRLF value reads as sonnet" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-rules sonnet)"
 check "frontmatter: override still denied" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-rules opus)"
 check "frontmatter: a body model: line is not a declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-claims opus)"
 check "frontmatter: no frontmatter, no declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-tests opus)"
+check "frontmatter: CRLF on the opening fence still declares" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-parser opus)"
+check "spawn: a newline in the model cannot inject a key" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-correctness "$(printf 'opus\ncap=99')")"
+check "spawn: the model is flattened" 3 "$(ledger_get cap)"
 contains "frontmatter: recorded model is the unquoted word" "spawned=1:gate-rules:sonnet" "$(cat lode/tmp/gate/ledger)"
 
 # --- option and value parsing --------------------------------------------------------------
@@ -271,7 +283,9 @@ check "begin: a newline in --why cannot inject a key" 1 "$(ledger_get cap)"
 check "begin: the reason is flattened" "docs only cap=99" "$(ledger_get override)"
 bash "$LEDGER" round >/dev/null 2>&1
 check "spawn: a multi-word agent name is refused" 2 "$(spawn 'lode:gate-rules gate-parser')"
+contains "spawn: the multi-word refusal names the set" "not in the" "$(spawn_err 'lode:gate-rules gate-parser')"
 check "spawn: an unknown gate agent is refused" 2 "$(spawn lode:gate-nope)"
+check "spawn: a refused spawn is not recorded" 0 "$(grep -c "^spawned=" lode/tmp/gate/ledger || true)"
 bash "$LEDGER" bogus 2>"$TMP/err"; check "usage: exit 1" 1 "$?"
 lacks "usage: prints only the header" "set -u" "$(cat "$TMP/err")"
 contains "usage: names the subcommands" "gate-ledger.sh pass" "$(cat "$TMP/err")"
@@ -304,10 +318,95 @@ G checkout --theirs shared.txt 2>/dev/null; G add shared.txt && G commit -qm 'me
 out=$(bash "$LEDGER" round 2>/dev/null)
 contains "theirs: the delta shows the branch's line going away" "-b-branch" "$(cat lode/tmp/gate/delta.patch)"
 
+# --- what the merge commit itself did is in the delta ----------------------------------------
+make_repo evil
+echo 'call old_name' > caller.txt; G add -A && G commit -qm 'feat: caller'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q main; echo 'def new_name' > helper.txt; G add -A && G commit -qm 'main: rename helper'; G switch -q feat
+G merge -q --no-commit --no-edit main >/dev/null 2>&1
+echo 'call new_name' > caller.txt; echo sneaky > sneaky.txt; G add -A && G commit -qm 'merge main, fix caller'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "merge edit: the caller fix is in the delta" "call new_name" "$(cat lode/tmp/gate/delta.patch)"
+contains "merge edit: the file the merge added is in the delta" "sneaky" "$(cat lode/tmp/gate/delta.patch)"
+lacks "merge edit: the base's own new file is not" "def new_name" "$(cat lode/tmp/gate/delta.patch)"
+
+make_repo same
+printf 'a\nb\n' > shared.txt; G add -A && G commit -qm 'feat: shared'
+G switch -q main; G merge -q --no-edit feat; G switch -q feat
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+printf 'a\nb-same\n' > shared.txt; G commit -qam 'feat: same edit'
+G switch -q main; printf 'a\nb-same\n' > shared.txt; G commit -qam 'main: same edit'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1
+out=$(bash "$LEDGER" round 2>"$TMP/err")
+check "identical edits on both sides: the merge adds nothing but the branch commit shows" "$(grep -vc '^# merge ' lode/tmp/gate/delta.patch)" "$(field "$out" delta_lines)"
+contains "identical edits: the branch's own commit is the delta" "+b-same" "$(cat lode/tmp/gate/delta.patch)"
+
+make_repo spaces
+printf 'a\nb-branch\n' > 'my file.txt'; printf 'x\ny-branch\n' > 'ä.txt'; G add -A && G commit -qm 'feat: odd names'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q main; printf 'a\nb-main\n' > 'my file.txt'; printf 'x\ny-main\n' > 'ä.txt'; G add -A && G commit -qm 'main: odd names'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+G checkout --ours -- 'my file.txt' 'ä.txt' 2>/dev/null; G add -A && G commit -qm 'merge, ours'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "odd names: a path with a space reaches the delta" "-b-main" "$(cat lode/tmp/gate/delta.patch)"
+contains "odd names: a non-ASCII path reaches the delta" "-y-main" "$(cat lode/tmp/gate/delta.patch)"
+
+make_repo renamed
+printf 'a\nb\n' > shared.txt; G add -A && G commit -qm 'feat: shared'
+G switch -q main; G merge -q --no-edit feat; G switch -q feat
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+printf 'a\nb-branch\n' > shared.txt; G commit -qam 'feat: edit'
+G switch -q main; G mv shared.txt renamed.txt; printf 'a\nb-main\n' > renamed.txt; G add -A && G commit -qm 'main: rename and edit'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+printf 'a\nb-RESOLVED\n' > renamed.txt; G rm -q --cached shared.txt 2>/dev/null; rm -f shared.txt; G add -A && G commit -qm 'merge, resolved into the renamed file'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "rename: the resolution reaches the delta" "b-RESOLVED" "$(cat lode/tmp/gate/delta.patch)"
+
+make_repo subdir
+printf 'a\nb-branch\n' > shared.txt; G add -A && G commit -qm 'feat: shared'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q main; printf 'a\nb-main\n' > shared.txt; G add -A && G commit -qm 'main: shared'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+G checkout --ours shared.txt 2>/dev/null; G add shared.txt && G commit -qm 'merge, ours'
+mkdir -p pkg/deep && (cd pkg/deep && bash "$LEDGER" round >/dev/null 2>&1)
+contains "subdirectory: round sees the same delta" "-b-main" "$(cat lode/tmp/gate/delta.patch)"
+
+make_repo unrelated
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q --orphan island; echo island > feature.txt; G add -A && G commit -qm island; G switch -q feat
+G merge -q --no-edit --allow-unrelated-histories island >/dev/null 2>&1 || true
+echo resolved > feature.txt; G add -A && G commit -qm 'merge island'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "unrelated histories: the resolution reaches the delta" "resolved" "$(cat lode/tmp/gate/delta.patch)"
+
+make_repo noagent
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+mkdir -p "$TMP/noagents"
+hook_json lode:gate-rules opus | LODE_AGENTS_DIR="$TMP/noagents" bash "$HOOK" 2>"$TMP/err"; check "hook: a missing agent definition allows, saying so" 0 "$?"
+contains "hook: names the missing definition" "no agent definition" "$(cat "$TMP/err")"
+
 # --- no merge base is an error, not an empty delta -----------------------------------------
 make_repo orphan
 G switch -q --orphan lonely; echo o > o.txt; G add -A && G commit -qm lonely
 bash "$LEDGER" begin main >/dev/null 2>&1; check "begin: no merge base refused" 1 "$?"
+
+# --- the user's git config does not leak into the patches --------------------------------------
+make_repo extdiff
+printf '#!/bin/sh\necho EXTERNAL DIFF\n' > "$TMP/ext-diff.sh"; chmod +x "$TMP/ext-diff.sh"
+G config diff.external "$TMP/ext-diff.sh"
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+lacks "diff.external: the full diff is git's own" "EXTERNAL DIFF" "$(cat lode/tmp/gate/diff.patch)"
+echo fixed > fix.txt; G add -A && G commit -qm 'fix'
+bash "$LEDGER" round >/dev/null 2>&1
+lacks "diff.external: the delta is git's own" "EXTERNAL DIFF" "$(cat lode/tmp/gate/delta.patch)"
+contains "diff.external: the delta still has the hunk" "+fixed" "$(cat lode/tmp/gate/delta.patch)"
+
+# --- round checks the merge base itself ------------------------------------------------------
+make_repo movedbase
+bash "$LEDGER" begin main >/dev/null 2>&1
+lonely="$(G commit-tree "$(git hash-object -t tree /dev/null)" -m lonely)"; G branch -f main "$lonely"   # an unrelated root, no checkout
+bash "$LEDGER" round >/dev/null 2>&1; check "round: a base moved to an unrelated history is refused" 1 "$?"
+check "round: nothing written on the refusal" 0 "$( [[ -f lode/tmp/gate/delta.patch ]] && echo 1 || echo 0 )"
 
 # --- a different base starts the delta over ---------------------------------------------------
 make_repo rebase
