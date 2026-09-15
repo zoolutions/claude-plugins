@@ -277,7 +277,9 @@ check "frontmatter: a body model: line is not a declaration" 0 "$(LODE_AGENTS_DI
 check "frontmatter: no frontmatter, no declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-tests opus)"
 check "frontmatter: CRLF on the opening fence still declares" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-parser opus)"
 check "frontmatter: a BOM and a trailing space on the opening fence still declare" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-correctness opus)"
-check "spawn: a newline in the model cannot inject a key" 0 "$(spawn lode:gate-correctness "$(printf 'opus\ncap=99')")"
+printf '{"tool_name":"Agent","cwd":"%s","tool_input":{"subagent_type":"lode:gate-correctness","model":"opus\\ncap=99"}}' "$PWD" | bash "$HOOK" 2>/dev/null
+check "spawn: a newline in the model (valid JSON, escaped) cannot inject a key" 0 "$?"
+contains "spawn: the flattened model is recorded" "spawned=1:gate-correctness:opus cap=99" "$(cat lode/tmp/gate/ledger)"
 check "spawn: the model is flattened" 3 "$(ledger_get cap)"
 contains "frontmatter: recorded model is the unquoted word" "spawned=1:gate-rules:sonnet" "$(cat lode/tmp/gate/ledger)"
 
@@ -428,6 +430,12 @@ echo fixed > fix.txt; G add -A && G commit -qm 'fix'
 bash "$LEDGER" round >/dev/null 2>&1
 lacks "diff.external: the delta is git's own" "EXTERNAL DIFF" "$(cat lode/tmp/gate/delta.patch)"
 contains "diff.external: the delta still has the hunk" "+fixed" "$(cat lode/tmp/gate/delta.patch)"
+G switch -q main; echo base-side > fix.txt; G add -A && G commit -qm 'main: fix.txt'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+G checkout --ours fix.txt 2>/dev/null; G add -A && G commit -qm 'merge, ours'
+bash "$LEDGER" round >/dev/null 2>&1
+lacks "diff.external: a merge round's per-parent diff is git's own" "EXTERNAL DIFF" "$(cat lode/tmp/gate/delta.patch)"
+contains "diff.external: the merge round still shows the resolution" "-base-side" "$(cat lode/tmp/gate/delta.patch)"
 
 # --- round checks the merge base itself ------------------------------------------------------
 make_repo movedbase
