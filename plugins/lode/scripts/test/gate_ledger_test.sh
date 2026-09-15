@@ -123,11 +123,17 @@ check "begin 2: invocation 2" 2 "$(field "$out" invocation)"
 check "begin 2: reviewed kept" "$first_reviewed" "$(ledger_get reviewed)"
 check "begin 2: spawn records reset" 0 "$(grep -c "^spawned=" lode/tmp/gate/ledger || true)"
 check "begin 2: round reset" 0 "$(ledger_get round)"
+echo after > after.txt; G add -A && G commit -qm 'after the pass'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+contains "begin 2: seen carried, the delta is the commit since the last round" "+after" "$(cat lode/tmp/gate/delta.patch)"
+lacks "begin 2: seen carried, the delta lacks the first round's content" "+feature" "$(cat lode/tmp/gate/delta.patch)"
+check "begin 2: seen carried, range is a delta" "$(git rev-parse HEAD~1)..HEAD" "$(field "$out" range)"
 
 # --- the hook: caps, tiers, models ---------------------------------------------------------
 make_repo six
 check "hook: no ledger yet denies" 2 "$(spawn lode:gate-rules)"
 contains "hook: no ledger names begin" "begin" "$(spawn_err lode:gate-rules)"
+contains "hook: no ledger is its own reason" "no gate ledger" "$(spawn_err lode:gate-rules)"
 bash "$LEDGER" begin main >/dev/null 2>&1
 check "hook: round 0 denies" 2 "$(spawn lode:gate-rules)"
 contains "hook: round 0 names round" "round" "$(spawn_err lode:gate-rules)"
@@ -185,6 +191,10 @@ make_repo open
 bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 printf 'not json' | bash "$HOOK" 2>/dev/null; check "hook: unparseable input allows" 0 "$?"
 printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"ls"}}' "$PWD" | bash "$HOOK" 2>/dev/null; check "hook: another tool allows" 0 "$?"
+printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"subagent_type":"lode:gate-rules"}}' "$PWD" | bash "$HOOK" 2>/dev/null; check "hook: another tool with a gate-looking input allows" 0 "$?"
+BIN="$TMP/bin"; mkdir -p "$BIN"; ln -sf "$(command -v git)" "$BIN/git"; ln -sf "$(command -v bash)" "$BIN/bash"
+ln -sf "$(command -v sed)" "$BIN/sed"; ln -sf "$(command -v grep)" "$BIN/grep"; ln -sf "$(command -v cat)" "$BIN/cat"
+hook_json lode:gate-rules | env PATH="$BIN" "$BIN/bash" "$HOOK" 2>/dev/null; check "hook: no jq and no ruby allows" 0 "$?"
 for i in 1 2 3; do spawn lode:gate-rules >/dev/null; done
 LODE_SKIP_GATE=1 hook_json lode:gate-rules | LODE_SKIP_GATE=1 bash "$HOOK" 2>"$TMP/err"; check "hook: LODE_SKIP_GATE=1 allows past the cap" 0 "$?"
 contains "hook: LODE_SKIP_GATE=1 says so" "LODE_SKIP_GATE" "$(cat "$TMP/err")"
@@ -198,7 +208,10 @@ contains "hook: no lode/ says so" "no lode/" "$(cat "$TMP/err")"
 
 # --- pass writes the marker the push hook reads --------------------------------------------
 make_repo pass
-bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+bash "$LEDGER" begin main >/dev/null 2>&1
+bash "$LEDGER" pass >/dev/null 2>&1; check "pass: refused before any round" 3 "$?"
+check "pass: no marker before any round" 0 "$( [[ -f lode/tmp/gate-passed ]] && echo 1 || echo 0 )"
+bash "$LEDGER" round >/dev/null 2>&1
 spawn lode:gate-rules >/dev/null; spawn lode:gate-tests >/dev/null
 echo dirty > dirty.txt
 bash "$LEDGER" pass >/dev/null 2>&1; check "pass: dirty tree refused" 3 "$?"
@@ -214,7 +227,8 @@ check "pass: tree is HEAD^{tree}" "$(git rev-parse 'HEAD^{tree}')" "$(field "$ma
 check "pass: tier" standard "$(field "$marker" tier)"
 check "pass: rounds" 1 "$(field "$marker" rounds)"
 check "pass: deferred" 2 "$(field "$marker" deferred)"
-contains "pass: agents by name and model" "gate-rules" "$(field "$marker" agents)"
+contains "pass: agents by name and model" "gate-rules x1 (sonnet)" "$(field "$marker" agents)"
+contains "pass: every spawned agent is listed" "gate-tests x1 (sonnet)" "$(field "$marker" agents)"
 check "pass: report and at keys" 2 "$(grep -c "^report=\|^at=" lode/tmp/gate-passed)"
 check "pass: reviewed is HEAD" "$(git rev-parse HEAD)" "$(ledger_get reviewed)"
 printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git push"}}' "$PWD" | bash "$PUSH_HOOK" 2>/dev/null; check "push hook: allows on the passed tree" 0 "$?"
