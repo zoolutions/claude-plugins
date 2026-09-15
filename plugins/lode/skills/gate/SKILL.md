@@ -37,7 +37,7 @@ First, every round:
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/gate-ledger.sh" round   # prints round=, range=, delta_lines=
 ```
 
-It writes `lode/tmp/gate/diff.patch` (the whole `<base>...HEAD`, context) and `lode/tmp/gate/delta.patch` (what the agents review). On a branch the ledger has never seen the delta is the full diff. Afterwards it is only what the branch added since the last round, or since the last gate on this branch: each commit's own diff, and for a merge commit its combined diff, which is empty for a clean merge-forward and holds only the resolution for a resolved conflict. `delta_lines=0` means there is nothing new to review: skip to step 5. `round` refuses past the cap; step 4 says what happens then.
+It writes `lode/tmp/gate/diff.patch` (the whole `<base>...HEAD`, context) and `lode/tmp/gate/delta.patch` (what the agents review). On a branch the ledger has never seen the delta is the full diff. Afterwards it is only what the branch added since the last round, or since the last gate on this branch: each commit's own diff, and for a merge commit the files both sides changed since they diverged, diffed against each parent — empty when the two sides touched different files, the resolution when one was combined by hand, and a one-sided `--ours`/`--theirs` resolution shown as the revert it is. The ledger is per worktree; a branch switch or a different base starts over with a full round. `delta_lines=0` means there is nothing new to review: skip to step 5. `round` refuses past the cap; step 4 says what happens then.
 
 Then one message, parallel `Agent` calls. Every agent gets the same preamble: the paths of `delta.patch` and `diff.patch`, the base ref, the path of `intent.md`, the list of context files above, the instruction to read the context files before the diff, and that findings are on the delta while the full diff is context for reading a hunk. Pass file paths, not contents. Never pass `model`: each agent's definition declares its model, and the hook refuses an override.
 
@@ -52,7 +52,7 @@ Then one message, parallel `Agent` calls. Every agent gets the same preamble: th
 
 At `light` the gate is two agents (three when parsing is touched): the mutation check and the rules audit are the two highest-value reviews per token, and the repo's Rigor heading has said the rest is not worth buying here. At `critical` the diff gets a second correctness reviewer whose only lens is concurrency, because that is where money-path defects live and a general pass spreads its attention across everything else.
 
-The hook `scripts/pre-agent-gate.sh` refuses a `lode:gate-*` spawn the ledger does not allow: no `begin` on this branch, no `round` yet, an agent outside the tier's set, a model override, or an agent already spawned as many times as the cap in this invocation (`gate-rules` runs every round, so its count is the round count). A refusal names the limit and what to do; do not spawn around it.
+The hook `scripts/pre-agent-gate.sh` refuses a `lode:gate-*` spawn the ledger does not allow: no `begin` on this branch, no `round` yet, an agent outside the tier's set, a model override, or an agent already spawned as many times as the cap in this invocation (`gate-rules` runs every round, so its count is the round count; `gate-correctness` at critical gets twice the cap, it runs twice a round). A refusal names the limit and what to do; do not spawn around it.
 
 Plugin agents register at session start. If `Agent` answers `Agent type 'lode:gate-…' not found` (the plugin was installed mid-session), spawn `general-purpose` instead and open the prompt with: "First read `${CLAUDE_PLUGIN_ROOT}/agents/<name>.md` and adopt it as your role, method and output format exactly." The result is the same agent; only the registration differs, and the hook cannot see it, so the cap above is yours to keep.
 
@@ -95,7 +95,7 @@ cat > lode/tmp/gate/report.md   # rounds, findings table with verdict and outcom
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/gate-ledger.sh" pass --deferred <n> --p1 <n>
 ```
 
-`pass` refuses a dirty tree and an open P1. It writes `lode/tmp/gate-passed`: the `tree=` line the push hook compares with `HEAD^{tree}` (it reads nothing else), plus `tier=`, `override=`, `rounds=`, `agents=` and `deferred=` for the report and the PR body. Any commit after this point invalidates the pass and the gate must run again; a rerun reviews only the delta, so it is one small round, not three.
+`pass` refuses a dirty tree and an open P1. It writes `lode/tmp/gate-passed`: the `tree=` line the push hook compares with `HEAD^{tree}` (it reads nothing else), plus `report=`, `at=`, `tier=`, `override=`, `rounds=`, `agents=` and `deferred=` for the report and the PR body. Any commit after this point invalidates the pass and the gate must run again; a rerun reviews only the delta, so it is one small round, not three.
 
 ## 7. Report
 

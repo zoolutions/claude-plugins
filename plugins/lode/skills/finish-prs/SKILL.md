@@ -75,9 +75,9 @@ If the merge conflicts, resolve **only** the files the profile's **Conflicts** t
 
 A pin-style file from **Conflicts** can drift out of sync with the base without ever conflicting (a release bumped the version; this branch is older). If this PR touches a path under **Docs** → *Files that pin a version and drift after a release*, compare the pin against the current version and regenerate it with the command named there if they differ, committing on this branch with a conventional message that says why (the frozen/pinned install fails otherwise, not "update lockfile").
 
-### 2c. Gate, then push
+### 2c. Gate a resolved conflict, then push
 
-A merge that resolved a conflict is committed code nobody has reviewed: run `/lode:gate` on it before any push — the gate's delta for a merge commit is the resolution alone — because the push hook denies a push whose tree has no gate pass, and a gate fix is another commit, so gate last and push after. A **clean merge-forward adds nothing to review**: commit it and neither gate nor push here. `/lode:review-pr`'s Phase A0 treats the unpushed merge commit as its own work item, gates it (an empty delta, an immediate pass) and pushes.
+A merge that resolved a conflict is committed code nobody has reviewed: run `/lode:gate` on it before any push — in a worktree the gate has run in, its delta for a merge commit is the files both sides changed, against each parent; in this fresh worktree it is the branch's first, full round — because the push hook denies a push whose tree has no gate pass, and a gate fix is another commit, so gate last and push after. A **clean merge-forward adds nothing to review**: commit it and neither gate nor push here. `/lode:review-pr`'s Phase A0 treats the unpushed merge commit as its own work item, gates it — the branch's one full-diff round in this worktree, which finish-prs used to buy on its own — and pushes; the phases after it review only their own deltas.
 
 ```bash
 git push origin <branch>

@@ -2,7 +2,8 @@
 # PreToolUse hook (matcher: Agent). Refuses a `lode:gate-*` spawn the gate ledger does not
 # allow: no ledger on this branch, no round run yet, an agent outside the tier's set, a model
 # override on an agent whose definition declares one, or the per-agent cap (the tier's round
-# limit) already reached. Every other Agent spawn is allowed untouched.
+# limit; twice that for gate-correctness at critical, which runs twice a round) already
+# reached. Every other Agent spawn is allowed untouched.
 #
 # Contract with Claude Code: exit 0 allows, exit 2 denies and stderr is shown to the agent.
 # No JSON on stdout; the exit code carries the decision.
@@ -46,5 +47,8 @@ if [[ ! -d "$ROOT/lode" ]]; then
   allow
 fi
 
-REASON="$(cd "$ROOT" && bash "$HERE/gate-ledger.sh" spawn "$TYPE" "$MODEL" 2>&1)" && allow
-deny "$REASON"
+REASON="$(cd "$ROOT" && bash "$HERE/gate-ledger.sh" spawn "$TYPE" "$MODEL" 2>&1)"; RC=$?
+[[ "$RC" -eq 0 ]] && allow
+[[ "$RC" -eq 3 ]] && deny "$REASON"
+echo "[lode:gate] the gate ledger could not decide ($REASON) — allowing $TYPE. Run gate-ledger.sh begin again." >&2
+allow

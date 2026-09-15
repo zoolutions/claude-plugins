@@ -78,7 +78,7 @@ echo three > three.txt; G add -A && G commit -qm 'fix: three'
 bash "$LEDGER" round >/dev/null 2>&1
 echo four > four.txt; G add -A && G commit -qm 'fix: four'
 out=$(bash "$LEDGER" round 2>&1 >/dev/null); rc=$?
-check "round 4 at standard: refused" 1 "$rc"
+check "round 4 at standard: refused" 3 "$rc"
 contains "round 4: says what to do" "deferred" "$out"
 check "round 4: counter stays at 3" 3 "$(ledger_get round)"
 
@@ -121,7 +121,7 @@ first_reviewed="$(ledger_get reviewed)"
 out=$(bash "$LEDGER" begin main 2>/dev/null)
 check "begin 2: invocation 2" 2 "$(field "$out" invocation)"
 check "begin 2: reviewed kept" "$first_reviewed" "$(ledger_get reviewed)"
-check "begin 2: spawn counters reset" "" "$(ledger_get spawn.gate-rules)"
+check "begin 2: spawn records reset" 0 "$(grep -c "^spawned=" lode/tmp/gate/ledger || true)"
 check "begin 2: round reset" 0 "$(ledger_get round)"
 
 # --- the hook: caps, tiers, models ---------------------------------------------------------
@@ -139,7 +139,7 @@ check "hook: 3rd gate-rules allowed" 0 "$(spawn lode:gate-rules)"
 check "hook: 4th gate-rules denied at standard" 2 "$(spawn lode:gate-rules)"
 contains "hook: 4th names the cap" "cap of 3" "$(spawn_err lode:gate-rules)"
 contains "hook: 4th says what to do" "deferred" "$(spawn_err lode:gate-rules)"
-check "hook: counter stops at the cap" 3 "$(ledger_get spawn.gate-rules)"
+check "hook: records stop at the cap" 3 "$(grep -c "^spawned=1:gate-rules:" lode/tmp/gate/ledger)"
 check "hook: gate-claims allowed at standard" 0 "$(spawn lode:gate-claims)"
 check "hook: model override on a sonnet agent denied" 2 "$(spawn lode:gate-claims opus)"
 contains "hook: model denial names sonnet" "sonnet" "$(spawn_err lode:gate-claims opus)"
@@ -156,7 +156,7 @@ check "light: 2nd gate-tests denied" 2 "$(spawn lode:gate-tests)"
 check "light: gate-claims outside the set denied" 2 "$(spawn lode:gate-claims)"
 contains "light: denial names the tier" "light" "$(spawn_err lode:gate-claims)"
 check "light: gate-parser allowed" 0 "$(spawn lode:gate-parser)"
-out=$(bash "$LEDGER" round 2>&1 >/dev/null); check "light: round 2 refused" 1 "$?"
+out=$(bash "$LEDGER" round 2>&1 >/dev/null); check "light: round 2 refused" 3 "$?"
 
 make_repo crit critical
 bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
@@ -201,9 +201,12 @@ make_repo pass
 bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 spawn lode:gate-rules >/dev/null; spawn lode:gate-tests >/dev/null
 echo dirty > dirty.txt
-bash "$LEDGER" pass >/dev/null 2>&1; check "pass: dirty tree refused" 1 "$?"
+bash "$LEDGER" pass >/dev/null 2>&1; check "pass: dirty tree refused" 3 "$?"
 rm dirty.txt
-bash "$LEDGER" pass --p1 1 >/dev/null 2>&1; check "pass: an open P1 refused" 1 "$?"
+bash "$LEDGER" pass --p1 1 >/dev/null 2>&1; check "pass: an open P1 refused" 3 "$?"
+bash "$LEDGER" pass --p1 "1-1" >/dev/null 2>&1; check "pass: --p1 must be a whole number" 1 "$?"
+bash "$LEDGER" pass --p1 >/dev/null 2>&1; check "pass: --p1 without a value exits" 1 "$?"
+bash "$LEDGER" pass --deferred x >/dev/null 2>&1; check "pass: --deferred must be a whole number" 1 "$?"
 check "pass: no marker after a refusal" 0 "$( [[ -f lode/tmp/gate-passed ]] && echo 1 || echo 0 )"
 bash "$LEDGER" pass --deferred 2 >/dev/null 2>&1; check "pass: exit 0" 0 "$?"
 marker="$(cat lode/tmp/gate-passed)"
@@ -212,6 +215,7 @@ check "pass: tier" standard "$(field "$marker" tier)"
 check "pass: rounds" 1 "$(field "$marker" rounds)"
 check "pass: deferred" 2 "$(field "$marker" deferred)"
 contains "pass: agents by name and model" "gate-rules" "$(field "$marker" agents)"
+check "pass: report and at keys" 2 "$(grep -c "^report=\|^at=" lode/tmp/gate-passed)"
 check "pass: reviewed is HEAD" "$(git rev-parse HEAD)" "$(ledger_get reviewed)"
 printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git push"}}' "$PWD" | bash "$PUSH_HOOK" 2>/dev/null; check "push hook: allows on the passed tree" 0 "$?"
 echo later > later.txt; G add -A && G commit -qm later
@@ -219,6 +223,86 @@ printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"git push"}}' "$P
 out=$(bash "$LEDGER" show 2>/dev/null)
 contains "show: prints Spent" "Spent" "$out"
 contains "show: names the agents" "gate-rules" "$out"
+
+# --- parallel spawns (the gate's one-message fan-out) do not race -------------------------
+make_repo par
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+for a in gate-rules gate-tests gate-parser gate-correctness gate-claims; do hook_json "lode:$a" | bash "$HOOK" 2>/dev/null & done; wait
+check "parallel: five spawns recorded" 5 "$(grep -c '^spawned=1:' lode/tmp/gate/ledger)"
+check "parallel: ledger keys intact" feat "$(ledger_get branch)"
+check "parallel: cap intact" 3 "$(ledger_get cap)"
+check "parallel: a later spawn still counts" 0 "$(spawn lode:gate-rules)"
+check "parallel: the cap still holds" 2 "$( spawn lode:gate-rules >/dev/null; spawn lode:gate-rules )"
+
+# --- the frontmatter reader --------------------------------------------------------------
+make_repo fm
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+AG="$TMP/agents"; mkdir -p "$AG"
+printf -- '---\nname: gate-rules\nmodel: "sonnet"   # pinned\r\n---\n\nmodel: opus\n' > "$AG/gate-rules.md"
+printf -- '---\nname: gate-claims\n---\nmodel: sonnet\n' > "$AG/gate-claims.md"
+printf -- 'not frontmatter\nmodel: sonnet\n' > "$AG/gate-tests.md"
+check "frontmatter: quoted, commented, CRLF value reads as sonnet" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-rules sonnet)"
+check "frontmatter: override still denied" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-rules opus)"
+check "frontmatter: a body model: line is not a declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-claims opus)"
+check "frontmatter: no frontmatter, no declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-tests opus)"
+contains "frontmatter: recorded model is the unquoted word" "spawned=1:gate-rules:sonnet" "$(cat lode/tmp/gate/ledger)"
+
+# --- option and value parsing --------------------------------------------------------------
+make_repo opts
+bash "$LEDGER" begin main --tier >/dev/null 2>&1; check "begin: --tier without a value exits" 1 "$?"
+bash "$LEDGER" begin main --rounds 0 >/dev/null 2>&1; check "begin: --rounds 0 refused" 1 "$?"
+bash "$LEDGER" begin main --rounds abc >/dev/null 2>&1; check "begin: --rounds abc refused" 1 "$?"
+bash "$LEDGER" begin main --tier light --why "$(printf 'docs only\ncap=99')" >/dev/null 2>&1
+check "begin: a newline in --why cannot inject a key" 1 "$(ledger_get cap)"
+check "begin: the reason is flattened" "docs only cap=99" "$(ledger_get override)"
+bash "$LEDGER" round >/dev/null 2>&1
+check "spawn: a multi-word agent name is refused" 2 "$(spawn 'lode:gate-rules gate-parser')"
+check "spawn: an unknown gate agent is refused" 2 "$(spawn lode:gate-nope)"
+bash "$LEDGER" bogus 2>"$TMP/err"; check "usage: exit 1" 1 "$?"
+lacks "usage: prints only the header" "set -u" "$(cat "$TMP/err")"
+contains "usage: names the subcommands" "gate-ledger.sh pass" "$(cat "$TMP/err")"
+G switch -qc 'topic/x=y'; bash "$LEDGER" begin main >/dev/null 2>&1
+check "begin: a branch name with = and /" 'topic/x=y' "$(ledger_get branch)"
+G switch -q --detach HEAD; bash "$LEDGER" begin main >/dev/null 2>&1
+check "begin: detached HEAD" detached "$(ledger_get branch)"
+G switch -q feat
+
+# --- a corrupt ledger fails open at the hook -------------------------------------------------
+make_repo corrupt
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+sed -i.bak 's/^cap=.*/cap=/' lode/tmp/gate/ledger
+hook_json lode:gate-rules | bash "$HOOK" 2>"$TMP/err"; check "hook: an unreadable cap allows" 0 "$?"
+contains "hook: says it could not decide" "could not decide" "$(cat "$TMP/err")"
+
+# --- a one-sided resolution shows as what it is ----------------------------------------------
+make_repo ours
+printf 'a\nb-branch\n' > shared.txt; G add -A && G commit -qm 'feat: shared'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q main; printf 'a\nb-main\n' > shared.txt; echo u > unrelated.txt; G add -A && G commit -qm 'main: shared'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+G checkout --ours shared.txt 2>/dev/null; G add shared.txt && G commit -qm 'merge main, ours'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "ours: the delta shows the base's line going away" "-b-main" "$(cat lode/tmp/gate/delta.patch)"
+lacks "ours: the delta lacks the base's unrelated file" "unrelated" "$(cat lode/tmp/gate/delta.patch)"
+G switch -q main; printf 'a\nb-main\nc\n' > shared.txt; G commit -qam 'main: c'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+G checkout --theirs shared.txt 2>/dev/null; G add shared.txt && G commit -qm 'merge main, theirs'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "theirs: the delta shows the branch's line going away" "-b-branch" "$(cat lode/tmp/gate/delta.patch)"
+
+# --- no merge base is an error, not an empty delta -----------------------------------------
+make_repo orphan
+G switch -q --orphan lonely; echo o > o.txt; G add -A && G commit -qm lonely
+bash "$LEDGER" begin main >/dev/null 2>&1; check "begin: no merge base refused" 1 "$?"
+
+# --- a different base starts the delta over ---------------------------------------------------
+make_repo rebase
+G branch -q develop main
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+echo two > two.txt; G add -A && G commit -qm two
+out=$(bash "$LEDGER" begin develop 2>"$TMP/err"); bash "$LEDGER" round >/dev/null 2>&1
+contains "base change: says so" "base changed" "$(cat "$TMP/err")"
+contains "base change: full diff again" "+feature" "$(cat lode/tmp/gate/delta.patch)"
 
 echo; echo "$n cases, fail=$fail"
 exit $fail

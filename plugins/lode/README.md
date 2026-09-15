@@ -32,7 +32,7 @@ Every workflow skill starts by reading `lode/workflow.md` and `lode/lode-map.md`
 ## Hooks
 
 - `PreToolUse` on Bash: denies `git push` and `gh pr create` unless `lode/tmp/gate-passed` names the tree at `HEAD`. Allows, with a message on stderr, when the repo has no `lode/`, so enabling the plugin before seeding blocks nobody; allows the same way on anything it cannot parse. Bypass with `LODE_SKIP_GATE=1` and say why in the PR.
-- `PreToolUse` on Agent: denies a `lode:gate-*` spawn that `scripts/gate-ledger.sh` refuses — no `begin` on this branch, no `round` yet, an agent outside the tier's set, a `model` override on an agent whose definition declares one, or an agent already spawned as many times as the tier's round cap in this invocation. Any other agent, an unparseable input, or a repo without `lode/` is allowed; `LODE_SKIP_GATE=1` bypasses it the same way.
+- `PreToolUse` on Agent: denies a `lode:gate-*` spawn that `scripts/gate-ledger.sh` refuses — no `begin` on this branch, no `round` yet, an agent outside the tier's set, a `model` override on an agent whose definition declares one, or an agent already spawned as many times as the tier's round cap in this invocation (`gate-correctness` at critical gets twice the cap: it runs twice a round). Any other agent, an unparseable input, or a repo without `lode/` is allowed; `LODE_SKIP_GATE=1` bypasses it the same way.
 - `SessionStart`: prints `lode/summary.md` and `lode/lode-map.md` into context.
 
 ## Checklists
@@ -41,7 +41,7 @@ Every workflow skill starts by reading `lode/workflow.md` and `lode/lode-map.md`
 
 ## The profile
 
-`lode/workflow.md` has eleven fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification, Rigor. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands it retires; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
+`lode/workflow.md` has eleven fixed headings: Commands, Branches and PRs, Layers, Shapes, Constraints, Docs, CI, Flake sources, Conflicts, Verification, Rigor. `/lode:seed` writes it from the code, `CLAUDE.md`, the rules and any local commands, which stay in place as the fallback; `/lode:sync` keeps it true when a command or a workflow changes; the gate's claims agent audits it like any other lode file, so a command that no longer exists is a finding.
 
 ## Rigor tiers
 
@@ -60,7 +60,7 @@ The push hook does not change with the tier: at every tier a push needs a gate p
 
 ## The gate ledger
 
-`scripts/gate-ledger.sh` keeps `lode/tmp/gate/ledger`, one per branch: what the agents have already seen and what the current gate invocation has spent. `begin` starts an invocation (tier, cap, counters); `round` writes `diff.patch` (the whole branch, context) and `delta.patch` (what the agents review — the full diff the first time, afterwards each commit's own diff since the last round, and a merge commit's combined diff, which is empty for a clean merge-forward and holds only the resolution for a resolved conflict); `pass` writes `lode/tmp/gate-passed` after `/lode:learn` has committed, so the stamped tree already holds the new rules and no second gate follows; `show` prints the Spent block every gate report and review-pr pass ends with. `pass` refuses a dirty tree and an open P1. A merge whose combined diff is empty can still hide a semantic conflict across files; the push hook, CI and review-pr's Phase A are what catch that.
+`scripts/gate-ledger.sh` keeps `lode/tmp/gate/ledger`, one per worktree — a branch switch or a different base starts it over, so a fresh worktree's first round is a full one: what the agents have already seen and what the current gate invocation has spent. `begin` starts an invocation (tier, cap, counters); `round` writes `diff.patch` (the whole branch, context) and `delta.patch` (what the agents review — the full diff the first time, afterwards each commit's own diff since the last round, and for a merge commit the files both sides changed since they diverged, diffed against each parent — empty when the two sides touched different files, the resolution when one was combined by hand, and a one-sided `--ours`/`--theirs` resolution shown as the revert it is); `pass` writes `lode/tmp/gate-passed` after `/lode:learn` has committed, so the stamped tree already holds the new rules and no second gate follows; `show` prints the Spent block every gate report and review-pr pass ends with. `pass` refuses a dirty tree and an open P1. A merge whose two sides touched different files leaves an empty delta and can still hide a semantic conflict across those files; the push hook, CI and review-pr's Phase A are what catch that. Parallel spawns in one fan-out each append one line to the ledger, so they do not race; the hook denies only on the ledger's explicit refusal and allows, saying so, when the ledger cannot be read.
 
 ## Working with pstack
 
