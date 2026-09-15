@@ -252,9 +252,15 @@ make_repo same-agent
 bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 for i in 1 2 3 4 5 6; do hook_json lode:gate-rules | bash "$HOOK" 2>/dev/null & done; wait
 check "parallel: six spawns of one agent at cap 3 record exactly 3" 3 "$(grep -c '^spawned=1:gate-rules:' lode/tmp/gate/ledger)"
-check "parallel: the lock is released" 0 "$( [[ -d lode/tmp/gate/spawn.lock ]] && echo 1 || echo 0 )"
-mkdir -p lode/tmp/gate/spawn.lock && touch -t 202001010000 lode/tmp/gate/spawn.lock
+check "parallel: the lock is released" 0 "$( [[ -e lode/tmp/gate/spawn.lock ]] && echo 1 || echo 0 )"
+echo 99999 > lode/tmp/gate/spawn.lock && touch -t 202001010000 lode/tmp/gate/spawn.lock
 check "parallel: a stale lock is taken over" 2 "$(spawn lode:gate-rules)"
+echo 99999 > lode/tmp/gate/spawn.lock
+check "parallel: a fresh lock nobody releases is a refusal, not an uncounted spawn" 2 "$(spawn lode:gate-tests)"
+contains "parallel: the refusal names the lock" "spawn.lock" "$(spawn_err lode:gate-tests)"
+check "parallel: nothing recorded while the lock was held" 0 "$(grep -c '^spawned=1:gate-tests:' lode/tmp/gate/ledger || true)"
+bash "$LEDGER" begin main >/dev/null 2>&1
+check "begin: clears a leftover lock" 0 "$( [[ -e lode/tmp/gate/spawn.lock ]] && echo 1 || echo 0 )"
 
 # --- the frontmatter reader --------------------------------------------------------------
 make_repo fm
@@ -264,12 +270,14 @@ printf -- '---\nname: gate-rules\nmodel: "sonnet"   # pinned\r\n---\n\nmodel: op
 printf -- '---\nname: gate-claims\n---\nmodel: sonnet\n' > "$AG/gate-claims.md"
 printf -- 'not frontmatter\nmodel: sonnet\n' > "$AG/gate-tests.md"
 printf -- '---\r\nname: gate-parser\r\nmodel: sonnet\r\n---\r\n' > "$AG/gate-parser.md"
+printf -- '\357\273\277--- \nname: gate-correctness\nmodel: sonnet\n---\n' > "$AG/gate-correctness.md"
 check "frontmatter: quoted, commented, CRLF value reads as sonnet" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-rules sonnet)"
 check "frontmatter: override still denied" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-rules opus)"
 check "frontmatter: a body model: line is not a declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-claims opus)"
 check "frontmatter: no frontmatter, no declaration" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-tests opus)"
 check "frontmatter: CRLF on the opening fence still declares" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-parser opus)"
-check "spawn: a newline in the model cannot inject a key" 0 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-correctness "$(printf 'opus\ncap=99')")"
+check "frontmatter: a BOM and a trailing space on the opening fence still declare" 2 "$(LODE_AGENTS_DIR=$AG spawn lode:gate-correctness opus)"
+check "spawn: a newline in the model cannot inject a key" 0 "$(spawn lode:gate-correctness "$(printf 'opus\ncap=99')")"
 check "spawn: the model is flattened" 3 "$(ledger_get cap)"
 contains "frontmatter: recorded model is the unquoted word" "spawned=1:gate-rules:sonnet" "$(cat lode/tmp/gate/ledger)"
 
@@ -338,18 +346,20 @@ printf 'a\nb-same\n' > shared.txt; G commit -qam 'feat: same edit'
 G switch -q main; printf 'a\nb-same\n' > shared.txt; G commit -qam 'main: same edit'; G switch -q feat
 G merge -q --no-edit main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>"$TMP/err")
-check "identical edits on both sides: the merge adds nothing but the branch commit shows" "$(grep -vc '^# merge ' lode/tmp/gate/delta.patch)" "$(field "$out" delta_lines)"
+check "identical edits on both sides: the merge adds nothing, the branch commit is the whole delta" "$(wc -l < lode/tmp/gate/delta.patch | tr -d ' ')" "$(field "$out" delta_lines)"
+lacks "identical edits: no merge annotation" "# merge" "$(cat lode/tmp/gate/delta.patch)"
 contains "identical edits: the branch's own commit is the delta" "+b-same" "$(cat lode/tmp/gate/delta.patch)"
 
 make_repo spaces
-printf 'a\nb-branch\n' > 'my file.txt'; printf 'x\ny-branch\n' > 'ä.txt'; G add -A && G commit -qm 'feat: odd names'
+printf 'a\nb-branch\n' > 'my file.txt'; printf 'x\ny-branch\n' > 'ä.txt'; mkdir app; printf 'p\nq-branch\n' > 'app/[id].txt'; printf 'sibling\n' > app/i.txt; G add -A && G commit -qm 'feat: odd names'
 bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
-G switch -q main; printf 'a\nb-main\n' > 'my file.txt'; printf 'x\ny-main\n' > 'ä.txt'; G add -A && G commit -qm 'main: odd names'; G switch -q feat
+G switch -q main; printf 'a\nb-main\n' > 'my file.txt'; printf 'x\ny-main\n' > 'ä.txt'; mkdir -p app; printf 'p\nq-main\n' > 'app/[id].txt'; G add -A && G commit -qm 'main: odd names'; G switch -q feat
 G merge -q --no-edit main >/dev/null 2>&1 || true
-G checkout --ours -- 'my file.txt' 'ä.txt' 2>/dev/null; G add -A && G commit -qm 'merge, ours'
+G checkout --ours -- 'my file.txt' 'ä.txt' 'app/[id].txt' 2>/dev/null; G add -A && G commit -qm 'merge, ours'
 out=$(bash "$LEDGER" round 2>/dev/null)
 contains "odd names: a path with a space reaches the delta" "-b-main" "$(cat lode/tmp/gate/delta.patch)"
 contains "odd names: a non-ASCII path reaches the delta" "-y-main" "$(cat lode/tmp/gate/delta.patch)"
+contains "odd names: a path with glob characters reaches the delta literally" "-q-main" "$(cat lode/tmp/gate/delta.patch)"
 
 make_repo renamed
 printf 'a\nb\n' > shared.txt; G add -A && G commit -qm 'feat: shared'
@@ -385,12 +395,30 @@ mkdir -p "$TMP/noagents"
 hook_json lode:gate-rules opus | LODE_AGENTS_DIR="$TMP/noagents" bash "$HOOK" 2>"$TMP/err"; check "hook: a missing agent definition allows, saying so" 0 "$?"
 contains "hook: names the missing definition" "no agent definition" "$(cat "$TMP/err")"
 
+# --- a merge that discards the other side's change shows it -------------------------------
+make_repo sours
+echo k-branch > only-branch.txt; G add -A && G commit -qm 'feat: only-branch'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q main; echo x-FIX > only-base.txt; G add -A && G commit -qm 'main: fix'; G switch -q feat
+G merge -q -s ours --no-edit main
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "merge -s ours: the base's discarded fix is in the delta" "-x-FIX" "$(cat lode/tmp/gate/delta.patch)"
+lacks "merge -s ours: the branch's own reviewed file is not" "k-branch" "$(cat lode/tmp/gate/delta.patch)"
+check "merge -s ours: annotations are not counted" "$(grep -vc '^# merge ' lode/tmp/gate/delta.patch)" "$(field "$out" delta_lines)"
+check "merge -s ours: one annotation, one parent" 1 "$(grep -c '^# merge ' lode/tmp/gate/delta.patch)"
+G switch -q main; echo more > more.txt; G add -A && G commit -qm 'main: more'; G switch -q feat
+G merge -q --no-commit --no-edit main >/dev/null 2>&1; G rm -q only-branch.txt; G commit -qm 'merge, dropping only-branch'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "merge dropping the branch's file: shown as its removal" "-k-branch" "$(cat lode/tmp/gate/delta.patch)"
+lacks "merge dropping the branch's file: the base's new file is not shown" "+more" "$(cat lode/tmp/gate/delta.patch)"
+
 # --- no merge base is an error, not an empty delta -----------------------------------------
 make_repo orphan
 G switch -q --orphan lonely; echo o > o.txt; G add -A && G commit -qm lonely
 bash "$LEDGER" begin main >/dev/null 2>&1; check "begin: no merge base refused" 1 "$?"
 
 # --- the user's git config does not leak into the patches --------------------------------------
+# (log.showSignature is handled by --no-show-signature but needs a signing key to exercise; not pinned here)
 make_repo extdiff
 printf '#!/bin/sh\necho EXTERNAL DIFF\n' > "$TMP/ext-diff.sh"; chmod +x "$TMP/ext-diff.sh"
 G config diff.external "$TMP/ext-diff.sh"

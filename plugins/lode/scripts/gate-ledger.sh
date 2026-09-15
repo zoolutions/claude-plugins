@@ -10,20 +10,23 @@
 #       Before a fan-out. Refuses past the cap. Writes lode/tmp/gate/diff.patch (the whole
 #       <base>...HEAD, context) and lode/tmp/gate/delta.patch (what the agents review): the
 #       full diff the first time a branch is seen, afterwards only what the branch added since
-#       the last round: each non-merge commit's own diff, and for a merge commit two things —
-#       its combined diff (whatever in the result matches neither parent: a hand-combined
-#       resolution, an edit made inside the merge, a file the merge added) and, for the files
-#       both sides changed since they diverged, the diff against each parent (so a one-sided
-#       --ours/--theirs resolution shows as the revert it is, next to each side's own hunk).
-#       A merge whose two sides touched different files and that changed nothing itself leaves
-#       an empty delta. Only the first two parents of a merge are read. Prints round=, range=,
-#       delta_lines= (hunk lines; the "# merge" annotations are not counted), tier=, cap=.
+#       the last round: each non-merge commit's own diff, and for a merge commit the diff from
+#       each parent to the merge result over every file except those only the other side
+#       changed since the two diverged — what the merge did that its other side does not
+#       explain. A clean merge of files the branch never touched leaves nothing; a hand-
+#       combined resolution, an edit made inside the merge, a file the merge added, a
+#       resolution under a renamed file, and every one-sided resolution (--ours, --theirs,
+#       -s ours, checkout <side> -- <file>) show as the hunks they are, next to each side's
+#       own hunk in a file both touched. Only the first two parents of a merge are read.
+#       Prints round=, range=, delta_lines= (hunk lines; the "# merge" annotations are not
+#       counted), tier=, cap=.
 #       Fails (exit 1) when the base has no merge base with HEAD, so a shallow clone never
 #       reads as "nothing to review".
 #   gate-ledger.sh spawn <lode:gate-agent> [<model>]
 #       The decision behind pre-agent-gate.sh: exit 0 and record the spawn (count and append
-#       under a mkdir mutex, so a fan-out's parallel spawns — of different agents or the same
-#       one — all count against the cap), or exit 3 with the reason (no ledger, another
+#       under a lock file, so a fan-out's parallel spawns — of different agents or the same
+#       one — all count against the cap; a lock nobody releases within five seconds is a
+#       refusal, and one older than a minute or two is taken over), or exit 3 with the reason (no ledger, another
 #       branch, no round yet, outside the tier's set, a model override on an agent that
 #       declares one, or the per-agent cap reached: the round cap, twice that for
 #       gate-correctness at critical, which runs twice per round). Any other failure is
@@ -40,6 +43,7 @@
 # reviewed= is the HEAD at the last pass. Bash 3.2. LODE_AGENTS_DIR overrides where the
 # agent definitions are read from (tests).
 set -u
+export LC_ALL=C   # byte-wise tr, sort, comm and grep: a path is bytes, whatever the caller's locale
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "gate-ledger: not inside a git repository" >&2; exit 1; }
@@ -74,9 +78,17 @@ need_value() { [[ $# -ge 2 ]] || die "$1 needs a value"; }
 spawn_count() { [[ -f "$LEDGER" ]] || { echo 0; return; }; grep -c "^spawned=[0-9]*:$1:" "$LEDGER" || true; }
 usage() { awk 'NR > 1 && !/^#/ { exit } NR > 1 { sub(/^# ?/, ""); print }' "$0" >&2; exit 1; }
 declared_model() { # the model: line inside the frontmatter of agents/<name>.md, unquoted, trimmed
-  awk 'NR == 1 { sub(/\r$/, ""); if ($0 != "---") exit; next }
+  awk 'NR == 1 { sub(/^\357\273\277/, ""); if ($0 !~ /^---[ \t\r]*$/) exit; next }
        /^---[ \t\r]*$/ { exit }
        /^model:/ { sub(/^model:[ \t]*/, ""); sub(/[ \t]*#.*$/, ""); gsub(/["\047\r]/, ""); sub(/[ \t]+$/, ""); print; exit }' "$AGENTS_DIR/$1.md" 2>/dev/null
+}
+name_list() { # name_list <a> <b> — the files that differ, one per line, sorted; loud on a name with a newline
+  local n z
+  z="$($GIT_DIFF --name-only --no-renames -z "$1" "$2" | tr -dc '\0' | wc -c | tr -d ' ')"
+  $GIT_DIFF --name-only --no-renames -z "$1" "$2" | tr '\0' '\n' > "$DIR/names"
+  n="$(wc -l < "$DIR/names" | tr -d ' ')"
+  [[ "$n" == "$z" ]] || die "a file name between $1 and $2 contains a newline; the merge delta cannot be built"
+  LC_ALL=C sort "$DIR/names"; rm -f "$DIR/names"
 }
 agents_summary() { # "gate-rules x3 (sonnet), gate-tests x1 (sonnet)"
   [[ -f "$LEDGER" ]] || return 0
@@ -118,7 +130,7 @@ begin)
     cap="$rounds"
   fi
   branch="$(current_branch)"
-  mkdir -p "$DIR"
+  mkdir -p "$DIR"; rm -f "$DIR/spawn.lock"   # a new invocation: no spawn of the old one can still hold it
   seen=""; reviewed=""; inv=0
   if [[ -f "$LEDGER" && "$(lget branch)" == "$branch" ]]; then
     if [[ "$(lget base)" == "$base" ]]; then
@@ -160,30 +172,33 @@ round)
       parents="$(git rev-list --parents -n 1 "$c" | cut -s -d' ' -f2-)"   # empty for a root commit
       if [[ "$parents" == *" "* ]]; then
         # A merge. When unsure, include: a hunk the reviewer did not need costs a minute, a
-        # hunk they never saw is a pass stamped on unreviewed code. First its combined diff:
-        # every hunk of the result that matches neither parent — a hand-combined resolution,
-        # an edit made inside the merge, a file it added.
-        git show --format= --no-color --no-ext-diff --no-show-signature "$c" >> "$DIR/delta.patch"
-        # Then, for the files both sides changed since they diverged, the diff against each
-        # parent: a one-sided --ours/--theirs resolution matches one parent exactly, so the
-        # combined diff is silent on it, and this is where it shows as the revert it is.
+        # hunk they never saw is a pass stamped on unreviewed code. From each parent, the diff
+        # to the result over every file except those only the other side changed since the
+        # two diverged: what this merge did that its other side does not explain. A clean
+        # merge leaves nothing (each side's files are excluded from the other's view); a
+        # resolution, an edit made inside the merge, a file it added, and every one-sided
+        # resolution — --ours, --theirs, -s ours, checkout <side> -- <file> — are hunks.
         p1="${parents%% *}"; p2="${parents#* }"; p2="${p2%% *}"
         mb="$(git merge-base "$p1" "$p2" 2>/dev/null || true)"
-        $GIT_DIFF --name-only --no-renames -z "${mb:-$p1}" "$p1" | tr '\0' '\n' | sort > "$DIR/side1"
-        $GIT_DIFF --name-only --no-renames -z "${mb:-$p2}" "$p2" | tr '\0' '\n' | sort > "$DIR/side2"
-        comm -12 "$DIR/side1" "$DIR/side2" > "$DIR/merge-files"
-        if [[ -s "$DIR/merge-files" ]]; then
-          files=()
-          while IFS= read -r f; do files[${#files[@]}]="$f"; done < "$DIR/merge-files"
-          for parent in "$p1" "$p2"; do
-            git --literal-pathspecs diff --no-color --no-ext-diff "$parent" "$c" -- "${files[@]}" > "$DIR/merge-hunks"
+        name_list "${mb:-$p1}" "$p1" > "$DIR/side1"
+        name_list "${mb:-$p2}" "$p2" > "$DIR/side2"
+        comm -23 "$DIR/side2" "$DIR/side1" > "$DIR/only2"   # files only the base side changed: not p1's business
+        comm -23 "$DIR/side1" "$DIR/side2" > "$DIR/only1"   # files only the branch side changed: not p2's business
+        for parent in "$p1" "$p2"; do
+          if [[ "$parent" == "$p1" ]]; then excl="$DIR/only2"; else excl="$DIR/only1"; fi
+          name_list "$parent" "$c" > "$DIR/changed"
+          comm -23 "$DIR/changed" "$excl" > "$DIR/merge-files"
+          if [[ -s "$DIR/merge-files" ]]; then
+            files=()
+            while IFS= read -r f; do files[${#files[@]}]="$f"; done < "$DIR/merge-files"
+            git --literal-pathspecs diff --no-color --no-ext-diff "$parent" "$c" -- "${files[@]}" > "$DIR/merge-hunks" || die "git diff $(git rev-parse --short "$parent")..$(git rev-parse --short "$c") failed; the merge delta cannot be built"
             if [[ -s "$DIR/merge-hunks" ]]; then
               printf '# merge %s against parent %s\n' "$(git rev-parse --short "$c")" "$(git rev-parse --short "$parent")" >> "$DIR/delta.patch"
               cat "$DIR/merge-hunks" >> "$DIR/delta.patch"
             fi
-          done
-        fi
-        rm -f "$DIR/side1" "$DIR/side2" "$DIR/merge-files" "$DIR/merge-hunks"
+          fi
+        done
+        rm -f "$DIR/side1" "$DIR/side2" "$DIR/only1" "$DIR/only2" "$DIR/changed" "$DIR/merge-files" "$DIR/merge-hunks"
       else
         git show --format= --no-color --no-ext-diff --no-show-signature "$c" >> "$DIR/delta.patch"
       fi
@@ -218,22 +233,24 @@ spawn)
   fi
   percap="$cap"
   [[ "$tier" == critical && "$name" == gate-correctness ]] && percap=$((cap * 2))
-  # The count and the append are one step under a mutex (mkdir is atomic; bash 3.2 has no
-  # flock), so a fan-out's parallel spawns — of different agents or of the same one — count.
+  # The count and the append are one step under a lock file (noclobber is an atomic
+  # O_EXCL create; bash 3.2 has no flock), so a fan-out's parallel spawns — of different
+  # agents or of the same one — all count. A lock nobody releases is a refusal, not an
+  # uncounted spawn: retrying is cheap and an uncounted spawn is what the cap exists to stop.
   lock="$DIR/spawn.lock"; tries=0
-  until mkdir "$lock" 2>/dev/null; do
-    if [[ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]]; then rmdir "$lock" 2>/dev/null; continue; fi   # a lock from a killed spawn
+  until ( set -o noclobber; printf '%s\n' "$$" > "$lock" ) 2>/dev/null; do
     tries=$((tries + 1))
-    [[ "$tries" -le 50 ]] || die "could not take $lock in five seconds; another spawn holds it"
+    if [[ -n "$(find "$lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]]; then rm -f "$lock"; fi   # older than a minute or two: its holder is gone
+    [[ "$tries" -le 50 ]] || refuse "another spawn has held $lock for five seconds; retry, or remove the file if no gate agent is being spawned"
     sleep 0.1
   done
   count="$(spawn_count "$name")"
   if [[ "$count" -ge "$percap" ]]; then
-    rmdir "$lock"
+    rm -f "$lock"
     refuse "spawn $((count + 1)) of $name exceeds the cap of $percap at tier $tier (the round limit): record the pass with the remaining P2s deferred (\`gate-ledger.sh pass --deferred N\`), or report the P1 and record nothing"
   fi
   lappend "spawned=$round:$name:${model:-$declared}"
-  rmdir "$lock"
+  rm -f "$lock"
   ;;
 
 pass)
