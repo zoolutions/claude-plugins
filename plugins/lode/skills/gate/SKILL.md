@@ -9,7 +9,7 @@ allowed-tools: Bash(*), Read, Grep, Glob, Agent, Edit, Write, Skill
 
 The author of a diff is the worst reviewer of it. This skill puts the diff in front of reviewers that have never seen the conversation, gives them the repository's own rules and memory, and loops until they are satisfied. It is what an external review bot would do, one round earlier and with the repo's learnings in hand.
 
-The gate reads, in this order: `CLAUDE.md`, every `.claude/rules/*.md`, `lode/workflow.md`, `lode/practices.md`, every `lode/review/*.md`, and the plugin's shared checklists at `${CLAUDE_PLUGIN_ROOT}/checklists/`. If the repo has no `lode/`, stop and run `/lode:seed` first; the gate has nothing to enforce.
+If the repo has no `lode/`, stop and run `/lode:seed` first; the gate has nothing to enforce. You read `lode/workflow.md` for **Commands** and **Rigor**. Do not slurp `CLAUDE.md`, the rules, `lode/review/` or the plugin checklists — Claude Code already injected `CLAUDE.md`, and each agent reads only the files for its lens. Pass file paths, not contents.
 
 ## 0. Preconditions
 
@@ -34,25 +34,31 @@ Record the test commands from **Commands** in `lode/workflow.md` — full suite 
 First, every round:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/gate-ledger.sh" round   # prints round=, range=, delta_lines=
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/gate-ledger.sh" round   # prints round=, range=, delta_lines=, agents=, same=
 ```
 
 It writes `lode/tmp/gate/diff.patch` (the whole `<base>...HEAD`, context) and `lode/tmp/gate/delta.patch` (what the agents review). On a branch the ledger has never seen the delta is the full diff. Afterwards it is only what the branch added since the last round, or since the last gate on this branch: each commit's own diff, and for a merge commit, from each parent, the diff to the result over every file except those only the other side changed since they diverged — what the merge did that its other side does not explain: nothing for a clean merge of files the branch never touched; the resolution, an edit made inside the merge, a file it added, and every one-sided resolution (`--ours`, `--theirs`, `-s ours`, a `checkout <side> -- <file>`) as the hunks they are, next to each side's own hunk in a file both touched. The ledger is per worktree; a branch switch or a different base starts over with a full round. `delta_lines=0` means there is nothing new to review: skip to step 5. `round` refuses past the cap; step 4 says what happens then.
 
-Then one message, parallel `Agent` calls. Every agent gets the same preamble: the paths of `delta.patch` and `diff.patch`, the base ref, the path of `intent.md`, the list of context files above, the instruction to read the context files before the diff, and that findings are on the delta while the full diff is context for reading a hunk. Pass file paths, not contents. Never pass `model`: each agent's definition declares its model, and the hook refuses an override.
+`agents=` is the names this round may spawn — the tier's set intersected with the lenses the delta has work for. Spawn only those. Do not spawn an idle agent and do not add one the ledger omitted; the hook refuses both. `same=1` means the two patches are byte-identical (every first round): name only `delta.patch` in the preamble. When `same=0`, name both: findings stay on the delta, `diff.patch` is context for reading a hunk.
 
-| Agent (`subagent_type`) | Tiers | Extra input |
-|---|---|---|
-| `lode:gate-tests` | all | the single-file test command, the test directory names |
-| `lode:gate-rules` | all | |
-| `lode:gate-parser` | all, only when the diff touches parsing | run: `grep -E '^\+.*(%r\{|/\\[A-Za-z]|=~|\.match\(|\.scan\(|StringScanner|\.split\(|Regexp|re\.compile|new RegExp)' lode/tmp/gate/diff.patch` and spawn it if anything matches |
-| `lode:gate-correctness` | standard, critical | |
-| `lode:gate-claims` | standard, critical | the PR body draft, if any |
-| `lode:gate-correctness`, second run | critical | the concurrency lens: "Read only `${CLAUDE_PLUGIN_ROOT}/checklists/state-and-concurrency.md` and the concurrency entries under Shapes in `lode/workflow.md`. Walk the diff for concurrent actors only: two callers, a redelivered webhook, a sweep overlapping a user action, a row read outside its lock, a partial write. Report nothing else." |
+Then one message, parallel `Agent` calls, one per name in `agents=`. Every agent gets: the patch path(s) as above, the base ref, the path of `intent.md`, **that agent's** context files (below), and the instruction to read `delta.patch` first and to open a context file only if a rule in it could apply to a path in the delta. Pass file paths, not contents. Never pass `model`: each agent's definition declares its model, and the hook refuses an override.
 
-At `light` the gate is two agents (three when parsing is touched): the mutation check and the rules audit are the two highest-value reviews per token, and the repo's Rigor heading has said the rest is not worth buying here. At `critical` the diff gets a second correctness reviewer whose only lens is concurrency, because that is where money-path defects live and a general pass spreads its attention across everything else.
+| Agent (`subagent_type`) | When `agents=` includes it | Context files | Extra input |
+|---|---|---|---|
+| `lode:gate-tests` | a test path is in the delta | `${CLAUDE_PLUGIN_ROOT}/checklists/tests.md`; `lode/review/testing.md` if it exists | the single-file test command, the test directory names |
+| `lode:gate-rules` | every non-empty delta | `CLAUDE.md`, `.claude/rules/*.md`, `lode/practices.md`, in-scope `lode/review/*.md` | |
+| `lode:gate-parser` | an added line looks like a regex or scanner | `${CLAUDE_PLUGIN_ROOT}/checklists/parsers.md` | |
+| `lode:gate-correctness` | standard/critical and the delta is not prose-only | `${CLAUDE_PLUGIN_ROOT}/checklists/error-handling.md`, `files-and-io.md`; in-scope `lode/review/*.md` | |
+| `lode:gate-claims` | the delta has prose (including at `light`) | `${CLAUDE_PLUGIN_ROOT}/checklists/docs-claims.md`; `lode/review/` for docs/changelog if present | the PR body draft, if any |
+| `lode:gate-correctness`, second run | critical, and correctness is in `agents=` | `${CLAUDE_PLUGIN_ROOT}/checklists/state-and-concurrency.md` only, plus concurrency entries under Shapes in `lode/workflow.md` | the concurrency lens: "Walk the diff for concurrent actors only: two callers, a redelivered webhook, a sweep overlapping a user action, a row read outside its lock, a partial write. Report nothing else." |
 
-The hook `scripts/pre-agent-gate.sh` refuses a `lode:gate-*` spawn the ledger does not allow: no `begin` on this branch, no `round` yet, an agent outside the tier's set, a model override, or an agent already spawned as many times as the cap in this invocation (`gate-rules` runs every round, so its count is the round count; `gate-correctness` at critical gets twice the cap, it runs twice a round). A refusal names the limit and what to do; do not spawn around it.
+In-scope `lode/review/` means a file whose area `lode/lode-map.md` names for a changed path, or whose name is a prefix of a changed path. If the map resolves none, pass every `lode/review/*.md` (fail open).
+
+Prose-only means every changed path is `*.md`/`*.mdx`/`*.txt`/`*.rst`/`*.adoc`, `LICENSE*`/`CHANGELOG*`/`README*`, `.gitignore`/`.gitattributes`/`.editorconfig`/`.mailmap`, or under `lode/`, `docs/`, `.claude/`. Anything else (`.rb`, `.yml`, `Gemfile`, source) is not prose-only. The ledger is the authority; do not re-derive the list.
+
+At `light` a docs or lode PR is rules and claims, not a mutation worktree. At `critical` a source diff still gets a second correctness reviewer whose only lens is concurrency, because that is where money-path defects live and a general pass spreads its attention across everything else.
+
+The hook `scripts/pre-agent-gate.sh` refuses a `lode:gate-*` spawn the ledger does not allow: no `begin` on this branch, no `round` yet, an agent not in this round's `agents=` (or, on a 0.4 ledger with no `agents.N` key, an agent outside the tier's set), a model override, or an agent already spawned as many times as the cap in this invocation (`gate-rules` runs every round, so its count is the round count; `gate-correctness` at critical gets twice the cap, it runs twice a round). A refusal names the limit and what to do; do not spawn around it.
 
 Plugin agents register at session start. If `Agent` answers `Agent type 'lode:gate-…' not found` (the plugin was installed mid-session), spawn `general-purpose` instead and open the prompt with: "First read `${CLAUDE_PLUGIN_ROOT}/agents/<name>.md` and adopt it as your role, method and output format exactly." The result is the same agent; only the registration differs, and the hook cannot see it, so the cap above is yours to keep.
 
@@ -78,7 +84,7 @@ P3 findings: fix when the fix is a line or two, otherwise record them as deferre
 
 ## 4. Loop
 
-Run `gate-ledger.sh round` again — the delta is now the fix commits — and re-run only the agents whose findings were fixed, plus `gate-rules` always (a fix can break a rule). Stop when a round produces no confirmed P1 or P2, or when `round` refuses because the cap is reached: default 1 at `light`, 3 at `standard`, 5 at `critical`, or `--rounds N` from `$ARGUMENTS`.
+Run `gate-ledger.sh round` again — the delta is now the fix commits — and re-run only the agents whose findings were fixed **and** that appear in this round's `agents=`, plus `gate-rules` always when it does (a fix can break a rule). A docs-only fix does not re-spawn correctness. Stop when a round produces no confirmed P1 or P2, or when `round` refuses because the cap is reached: default 1 at `light`, 3 at `standard`, 5 at `critical`, or `--rounds N` from `$ARGUMENTS`.
 
 At the cap there are no more agents. If no confirmed P1 remains, every remaining confirmed P2 is **deferred**: listed in the report and the PR body under *Deferred at the round limit* with its file and failing case, so the human reviewer sees exactly what was left. A remaining confirmed P1 records no pass: report it and stop. Neither case is a reason to spawn another round.
 

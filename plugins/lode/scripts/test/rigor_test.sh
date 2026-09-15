@@ -602,7 +602,8 @@ err="$(cd "$REPO" && printf 'x\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; che
 # 25. round-5 gate findings
 make_repo template "$(cat "$HERE/../../templates/workflow.md")"
 err="$(cd "$REPO" && printf 'README.md\n' | bash "$RIGOR" --files 2>&1 >/dev/null)"; check "the shipped template makes no row-skipped note" no "$([[ "$err" == *"row skipped"* ]] && echo yes || echo no)"
-check "the shipped template classifies as its default" standard "$(tier_for_files "$REPO" README.md)"
+check "the shipped template classifies README.md as light" light "$(tier_for_files "$REPO" README.md)"
+check "the shipped template classifies source as its default" standard "$(tier_for_files "$REPO" lib/foo.rb)"
 make_repo pipeprose '## Rigor
 
 - Default: light | see the table
