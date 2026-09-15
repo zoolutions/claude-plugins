@@ -1,0 +1,19 @@
+plugins/lode/scripts/test/gate_ledger_test.sh
+  s_57b43dcf74d5ca::t_8c07234cde7a44 126-130,136,194-197,211-214,230-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d8d4c7530be28f37df270e38d9edba58009e31e2",
+  "prompts": {},
+  "sessions": {
+    "s_57b43dcf74d5ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "78ba8981-8de5-448c-8b15-a4d26ebdd2b0",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
