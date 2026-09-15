@@ -72,7 +72,13 @@ If the repo has an implementation workflow command (`/lfg` or similar), add one 
 
 The shared workflow skills (`/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, `/lode:debug-flaky`, `/lode:tdd`, `/lode:plan`) are one copy for every repository; `lode/workflow.md` is what makes them behave as if written for this one. Copy `${CLAUDE_PLUGIN_ROOT}/templates/workflow.md` to `lode/workflow.md` and fill every heading from three sources, in this order of authority: the code and config as they are (commands that exist, workflows that run), `CLAUDE.md` and `.claude/rules/*.md`, and any local `.claude/commands/{lfg,github-review-pr,github-review-failures,github-review-comments,finish-prs,debug-flaky,tdd,plan}.md` — those carry the repo's constraint tables, shape lists, conflict rules and CI quirks, and this is where they move to. Keep every heading even when its body is "none". Run each command under Commands once to prove it exists. Do not copy a rule that `.claude/rules` already states; link it.
 
-**Rigor** is the one heading the code cannot answer. Write `Default: standard` and an empty path table unless the user has stated a tier, and list "Rigor: set the default and name the money paths" as a maintainer decision in the PR body. A repo that leaves it at `standard` gets the same review it got before this heading existed; only the gate report gains a Tier line.
+**Rigor** is the one heading the code cannot answer. Write `Default: standard` and this light row unless the user has stated a table:
+
+```
+| `docs/`, `lode/`, `.claude/`, `*.md`, `.gitignore` | light |
+```
+
+One unlisted file raises the whole diff to the default, so a two-line `.gitignore` comment on an otherwise-docs PR is `standard` unless `.gitignore` is in that row. List "Rigor: name the money paths" as a maintainer decision in the PR body. A repo that leaves the default at `standard` still skips idle agents: a lode PR is rules and claims, not a mutation worktree.
 
 Leave the local commands in place. The plugin's skills read the profile; the repository's own `.claude/commands/*.md` (and anything that embeds or points at them — a parallel tooling directory such as `.grok/`, a README table, a skill's "see also" list) keep working exactly as before, so the maintainers can turn the plugin off (`enabledPlugins` in `.claude/settings.json`) and lose nothing until they choose otherwise. Add the `/lode:` names next to the local ones in `CLAUDE.md`'s command table rather than replacing rows, and say in the PR body that both exist and which is the fallback. Retiring the local copies is a separate PR the maintainers open once the plugin has earned it; do not delete, move or thin a local command here.
 
