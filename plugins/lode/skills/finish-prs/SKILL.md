@@ -75,9 +75,9 @@ If the merge conflicts, resolve **only** the files the profile's **Conflicts** t
 
 A pin-style file from **Conflicts** can drift out of sync with the base without ever conflicting (a release bumped the version; this branch is older). If this PR touches a path under **Docs** → *Files that pin a version and drift after a release*, compare the pin against the current version and regenerate it with the command named there if they differ, committing on this branch with a conventional message that says why (the frozen/pinned install fails otherwise, not "update lockfile").
 
-### 2c. Gate, then push
+### 2c. Gate a resolved conflict, then push
 
-The resolution in 2a is committed code nobody has reviewed. Run `/lode:gate` on the committed merge before any push — the push hook denies a push whose tree has no gate pass, and a gate fix is another commit, so gate last and push after.
+A merge that resolved a conflict is committed code nobody has reviewed: run `/lode:gate` on it before any push — in a worktree the gate has run in, its delta for a merge commit is what the merge did that its other side does not explain — the resolution, a one-sided resolution as the revert it is, an edit made inside the merge; in this fresh worktree it is the branch's first, full round — because the push hook denies a push whose tree has no gate pass, and a gate fix is another commit, so gate last and push after. A **clean merge-forward adds nothing to review**: commit it and neither gate nor push here. `/lode:review-pr`'s Phase A0 treats the unpushed merge commit as its own work item, gates it — the branch's one full-diff round in this worktree, which finish-prs used to buy on its own — and pushes; the phases after it review only their own deltas.
 
 ```bash
 git push origin <branch>
@@ -85,7 +85,7 @@ git push origin <branch>
 
 A merge commit needs no force. If a force is ever truly unavoidable, `--force-with-lease`, never bare `--force` — and only after confirming nobody else pushed to the branch since your fetch.
 
-At `light` (the profile's **Rigor** heading, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<default>` in the worktree, or `--tier` in `$ARGUMENTS`): commit the merge and neither gate nor push here. `/lode:review-pr` runs one gate and one push at the end of its pass, and that covers the merge commit; pass `--tier` and `--why` through to it when `$ARGUMENTS` carried them.
+At `light` (the profile's **Rigor** heading, resolved with `bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<default>` in the worktree, or `--tier` in `$ARGUMENTS`): a resolved conflict is also left here, committed and neither gated nor pushed. `/lode:review-pr` runs one gate and one push at the end of its pass, and that covers the merge commit; pass `--tier` and `--why` through to it when `$ARGUMENTS` carried them.
 
 ### 2d. Full review pass
 
@@ -142,6 +142,7 @@ Then: what the user does next (merge the ready ones, decide on `needs-user` item
 - **Never auto-resolve a conflict outside the profile's Conflicts table** — stop and ask.
 - **Never merge in default mode** — the user merges; you make ready and wait.
 - **Don't re-implement `/lode:review-pr`** — invoke it.
+- **Don't gate a clean merge** — a merge with nothing resolved has nothing to review; review-pr covers it.
 - **One stuck PR doesn't block the queue** — mark `needs-user`, continue, return to it in the final report.
 - **Never run two PRs' checks at once** when **CI** → *Shared or rate-limited services the checks hit* names one.
 - **Read every auto-resolved conflict** before pushing — the perl fast path is not a substitute for reading the result.

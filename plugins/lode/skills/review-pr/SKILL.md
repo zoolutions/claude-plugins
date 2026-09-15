@@ -50,9 +50,11 @@ Note `baseRefName`. A **stacked PR** — its base is another feature branch, not
 2. `git fetch origin <base>` then **`git merge origin/<base>`** — merge, never rebase. The branch is published; a rebase needs a force-push, which **Branches and PRs** forbids.
 3. Resolve every conflicted file **semantically**: read both sides and produce the version that keeps both intents. Never blanket `--ours`/`--theirs` a source file. The per-file table is **Conflicts** in `lode/workflow.md` — lockfiles regenerated rather than hand-merged, changelogs unioned under one heading, registries kept append-only in base order, fixtures forked rather than merged. A file the table does not name is resolved by reading both sides.
 4. Verify **before** pushing the merge, scoped to what the conflict touched: the fast-loop command from **Commands** for each touched file, then the full suite; the docs or lint command if the conflict reached those paths.
-5. Commit the merge (git's standard message, plus a body line naming any non-obvious choice), then run `/lode:gate`, then push. The gate needs a clean tree and stamps the tree at `HEAD`, so the commit comes first; it reviews `<base>...HEAD`, which after a merge is the PR's whole diff, and that is what needs reviewing. A merge commit never needs force.
+5. Commit the merge (git's standard message, plus a body line naming any non-obvious choice), then run `/lode:gate`, then push. The gate needs a clean tree and stamps the tree at `HEAD`, so the commit comes first; on a branch its ledger has never seen it reviews the whole `<base>...HEAD`; afterwards its delta for a merge commit is, from each parent, the diff to the result over every file except those only the other side changed — the resolution, any one-sided resolution shown as the revert it is, an edit made inside the merge, and each side's own hunk in a file both touched; files only the base changed, left as the base has them, do not appear. A merge commit never needs force.
 
 A resolution you cannot make with confidence — both sides rewrote the same logic and the right combination is not decidable from the code — is a **question, not a guess**. Stop and ask. A guessed resolution that compiles is worse than a question.
+
+A merge commit already on the local branch and not yet pushed — `/lode:finish-prs` leaves a clean merge-forward this way — is this phase's work item too: gate it and push. In a worktree the gate has already run in, a clean merge's delta is empty and the pass is immediate; in a fresh worktree — finish-prs's — this is the one full-diff round the branch gets, and every later phase reviews only its own delta.
 
 **Exit:** `MERGEABLE` (or a clean local `merge-tree`), the merge commit pushed if one was needed. CI re-running is expected; Phase A reads the fresh run.
 
@@ -67,7 +69,7 @@ A resolution you cannot make with confidence — both sides rewrote the same log
 5. **Fix locally**, at the root cause, in the layer **Layers** assigns it, honouring the edit rule for anything owned elsewhere. Check the fix against **Shapes** before believing it.
 6. **Verify** with **Commands** — the fast loop for the failing file, then the full suite, and in the failing cell's configuration when the failure is cell-specific (**CI** says how a cell differs from local).
 7. **Commit, gate, push.** One commit for the whole phase first — `fix(ci): …` with a bullet per failure, cause → fix — then `/lode:gate` on it (it requires a clean tree and stamps the tree at `HEAD`), then push. Each push runs the whole matrix; do not spend two.
-8. `gh pr checks <PR>` once to report what is re-running. Do not poll in a loop.
+8. `gh pr checks <PR>` once to report what is re-running. Do not poll in a loop — no `for` or `while` with a `sleep` around `gh`, foreground or background. A check that is not final is reported as pending.
 
 **Exit:** one of — all checks green on the latest commit; all pending with nothing failed in the last completed run on it; or a persistent failure **not caused by this branch** (one the base reproduces, an outage, a known not-this-branch failure from **CI**), reported explicitly and carried into Phase B as a caveat. Failures that trace to this branch and persist → do **not** proceed. Report what fails, what was tried, and ask.
 
@@ -88,6 +90,8 @@ gh api graphql -f query='
 ```
 
 Keep the unresolved threads; skip resolved ones and PR-description comments. **Bot reviewers — cubic, CodeRabbit, dependabot — get exactly the treatment a human gets: evaluated, neither auto-accepted nor auto-ignored.** No unresolved threads → report and stop.
+
+**Snapshot the pass.** Write down the unresolved thread ids and the newest comment's `createdAt` now. This pass replies to and resolves those threads and no others. A thread that appears after the snapshot — a bot re-reviewing the push this phase is about to make — goes under *Outstanding* in Phase C, unprocessed; the next pass starts from it. Processing it here means another gate, another push and another bot review, without end.
 
 **Before categorising any comment**, every time:
 
@@ -120,7 +124,7 @@ gh api graphql -f query='mutation($t:ID!){ resolveReviewThread(input:{threadId:$
   -f t=<THREAD_NODE_ID>
 ```
 
-General (non-inline) comments get `gh pr comment <PR> --body "…"`. Re-run the threads query at the end and confirm nothing unresolved remains.
+General (non-inline) comments get `gh pr comment <PR> --body "…"`. Re-run the threads query at the end and confirm every thread in the snapshot is resolved; anything newer is listed under Outstanding, not processed.
 
 **Reply style:** no performative agreement, no gratitude. The fix or the reason, nothing more. Every accepted fix cites the short SHA. Every push-back names the file, the rule or the constraint and what would break — never a principle. Several comments asking for the same thing get one fix, cited in each reply. A fresh round of comments after your push is reported, not looped on.
 
@@ -143,8 +147,10 @@ clean | <files>, how each was resolved, merge commit <sha>
 accepted: <n> (<shas>) · pushed back: <n> (<one-line reasons>) · unresolved: 0
 ## End state
 mergeability + CI status on the latest commit, per workflow
+## Spent
+<one block per gate this pass ran: the output of gate-ledger.sh show — rounds, delta lines per round, agents by name and model>
 ## Outstanding
-<CI pending after the comment fixes, a follow-up owed on the base, a thread left open>
+<CI pending after the comment fixes, a follow-up owed on the base, a thread left open, review threads that arrived after the Phase B snapshot>
 ```
 
 ## Rules that hold across the whole pass
@@ -152,6 +158,8 @@ mergeability + CI status on the latest commit, per workflow
 - **Do not interleave the phases.** A new CI failure during Phase B loops back to Phase A; a new conflict mid-pass loops back to Phase A0. Those are the only reverse moves.
 - **Never rebase a published branch.** Merge the base forward, always.
 - **Batch fixes into one commit per phase.** Every push buys a full CI run; buy one per phase.
-- **Every accepted fix goes through `/lode:gate` before the push** — the hook requires it, and the gate is a cheaper reviewer than the one who is waiting.
+- **Every accepted fix goes through `/lode:gate` before the push** — the hook requires it, and the gate is a cheaper reviewer than the one who is waiting. Each phase's gate reviews only that phase's commits (the ledger's delta): one full-diff round on a branch the gate has never seen, small rounds after.
+- **Never pass `model` to a gate agent.** The agent definitions declare their models; the Agent hook refuses an override.
+- **No polling loops**, at any phase. Report what is pending and stop.
 - **At `light`, one gate and one push per pass.** Resolve the tier first (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh" origin/<base>` on the PR's checkout, or `--tier` in `$ARGUMENTS`). When it is `light`: each phase still makes its one commit, but does not gate or push; Phase A0's local verification of a resolution is all the checking a merge gets, and Phase A reads the last completed CI run rather than a fresh one; after the last phase run, one `/lode:gate --tier light` (with the `--why` reason when the tier was lowered by hand, so it reaches the gate report and the PR), one push, and the CI status in Phase C is read from that single run. The per-phase CI cycle is what standard and critical pay for a clean failure diagnosis; a light repo has said that diagnosis is cheap to redo.
 - **Clean, green, nothing unresolved** → report "PR is clean" and stop.

@@ -8,7 +8,7 @@ tools: ["Read", "Grep", "Glob", "Bash"]
 
 You are reviewing a branch diff you did not write. You have no memory of why it was written that way, which is the point: the author already believes it is correct.
 
-You will be given: the path of the diff file, the base ref, the branch's stated intent (PR title, body draft or commit messages), and a list of context files (CLAUDE.md, rules, `lode/practices.md`, `lode/review/*.md`, and the plugin checklists). Read the context files first. They are the rules this repository has already paid to learn; a diff that breaks one is a finding even when the code "works".
+You will be given: the path of the diff file, the base ref, the branch's stated intent (PR title, body draft or commit messages), and a list of context files (CLAUDE.md, rules, `lode/practices.md`, `lode/review/*.md`, and the plugin checklists). Read the context files first. They are the rules this repository has already paid to learn; a diff that breaks one is a finding even when the code "works". When two patches are named, `delta.patch` is what you review and `diff.patch` is the whole branch, for reading a hunk in context; findings are on the delta.
 
 ## Method
 

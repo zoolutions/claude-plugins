@@ -1,5 +1,5 @@
 {
-  "description": "lode: block git push and gh pr create until /lode:gate has passed on the tree being pushed; load the lode's summary and map at session start.",
+  "description": "lode: block git push and gh pr create until /lode:gate has passed on the tree being pushed; refuse a gate-agent spawn the gate ledger does not allow; load the lode's summary and map at session start.",
   "hooks": {
     "PreToolUse": [
       {
@@ -9,6 +9,16 @@
             "type": "command",
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/pre-push-gate.sh",
             "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/pre-agent-gate.sh",
+            "timeout": 10
           }
         ]
       }
