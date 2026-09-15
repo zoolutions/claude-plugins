@@ -191,14 +191,12 @@ round)
           if [[ -s "$DIR/merge-files" ]]; then
             files=()
             while IFS= read -r f; do files[${#files[@]}]="$f"; done < "$DIR/merge-files"
-            git --literal-pathspecs diff --no-color --no-ext-diff "$parent" "$c" -- "${files[@]}" > "$DIR/merge-hunks" || die "git diff $(git rev-parse --short "$parent")..$(git rev-parse --short "$c") failed; the merge delta cannot be built"
-            if [[ -s "$DIR/merge-hunks" ]]; then
-              printf '# merge %s against parent %s\n' "$(git rev-parse --short "$c")" "$(git rev-parse --short "$parent")" >> "$DIR/delta.patch"
-              cat "$DIR/merge-hunks" >> "$DIR/delta.patch"
-            fi
+            # every listed file differs from this parent, so the diff below is never empty
+            printf '# merge %s against parent %s\n' "$(git rev-parse --short "$c")" "$(git rev-parse --short "$parent")" >> "$DIR/delta.patch"
+            git --literal-pathspecs diff --no-color --no-ext-diff "$parent" "$c" -- "${files[@]}" >> "$DIR/delta.patch" || die "git diff $(git rev-parse --short "$parent")..$(git rev-parse --short "$c") failed; the merge delta cannot be built"
           fi
         done
-        rm -f "$DIR/side1" "$DIR/side2" "$DIR/only1" "$DIR/only2" "$DIR/changed" "$DIR/merge-files" "$DIR/merge-hunks"
+        rm -f "$DIR/side1" "$DIR/side2" "$DIR/only1" "$DIR/only2" "$DIR/changed" "$DIR/merge-files"
       else
         git show --format= --no-color --no-ext-diff --no-show-signature "$c" >> "$DIR/delta.patch"
       fi
