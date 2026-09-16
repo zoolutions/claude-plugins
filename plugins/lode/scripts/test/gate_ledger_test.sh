@@ -687,6 +687,9 @@ check "idle constraints.txt: a pin file is source" "gate-tests,gate-rules,gate-c
 feat_only backend/requirements-dev.txt 'x==1'
 bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle nested requirements: source at any depth" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+feat_only pkg/constraints-prod.txt 'x==1'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle nested constraints: source at any depth" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-binary
 printf '\000\001\002binary' > logo.png; G add -A && G commit -qm 'binary'
@@ -698,6 +701,33 @@ bash "$LEDGER" begin main >/dev/null 2>&1
 printf 'x\n' > "$(printf 'we\nird.rb')"; G add -A && G commit -qm 'newline name' 2>/dev/null
 bash "$LEDGER" round >/dev/null 2>"$TMP/err"; check "idle newline name: the round refuses loudly" 1 "$?"
 contains "idle newline name: the message is about the delta, not a merge" "the delta cannot be built" "$(cat "$TMP/err")"
+
+# --- classification on the rounds that are not a plain commit list --------------------------
+make_repo idle-merge-round
+feat_only lib/a.rb 'def a; 1; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G switch -q main; echo doc > README.md; mkdir -p lib; printf 'def a\n  2\nend\n' > lib/a.rb; G add -A && G commit -qm 'main: readme and a.rb'; G switch -q feat
+G merge -q --no-edit main >/dev/null 2>&1 || true
+printf 'def a; 3; end\n' > lib/a.rb; G add lib/a.rb && G commit -qm 'merge, resolved'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle merge round: the resolution's file classifies (source, no prose: README came from the base alone)" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+check "idle merge round: the merge diff carries a/ b/ prefixes" 1 "$( grep -q '^--- a/lib/a.rb' lode/tmp/gate/delta.patch && echo 1 || echo 0 )"
+
+make_repo idle-rewritten
+G config diff.noprefix true
+feat_only lib/a.rb 'def a; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G reset -q --hard main; echo '# notes' > notes.md; G add -A && G commit -qm 'rewritten to prose'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle rewritten branch: the full-diff fallback classifies the new content" "gate-rules,gate-claims" "$(field "$out" agents)"
+check "idle rewritten branch: the full diff carries a/ b/ prefixes under diff.noprefix" 1 "$( grep -q '^+++ b/notes.md' lode/tmp/gate/delta.patch && echo 1 || echo 0 )"
+
+make_repo idle-truncate
+feat_only lib/a.rb 'def a; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+echo '# notes' > notes.md; G add -A && G commit -qm 'prose only'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle truncation: round 2 classifies only its own commit, not round 1's source file" "gate-rules,gate-claims" "$(field "$out" agents)"
 
 make_repo idle-rename-across
 feat_only lib/a.rb 'def a; end'
@@ -714,7 +744,7 @@ out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle quoted rename: a prose rename with an edit is prose" "gate-rules,gate-claims" "$(field "$out" agents)"
 G mv 'anleitung-für.md' 'lib-ü.rb'; G commit -qm 'rename to a quoted source name'
 out=$(bash "$LEDGER" round 2>/dev/null)
-contains "idle quoted rename: a source name is a source path" "gate-correctness" "$(field "$out" agents)"
+check "idle quoted rename: the old prose name and the new source name both count" "gate-tests,gate-rules,gate-correctness,gate-claims" "$(field "$out" agents)"
 
 make_repo idle-mode
 feat_only bin/run 'echo hi'
