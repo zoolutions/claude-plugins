@@ -75,7 +75,7 @@ The shared workflow skills (`/lode:lfg`, `/lode:review-pr`, `/lode:finish-prs`, 
 **Rigor** is the one heading the code cannot answer. Write `Default: standard` and this light row unless the user has stated a table:
 
 ```
-| `docs/`, `lode/`, `.claude/`, `*.md`, `.gitignore` | light |
+| `docs/`, `lode/`, `.claude/rules/`, `.claude/commands/`, `.claude/references/`, `*.md`, `.gitignore` | light |
 ```
 
 One unlisted file raises the whole diff to the default, so a two-line `.gitignore` comment on an otherwise-docs PR is `standard` unless `.gitignore` is in that row. List "Rigor: name the money paths" as a maintainer decision in the PR body. A repo that leaves the default at `standard` still skips idle agents: a lode PR is rules and claims, not a mutation worktree.

@@ -22,10 +22,11 @@
 #       counted), tier=, cap=, agents= (the comma-separated names this round may spawn),
 #       same= (1 when delta.patch and diff.patch are byte-identical, else 0).
 #       agents= is the intersection of the tier's set with the lenses the delta has work
-#       for: rules on every non-empty delta; tests when a test path changed; parser when
-#       an added line looks like a regex or scanner; correctness when the delta is not
-#       prose-only (standard and critical); claims when the delta has prose (standard and
-#       critical, and also light — a docs or lode PR is what claims is for).
+#       for: rules on every non-empty delta (a rename-only delta included); tests unless the
+#       delta is prose-only (a source change with no test is exactly what its coverage audit
+#       reports); parser when an added line looks like a regex or scanner; correctness when
+#       the delta is not prose-only (standard and critical); claims when the delta has prose
+#       (standard and critical, and also light — a docs or lode PR is what claims is for).
 #       Fails (exit 1) when the base has no merge base with HEAD, so a shallow clone never
 #       reads as "nothing to review".
 #   gate-ledger.sh spawn <lode:gate-agent> [<model>]
@@ -119,7 +120,8 @@ is_prose_path() {
     LICENSE|LICENSE.*|COPYING|COPYING.*) return 0 ;;
     CHANGELOG|CHANGELOG.*|README|README.*) return 0 ;;
     .gitignore|.gitattributes|.editorconfig|.mailmap) return 0 ;;
-    lode|lode/*|docs|docs/*|.claude|.claude/*) return 0 ;;
+    lode|lode/*|docs|docs/*) return 0 ;;
+    .claude/rules/*|.claude/commands/*|.claude/references/*) return 0 ;;   # settings.json and hook scripts are not prose
   esac
   return 1
 }
@@ -131,9 +133,10 @@ is_test_path() {
   return 1
 }
 PARSE_RE='^\+.*(%r\{|/\\[A-Za-z]|=~|\.match\(|\.scan\(|StringScanner|\.split\(|Regexp|re\.compile|new RegExp)'
-# classify_agents <tier> — stdout is the comma-separated names this round may spawn, or empty
+# classify_agents <tier> <delta_lines> — stdout is the comma-separated names this round may spawn, or empty
 classify_agents() {
   local tier="$1" p has_test=0 has_prose=0 has_source=0 has_parse=0 any=0
+  [[ "${2:-0}" -gt 0 ]] && any=1   # a rename-only delta has hunk lines but no ---/+++ paths; rules still reads it
   local allow_corr=1 allow_claims=1 out=""
   delta_paths > "$DIR/delta-paths"
   while IFS= read -r p; do
@@ -147,7 +150,7 @@ classify_agents() {
   case "$tier" in
     light) allow_corr=0; allow_claims=0; [[ "$has_prose" == 1 ]] && allow_claims=1 ;;
   esac
-  if [[ "$has_test" == 1 ]]; then out=gate-tests; fi
+  if [[ "$has_test" == 1 || "$has_source" == 1 ]]; then out=gate-tests; fi   # not on a prose-only delta
   if [[ "$any" == 1 ]]; then if [[ -n "$out" ]]; then out="$out,gate-rules"; else out=gate-rules; fi; fi
   if [[ "$has_parse" == 1 ]]; then if [[ -n "$out" ]]; then out="$out,gate-parser"; else out=gate-parser; fi; fi
   if [[ "$has_source" == 1 && "$allow_corr" == 1 ]]; then if [[ -n "$out" ]]; then out="$out,gate-correctness"; else out=gate-correctness; fi; fi
@@ -267,7 +270,7 @@ round)
     done
   fi
   lines="$(grep -vc '^# merge ' "$DIR/delta.patch" || true)"   # hunk lines; the annotations are not reviewable content
-  agents="$(classify_agents "$tier")"
+  agents="$(classify_agents "$tier" "$lines")"
   same=0
   if cmp -s "$DIR/delta.patch" "$DIR/diff.patch"; then same=1; fi
   lset round "$next"; lset seen "$head"; lset "delta.$next" "$lines"; lset "kind.$next" "$kind"

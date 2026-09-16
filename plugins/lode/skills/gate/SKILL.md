@@ -45,7 +45,7 @@ Then one message, parallel `Agent` calls, one per name in `agents=`. Every agent
 
 | Agent (`subagent_type`) | When `agents=` includes it | Context files | Extra input |
 |---|---|---|---|
-| `lode:gate-tests` | a test path is in the delta | `${CLAUDE_PLUGIN_ROOT}/checklists/tests.md`; `lode/review/testing.md` if it exists | the single-file test command, the test directory names |
+| `lode:gate-tests` | the delta is not prose-only (a source change with no test is what its coverage audit reports) | `${CLAUDE_PLUGIN_ROOT}/checklists/tests.md`; `lode/review/testing.md` if it exists | the single-file test command, the test directory names |
 | `lode:gate-rules` | every non-empty delta | `CLAUDE.md`, `.claude/rules/*.md`, `lode/practices.md`, in-scope `lode/review/*.md` | |
 | `lode:gate-parser` | an added line looks like a regex or scanner | `${CLAUDE_PLUGIN_ROOT}/checklists/parsers.md` | |
 | `lode:gate-correctness` | standard/critical and the delta is not prose-only | `${CLAUDE_PLUGIN_ROOT}/checklists/error-handling.md`, `files-and-io.md`; in-scope `lode/review/*.md` | |
@@ -54,7 +54,7 @@ Then one message, parallel `Agent` calls, one per name in `agents=`. Every agent
 
 In-scope `lode/review/` means a file whose area `lode/lode-map.md` names for a changed path, or whose name is a prefix of a changed path. If the map resolves none, pass every `lode/review/*.md` (fail open).
 
-Prose-only means every changed path is `*.md`/`*.mdx`/`*.txt`/`*.rst`/`*.adoc`, `LICENSE*`/`CHANGELOG*`/`README*`, `.gitignore`/`.gitattributes`/`.editorconfig`/`.mailmap`, or under `lode/`, `docs/`, `.claude/`. Anything else (`.rb`, `.yml`, `Gemfile`, source) is not prose-only. The ledger is the authority; do not re-derive the list.
+Prose-only means every changed path is `*.md`/`*.mdx`/`*.txt`/`*.rst`/`*.adoc`, `LICENSE*`/`CHANGELOG*`/`README*`, `.gitignore`/`.gitattributes`/`.editorconfig`/`.mailmap`, or under `lode/`, `docs/`, `.claude/rules/`, `.claude/commands/`, `.claude/references/`. Anything else (`.rb`, `.yml`, `Gemfile`, `.claude/settings.json`, a hook script, source) is not prose-only. A rename-only delta has no changed paths but is not empty; rules still reads it. The ledger is the authority; do not re-derive the list.
 
 At `light` a docs or lode PR is rules and claims, not a mutation worktree. At `critical` a source diff still gets a second correctness reviewer whose only lens is concurrency, because that is where money-path defects live and a general pass spreads its attention across everything else.
 

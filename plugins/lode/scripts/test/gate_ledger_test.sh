@@ -481,20 +481,20 @@ feat_only app.rb 'puts :ok'
 bash "$LEDGER" begin main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle source: same=1 on a full round" 1 "$(field "$out" same)"
-check "idle source: agents" "gate-rules,gate-correctness" "$(field "$out" agents)"
-check "idle source: ledger stores agents.1" "gate-rules,gate-correctness" "$(ledger_get 'agents.1')"
+check "idle source: agents" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+check "idle source: ledger stores agents.1" "gate-tests,gate-rules,gate-correctness" "$(ledger_get 'agents.1')"
 check "idle source: rules allowed" 0 "$(spawn lode:gate-rules)"
 check "idle source: correctness allowed" 0 "$(spawn lode:gate-correctness)"
 check "idle source: opus override on correctness denied" 2 "$(spawn lode:gate-correctness opus)"
 contains "idle source: denial names sonnet" "sonnet" "$(spawn_err lode:gate-correctness opus)"
-check "idle source: tests denied" 2 "$(spawn lode:gate-tests)"
+check "idle source: tests allowed (a source change with no test is its coverage audit)" 0 "$(spawn lode:gate-tests)"
 check "idle source: claims denied" 2 "$(spawn lode:gate-claims)"
 check "idle source: parser denied" 2 "$(spawn lode:gate-parser)"
-contains "idle source: denial names this round's agents" "gate-rules,gate-correctness" "$(spawn_err lode:gate-tests)"
+contains "idle source: denial names this round's agents" "gate-tests,gate-rules,gate-correctness" "$(spawn_err lode:gate-claims)"
 echo 'puts :fix' > app.rb; G commit -qam 'fix: two'
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle source: same=0 on a later round" 0 "$(field "$out" same)"
-check "idle source: round 2 still source agents" "gate-rules,gate-correctness" "$(field "$out" agents)"
+check "idle source: round 2 still source agents" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-prose
 feat_only GUIDE.md '# hello'
@@ -519,10 +519,10 @@ make_repo idle-light-src light
 feat_only app.rb 'puts :ok'
 bash "$LEDGER" begin main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>/dev/null)
-check "idle light source: agents are rules only" "gate-rules" "$(field "$out" agents)"
+check "idle light source: agents are tests and rules" "gate-tests,gate-rules" "$(field "$out" agents)"
 check "idle light source: claims still denied (no prose)" 2 "$(spawn lode:gate-claims)"
 check "idle light source: correctness denied by tier" 2 "$(spawn lode:gate-correctness)"
-check "idle light source: tests denied" 2 "$(spawn lode:gate-tests)"
+check "idle light source: tests allowed" 0 "$(spawn lode:gate-tests)"
 
 make_repo idle-test
 feat_only test/foo_test.rb 'assert true'
@@ -536,14 +536,14 @@ make_repo idle-parse
 feat_only scan.rb 'x =~ /foo/'
 bash "$LEDGER" begin main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>/dev/null)
-check "idle parse: agents include parser" "gate-rules,gate-parser,gate-correctness" "$(field "$out" agents)"
+check "idle parse: agents include parser" "gate-tests,gate-rules,gate-parser,gate-correctness" "$(field "$out" agents)"
 check "idle parse: parser allowed" 0 "$(spawn lode:gate-parser)"
 
 make_repo idle-yml
 feat_only .github/ci.yml 'name: ci'
 bash "$LEDGER" begin main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>/dev/null)
-check "idle yaml: treated as source" "gate-rules,gate-correctness" "$(field "$out" agents)"
+check "idle yaml: treated as source" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-mixed
 G reset -q --hard main
@@ -552,7 +552,7 @@ printf '# doc\n' > GUIDE.md
 G add -A && G commit -qm 'feat: mixed'
 bash "$LEDGER" begin main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>/dev/null)
-check "idle mixed: rules, correctness, claims" "gate-rules,gate-correctness,gate-claims" "$(field "$out" agents)"
+check "idle mixed: tests, rules, correctness, claims" "gate-tests,gate-rules,gate-correctness,gate-claims" "$(field "$out" agents)"
 
 make_repo idle-gitignore
 G reset -q --hard main
@@ -591,6 +591,22 @@ bash "$LEDGER" begin main >/dev/null 2>&1
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle lode/: prose" "gate-rules,gate-claims" "$(field "$out" agents)"
 
+make_repo idle-rename
+mkdir -p lib; printf 'def a\n  1\nend\n' > lib/a.rb; G add -A && G commit -qm 'feat: a.rb'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G mv lib/a.rb lib/b.rb; G commit -qm 'rename only'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle rename: a rename-only delta is not empty" 1 "$( [[ "$(field "$out" delta_lines)" -gt 0 ]] && echo 1 || echo 0 )"
+check "idle rename: rules still reads it" "gate-rules" "$(field "$out" agents)"
+
+make_repo idle-claude
+mkdir -p .claude/rules .claude/hooks; echo '# rule' > .claude/rules/x.md; G add -A && G commit -qm 'rule'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle .claude/rules: prose" "gate-rules,gate-claims" "$(field "$out" agents)"
+echo '{"hooks":{"PreToolUse":[]}}' > .claude/settings.json; printf '#!/bin/sh\nexit 0\n' > .claude/hooks/x.sh; G add -A && G commit -qm 'settings and a hook'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle .claude/settings.json and a hook script: source, so tests and correctness" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
 make_repo idle-spec-name
 feat_only lib/foo_test.rb 'assert true'
 bash "$LEDGER" begin main >/dev/null 2>&1
@@ -603,7 +619,7 @@ bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 echo 'x =~ /foo/' > scan.rb; G add -A && G commit -qm 'feat: parse later'
 out=$(bash "$LEDGER" round 2>/dev/null)
 contains "idle parser on the delta, not the whole branch" "gate-parser" "$(field "$out" agents)"
-check "idle parser round 1 did not keep parser on the ledger from round 1" "gate-rules,gate-correctness" "$(ledger_get 'agents.1')"
+check "idle parser round 1 did not keep parser on the ledger from round 1" "gate-tests,gate-rules,gate-correctness" "$(ledger_get 'agents.1')"
 
 echo; echo "$n cases, fail=$fail"
 exit $fail

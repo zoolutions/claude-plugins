@@ -96,6 +96,6 @@ How much review a change here buys. `critical` is a money path: every gate agent
 | Paths | Tier |
 |---|---|
 | `<e.g. app/services/ledger/**, config/routes.rb>` | critical |
-| `docs/`, `lode/`, `.claude/`, `*.md`, `.gitignore` | light |
+| `docs/`, `lode/`, `.claude/rules/`, `.claude/commands/`, `.claude/references/`, `*.md`, `.gitignore` | light |
 
 A file no rule names counts as the default; **one unlisted file raises the whole diff to the default.** The diff takes the highest tier over its files. A rule is a bash pattern against the repo-relative path: `*` spans `/`, `**/` is zero or more directory levels, `[...]` is a character class (write a literal bracket as `\[id\]`), the extglob forms `?(…)`, `*(…)`, `+(…)`, `@(…)` and `!(…)` work with a single alternative, a leading `./` or `/` is ignored, and a rule with no pattern characters is an exact path. A rule ending in `/` or `**/`, or naming a directory that exists, is a prefix; `/`, `.`, `**` or `**/` alone is everything. Several patterns in one cell are comma-separated, so a pattern cannot contain a comma or a `|`. Fenced code blocks and HTML comments are skipped. A row whose tier cell is empty or not one of the three words is skipped with a note. `${CLAUDE_PLUGIN_ROOT}/scripts/rigor.sh` prints the tier; `--tier <t>` on a skill overrides it, and lowering needs a stated reason.
