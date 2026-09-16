@@ -104,50 +104,39 @@ agents_summary() { # "gate-rules x3 (sonnet), gate-tests x1 (sonnet)"
     split($2, a, ":"); s = a[1] " x" $1; if (a[2] != "") s = s " (" a[2] ")";
     out = (out == "" ? s : out ", " s) } END { printf "%s", out }'
 }
-# Paths in delta.patch, from the `diff --git a/X b/Y` line every file section starts with
-# (the prefixes are forced above, so a user's diff.noprefix cannot remove them). Both sides
-# are listed, so a rename names old and new. A quoted form ("a/my file" "b/my file") is
-# unquoted; an unquoted path has no space, so the first " b/" splits the pair. A content
-# line that happens to begin "--- a/" (an SQL comment) is not a header and is not read.
-# Classify from this round's delta, not the whole branch.
-delta_paths() {
-  {
-    sed -n 's|^diff --git "a/\(.*\)" "b/\(.*\)"$|\1\
-\2|p' "$DIR/delta.patch"
-    sed -n 's|^diff --git a/\(.*\) b/\(.*\)$|\1 b/\2|p' "$DIR/delta.patch" | grep -v '^"' | sed 's| b/.*$||'
-    sed -n 's|^diff --git a/\(.*\) b/\(.*\)$|\1 b/\2|p' "$DIR/delta.patch" | grep -v '^"' | sed 's|^.* b/||'
-  } | grep -v '^$' | LC_ALL=C sort -u
-}
+# The delta's paths are written to $DIR/delta-paths by `round` as it builds delta.patch —
+# from git's own name lists (--no-renames, so a rename names old and new; a mode-only or
+# binary change is listed too) — never parsed back out of patch headers, whose quoting and
+# prefixes vary with the user's git config. Classify from this round's delta, not the branch.
 is_prose_path() {
   case "$1" in
-    CMakeLists.txt|requirements*.txt|constraints*.txt) return 1 ;;   # build and dependency manifests are source
+    CMakeLists.txt|*/CMakeLists.txt|requirements*.txt|*/requirements*.txt|constraints*.txt|*/constraints*.txt) return 1 ;;   # build and dependency manifests are source, at any depth
     *.md|*.mdx|*.txt|*.rst|*.adoc) return 0 ;;
     LICENSE|LICENSE.*|COPYING|COPYING.*) return 0 ;;
     CHANGELOG|CHANGELOG.*|README|README.*) return 0 ;;
     .gitignore|.gitattributes|.editorconfig|.mailmap) return 0 ;;
-    lode|lode/*|docs|docs/*) return 0 ;;   # under .claude/ only *.md is prose: settings.json and a hook script are source
+    lode|lode/*|docs|docs/*) return 0 ;;   # under .claude/ a file is prose by extension only: settings.json and a hook script are source
   esac
   return 1
 }
 # An added line that looks like a regex or a scanner. A miss here is a hook refusal of the
-# parser agent, so the net is wide: Ruby and JS regex calls, Python re, bash =~, sed, awk,
-# a case … in glob switch. A false hit costs one idle agent.
-PARSE_RE='^\+(.*(%r\{|/\\[A-Za-z]|=~|\.match\??\(|\.scan\(|\.g?sub!?\(/|StringScanner|\.split\(|Regexp|re\.(compile|match|search|sub)\(|new RegExp)|(.*[^A-Za-z0-9_])?(sed|awk)([^A-Za-z0-9_]|$)|[[:space:]]*case .* in$)'
+# parser agent, so the net is wide: Ruby, JS, Python, Go and Rust regex calls, a Ruby
+# `when /re/`, bash =~, grep -E/-P, sed/gsed, awk/gawk/mawk/nawk, a case … in switch (with
+# or without a trailing comment). A false hit — prose that mentions sed — costs one idle
+# agent; the +++ header line is excluded so a file named sed.md is not a hit.
+PARSE_RE='^\+(.*(%r\{|/\\[A-Za-z]|=~|\.(match|matchAll|test|exec|replace|scan|split|sub|gsub|sub!|gsub!)\??\(|StringScanner|Regexp|regexp\.|Regex::|re\.(compile|match|search|sub|findall|finditer|fullmatch|split)\(|new RegExp|when /|grep -[EP])|(.*[^A-Za-z0-9_])?(g?sed|[gmn]?awk)([^A-Za-z0-9_]|$)|[[:space:]]*case .* in([[:space:]]|$))'
 # classify_agents <tier> <delta_lines> — stdout is the comma-separated names this round may spawn, or empty
 classify_agents() {
-  local tier="$1" p paths=0 has_prose=0 has_source=0 has_parse=0 any=0
-  [[ "${2:-0}" -gt 0 ]] && any=1   # a rename-only delta has hunk lines but no ---/+++ paths; rules still reads it
+  local tier="$1" p has_prose=0 has_source=0 has_parse=0 any=0
+  [[ "${2:-0}" -gt 0 ]] && any=1   # any hunk at all is something for rules to read
   local allow_corr=1 allow_claims=1 out=""
-  delta_paths > "$DIR/delta-paths"
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
-    any=1; paths=$((paths + 1))
+    any=1
     if is_prose_path "$p"; then has_prose=1; else has_source=1; fi
-  done < "$DIR/delta-paths"
-  rm -f "$DIR/delta-paths"
-  # Hunks but no header the parser recognised: err toward source, never toward idle.
-  [[ "$any" == 1 && "$paths" == 0 && "$(grep -c '^@@' "$DIR/delta.patch" || true)" -gt 0 ]] && has_source=1
-  if grep -qE "$PARSE_RE" "$DIR/delta.patch" 2>/dev/null; then has_parse=1; any=1; fi
+  done < <(LC_ALL=C sort -u "$DIR/delta-paths" 2>/dev/null)
+  # added lines only: a "+++ b/docs/sed.md" header is not code
+  if grep -v '^+++ ' "$DIR/delta.patch" | grep -qE "$PARSE_RE" 2>/dev/null; then has_parse=1; any=1; fi
   case "$tier" in
     light) allow_corr=0; allow_claims=0; [[ "$has_prose" == 1 ]] && allow_claims=1 ;;
   esac
@@ -230,12 +219,14 @@ round)
   range="${base}...HEAD"; kind=full
   if [[ -z "$seen" ]]; then
     cp "$DIR/diff.patch" "$DIR/delta.patch"
+    name_list "$(git merge-base "$base" HEAD)" HEAD > "$DIR/delta-paths"
   elif ! git merge-base --is-ancestor "$seen" HEAD 2>/dev/null; then
     echo "gate-ledger: the last reviewed commit ${seen:0:12} is not an ancestor of HEAD (branch rewritten?): reviewing the full diff" >&2
     cp "$DIR/diff.patch" "$DIR/delta.patch"
+    name_list "$(git merge-base "$base" HEAD)" HEAD > "$DIR/delta-paths"
   else
     range="${seen}..HEAD"; kind=delta
-    : > "$DIR/delta.patch"
+    : > "$DIR/delta.patch"; : > "$DIR/delta-paths"
     for c in $(git rev-list --reverse "${seen}..HEAD" "^${base}"); do
       parents="$(git rev-list --parents -n 1 "$c" | cut -s -d' ' -f2-)"   # empty for a root commit
       if [[ "$parents" == *" "* ]]; then
@@ -256,6 +247,7 @@ round)
           if [[ "$parent" == "$p1" ]]; then excl="$DIR/only2"; else excl="$DIR/only1"; fi
           name_list "$parent" "$c" > "$DIR/changed"
           comm -23 "$DIR/changed" "$excl" > "$DIR/merge-files"
+          cat "$DIR/merge-files" >> "$DIR/delta-paths"
           if [[ -s "$DIR/merge-files" ]]; then
             files=()
             while IFS= read -r f; do files[${#files[@]}]="$f"; done < "$DIR/merge-files"
@@ -267,6 +259,7 @@ round)
         rm -f "$DIR/side1" "$DIR/side2" "$DIR/only1" "$DIR/only2" "$DIR/changed" "$DIR/merge-files"
       else
         git show --format= --no-color --no-ext-diff --no-show-signature --src-prefix=a/ --dst-prefix=b/ "$c" >> "$DIR/delta.patch"
+        name_list "$(git rev-parse -q --verify "$c^" 2>/dev/null || git hash-object -t tree /dev/null)" "$c" >> "$DIR/delta-paths"
       fi
     done
   fi

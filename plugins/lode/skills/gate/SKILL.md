@@ -54,7 +54,7 @@ Then one message, parallel `Agent` calls, one per name in `agents=`. Every agent
 
 In-scope `lode/review/` means a file whose area `lode/lode-map.md` names for a changed path, or whose name is a prefix of a changed path. If the map resolves none, pass every `lode/review/*.md` (fail open).
 
-Prose-only means every changed path is `*.md`/`*.mdx`/`*.txt`/`*.rst`/`*.adoc`, `LICENSE*`/`CHANGELOG*`/`README*`, `.gitignore`/`.gitattributes`/`.editorconfig`/`.mailmap`, or under `lode/` or `docs/`. Under `.claude/` only `*.md` is prose. Anything else (`.rb`, `.yml`, `Gemfile`, `requirements.txt`, `CMakeLists.txt`, `.claude/settings.json`, a hook script, source) is not prose-only. A rename-only delta has no changed paths but is not empty; rules still reads it. The ledger is the authority; do not re-derive the list.
+Prose-only means every changed path is `*.md`/`*.mdx`/`*.txt`/`*.rst`/`*.adoc`, `LICENSE*`/`CHANGELOG*`/`README*`, `.gitignore`/`.gitattributes`/`.editorconfig`/`.mailmap`, or under `lode/` or `docs/`. Under `.claude/` a file is prose by extension only. Anything else (`.rb`, `.yml`, `Gemfile`, `requirements.txt`, `CMakeLists.txt` at any depth, `.claude/settings.json`, a hook script, source) is not prose-only. The paths come from git's own name lists, so a rename names both files and a mode-only change counts; a renamed source file is a source delta. The ledger is the authority; do not re-derive the list.
 
 At `light` a docs or lode PR is rules and claims, not a mutation worktree. At `critical` a source diff still gets a second correctness reviewer whose only lens is concurrency, because that is where money-path defects live and a general pass spreads its attention across everything else.
 

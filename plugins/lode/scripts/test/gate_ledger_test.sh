@@ -638,10 +638,10 @@ check "idle sql comment: a removed line starting -- a/ is not a path" "gate-test
 make_repo idle-spacename
 feat_only 'my file.rb' 'x'
 bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
-check "idle quoted path: a path with a space is read from the quoted header" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+check "idle path with a space (git does not quote a space)" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-parse-forms
-for form in 'x.match?(/a/)' 'y.gsub(/a/, "b")' 'sed -n "s|a|b|p" f' "awk '{print \$1}' f" 'case "$1" in' 're.search(p, s)'; do
+for form in 'x.match?(/a/)' 'y.gsub(/a/, "b")' 'sed -n "s|a|b|p" f' "awk '{print \$1}' f" 'case "$1" in' 're.search(p, s)' 's.replace(/a/g, "b")' '/foo/.test(s)' 're.findall(p, s)' 'gsed -n p f' 'case "$1" in  # switch' 'when /foo/' 'grep -E "a|b" f' 'x = Regex::new(p)'; do
   feat_only lib/p.rb "$form"
   bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
   contains "idle parse forms: $form spawns the parser" "gate-parser" "$(field "$out" agents)"
@@ -651,6 +651,13 @@ make_repo idle-comma-name
 feat_only lib/a.rb 'def a; end'
 bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 check "idle comma name: lode:gate-tests,gate-rules is refused, not fail-open" 2 "$(spawn 'lode:gate-tests,gate-rules')"
+
+make_repo idle-parse-negatives
+for form in 'the hawk flew' 'we superseded it' 'in case you wonder, it ends in' 'used = 1'; do
+  feat_only lib/p.rb "$form"
+  bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+  lacks "idle parse negatives: $form is not a parser hit" "gate-parser" "$(field "$out" agents)"
+done
 
 make_repo idle-claude-hook
 mkdir -p .claude/rules; printf '#!/bin/sh\nexit 0\n' > .claude/rules/hook.sh; G add -A && G commit -qm 'a script under rules'
@@ -666,6 +673,33 @@ bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 G rm -q lib/gone.rb; G commit -qm 'delete'
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle deletion: a deleted source file is a source path" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-nested-manifest
+feat_only src/CMakeLists.txt 'add_executable(x x.c)'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle nested manifest: src/CMakeLists.txt is source" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-quoted-rename
+feat_only docs.md 'a doc'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G mv docs.md 'anleitung-für.md'; printf 'a doc\nmore\n' > 'anleitung-für.md'; G add -A && G commit -qm 'rename to a quoted name'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle quoted rename: a prose rename with an edit is prose" "gate-rules,gate-claims" "$(field "$out" agents)"
+G mv 'anleitung-für.md' 'lib-ü.rb'; G commit -qm 'rename to a quoted source name'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "idle quoted rename: a source name is a source path" "gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-mode
+feat_only bin/run 'echo hi'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+chmod +x bin/run; G add -A && G commit -qm 'mode only'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "idle mode-only: the path counts" "gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-sed-name
+feat_only docs/sed.md 'notes on stream editing'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+lacks "idle sed.md: a file name is not a parser hit" "gate-parser" "$(field "$out" agents)"
 
 make_repo idle-spec-name
 feat_only lib/foo_test.rb 'assert true'
