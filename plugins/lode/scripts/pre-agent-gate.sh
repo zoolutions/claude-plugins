@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # PreToolUse hook (matcher: Agent). Refuses a `lode:gate-*` spawn the gate ledger does not
-# allow: no ledger on this branch, no round run yet, an agent outside the tier's set, a model
+# allow: no ledger on this branch, no round run yet, an agent not in this round's agents=
+# (or, on a 0.4 ledger with no agents.N key, an agent outside the tier's set), a model
 # override on an agent whose definition declares one, or the per-agent cap (the tier's round
 # limit; twice that for gate-correctness at critical, which runs twice a round) already
 # reached. Every other Agent spawn is allowed untouched.

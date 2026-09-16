@@ -10,7 +10,7 @@
       "name": "lode",
       "source": "./plugins/lode",
       "description": "Per-repo memory (lode/), a pre-PR gate enforced by a push hook, and the shared workflows /lode:lfg, /lode:review-pr, /lode:finish-prs, /lode:debug-flaky, /lode:tdd and /lode:plan, which read lode/workflow.md so one copy serves every repository; its Rigor tier decides how much review the gate, lfg, review-pr, finish-prs and plan buy a change.",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "category": "productivity",
       "keywords": [
         "review",
