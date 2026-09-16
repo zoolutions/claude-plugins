@@ -617,6 +617,7 @@ check "idle noprefix: diff.noprefix does not blind the classifier" "gate-tests,g
 printf 'def a\n  2\nend\n' > lib/a.rb; G commit -qam 'change'
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle noprefix: nor on a later round" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+check "idle noprefix: the patch the agents read still carries a/ b/ prefixes" 1 "$( grep -q '^--- a/lib/a.rb' lode/tmp/gate/delta.patch && grep -q '^+++ b/lib/a.rb' lode/tmp/gate/delta.patch && echo 1 || echo 0 )"
 
 make_repo idle-prose-under-spec
 mkdir -p spec; echo '# how to run' > spec/README.md; G add -A && G commit -qm 'spec readme'
@@ -678,6 +679,16 @@ make_repo idle-nested-manifest
 feat_only src/CMakeLists.txt 'add_executable(x x.c)'
 bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle nested manifest: src/CMakeLists.txt is source" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+feat_only constraints.txt 'requests==2.32.0'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle constraints.txt: a pin file is source" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-rename-across
+feat_only lib/a.rb 'def a; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G mv lib/a.rb notes.md; G commit -qm 'source renamed to a prose name'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle rename across kinds: both names count, so source and prose lenses" "gate-tests,gate-rules,gate-correctness,gate-claims" "$(field "$out" agents)"
 
 make_repo idle-quoted-rename
 feat_only docs.md 'a doc'
