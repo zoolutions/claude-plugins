@@ -597,7 +597,8 @@ bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 G mv lib/a.rb lib/b.rb; G commit -qm 'rename only'
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle rename: a rename-only delta is not empty" 1 "$( [[ "$(field "$out" delta_lines)" -gt 0 ]] && echo 1 || echo 0 )"
-check "idle rename: rules still reads it" "gate-rules" "$(field "$out" agents)"
+contains "idle rename: rules still reads it" "gate-rules" "$(field "$out" agents)"
+contains "idle rename: the renamed source file is a source path" "gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-claude
 mkdir -p .claude/rules .claude/hooks; echo '# rule' > .claude/rules/x.md; G add -A && G commit -qm 'rule'
@@ -606,6 +607,61 @@ check "idle .claude/rules: prose" "gate-rules,gate-claims" "$(field "$out" agent
 echo '{"hooks":{"PreToolUse":[]}}' > .claude/settings.json; printf '#!/bin/sh\nexit 0\n' > .claude/hooks/x.sh; G add -A && G commit -qm 'settings and a hook'
 out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle .claude/settings.json and a hook script: source, so tests and correctness" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-noprefix
+G config diff.noprefix true
+feat_only lib/a.rb 'def a; 1; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle noprefix: diff.noprefix does not blind the classifier" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+printf 'def a\n  2\nend\n' > lib/a.rb; G commit -qam 'change'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle noprefix: nor on a later round" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-prose-under-spec
+mkdir -p spec; echo '# how to run' > spec/README.md; G add -A && G commit -qm 'spec readme'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle prose under spec/: no mutation worktree for markdown" "gate-rules,gate-claims" "$(field "$out" agents)"
+
+make_repo idle-manifest
+feat_only requirements.txt 'requests==2.32.0'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle requirements.txt: a manifest is source" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-sqlcomment
+printf -- 'select 1;\n-- a/README.md\n' > q.sql; G add -A && G commit -qm 'sql'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+printf -- 'select 1;\n' > q.sql; G commit -qam 'drop the comment'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle sql comment: a removed line starting -- a/ is not a path" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-spacename
+feat_only 'my file.rb' 'x'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle quoted path: a path with a space is read from the quoted header" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-parse-forms
+for form in 'x.match?(/a/)' 'y.gsub(/a/, "b")' 'sed -n "s|a|b|p" f' "awk '{print \$1}' f" 'case "$1" in' 're.search(p, s)'; do
+  feat_only lib/p.rb "$form"
+  bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+  contains "idle parse forms: $form spawns the parser" "gate-parser" "$(field "$out" agents)"
+done
+
+make_repo idle-comma-name
+feat_only lib/a.rb 'def a; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+check "idle comma name: lode:gate-tests,gate-rules is refused, not fail-open" 2 "$(spawn 'lode:gate-tests,gate-rules')"
+
+make_repo idle-claude-hook
+mkdir -p .claude/rules; printf '#!/bin/sh\nexit 0\n' > .claude/rules/hook.sh; G add -A && G commit -qm 'a script under rules'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+contains "idle .claude/rules/hook.sh: a script under rules is source" "gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-deletion
+feat_only lib/gone.rb 'def gone; end'
+bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
+G rm -q lib/gone.rb; G commit -qm 'delete'
+out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle deletion: a deleted source file is a source path" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-spec-name
 feat_only lib/foo_test.rb 'assert true'

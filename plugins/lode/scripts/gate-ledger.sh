@@ -22,7 +22,7 @@
 #       counted), tier=, cap=, agents= (the comma-separated names this round may spawn),
 #       same= (1 when delta.patch and diff.patch are byte-identical, else 0).
 #       agents= is the intersection of the tier's set with the lenses the delta has work
-#       for: rules on every non-empty delta (a rename-only delta included); tests unless the
+#       for: rules on every non-empty delta; tests unless the
 #       delta is prose-only (a source change with no test is exactly what its coverage audit
 #       reports); parser when an added line looks like a regex or scanner; correctness when
 #       the delta is not prose-only (standard and critical); claims when the delta has prose
@@ -60,7 +60,7 @@ DIR="$ROOT/lode/tmp/gate"
 LEDGER="$DIR/ledger"
 MARKER="$ROOT/lode/tmp/gate-passed"
 AGENTS_DIR="${LODE_AGENTS_DIR:-$HERE/../agents}"
-GIT_DIFF="git diff --no-color --no-ext-diff"
+GIT_DIFF="git diff --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/"   # a user's diff.noprefix must not blind the path parser
 
 die() { echo "gate-ledger: $1" >&2; exit 1; }
 refuse() { echo "$1" >&2; exit 3; }   # a policy refusal; the hook denies only on 3
@@ -104,53 +104,54 @@ agents_summary() { # "gate-rules x3 (sonnet), gate-tests x1 (sonnet)"
     split($2, a, ":"); s = a[1] " x" $1; if (a[2] != "") s = s " (" a[2] ")";
     out = (out == "" ? s : out ", " s) } END { printf "%s", out }'
 }
-# Paths in delta.patch: --- a/foo / +++ b/foo, quoted when git quotes them. /dev/null is a
-# creation or deletion, not a path. Classify from this round's delta, not the whole branch.
+# Paths in delta.patch, from the `diff --git a/X b/Y` line every file section starts with
+# (the prefixes are forced above, so a user's diff.noprefix cannot remove them). Both sides
+# are listed, so a rename names old and new. A quoted form ("a/my file" "b/my file") is
+# unquoted; an unquoted path has no space, so the first " b/" splits the pair. A content
+# line that happens to begin "--- a/" (an SQL comment) is not a header and is not read.
+# Classify from this round's delta, not the whole branch.
 delta_paths() {
-  sed -n \
-    -e 's|^--- a/||p' \
-    -e 's|^+++ b/||p' \
-    -e 's|^--- "a/\(.*\)"$|\1|p' \
-    -e 's|^+++ "b/\(.*\)"$|\1|p' \
-    "$DIR/delta.patch" | sed 's/	.*$//' | grep -vx '/dev/null' | grep -v '^$' | LC_ALL=C sort -u
+  {
+    sed -n 's|^diff --git "a/\(.*\)" "b/\(.*\)"$|\1\
+\2|p' "$DIR/delta.patch"
+    sed -n 's|^diff --git a/\(.*\) b/\(.*\)$|\1 b/\2|p' "$DIR/delta.patch" | grep -v '^"' | sed 's| b/.*$||'
+    sed -n 's|^diff --git a/\(.*\) b/\(.*\)$|\1 b/\2|p' "$DIR/delta.patch" | grep -v '^"' | sed 's|^.* b/||'
+  } | grep -v '^$' | LC_ALL=C sort -u
 }
 is_prose_path() {
   case "$1" in
+    CMakeLists.txt|requirements*.txt|constraints*.txt) return 1 ;;   # build and dependency manifests are source
     *.md|*.mdx|*.txt|*.rst|*.adoc) return 0 ;;
     LICENSE|LICENSE.*|COPYING|COPYING.*) return 0 ;;
     CHANGELOG|CHANGELOG.*|README|README.*) return 0 ;;
     .gitignore|.gitattributes|.editorconfig|.mailmap) return 0 ;;
-    lode|lode/*|docs|docs/*) return 0 ;;
-    .claude/rules/*|.claude/commands/*|.claude/references/*) return 0 ;;   # settings.json and hook scripts are not prose
+    lode|lode/*|docs|docs/*) return 0 ;;   # under .claude/ only *.md is prose: settings.json and a hook script are source
   esac
   return 1
 }
-is_test_path() {
-  case "$1" in
-    test/*|*/test/*|spec/*|*/spec/*|tests/*|*/tests/*|features/*|*/features/*) return 0 ;;
-    *_test.*|*_spec.*|*.test.*|*.spec.*) return 0 ;;
-  esac
-  return 1
-}
-PARSE_RE='^\+.*(%r\{|/\\[A-Za-z]|=~|\.match\(|\.scan\(|StringScanner|\.split\(|Regexp|re\.compile|new RegExp)'
+# An added line that looks like a regex or a scanner. A miss here is a hook refusal of the
+# parser agent, so the net is wide: Ruby and JS regex calls, Python re, bash =~, sed, awk,
+# a case … in glob switch. A false hit costs one idle agent.
+PARSE_RE='^\+(.*(%r\{|/\\[A-Za-z]|=~|\.match\??\(|\.scan\(|\.g?sub!?\(/|StringScanner|\.split\(|Regexp|re\.(compile|match|search|sub)\(|new RegExp)|(.*[^A-Za-z0-9_])?(sed|awk)([^A-Za-z0-9_]|$)|[[:space:]]*case .* in$)'
 # classify_agents <tier> <delta_lines> — stdout is the comma-separated names this round may spawn, or empty
 classify_agents() {
-  local tier="$1" p has_test=0 has_prose=0 has_source=0 has_parse=0 any=0
+  local tier="$1" p paths=0 has_prose=0 has_source=0 has_parse=0 any=0
   [[ "${2:-0}" -gt 0 ]] && any=1   # a rename-only delta has hunk lines but no ---/+++ paths; rules still reads it
   local allow_corr=1 allow_claims=1 out=""
   delta_paths > "$DIR/delta-paths"
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
-    any=1
-    is_test_path "$p" && has_test=1
+    any=1; paths=$((paths + 1))
     if is_prose_path "$p"; then has_prose=1; else has_source=1; fi
   done < "$DIR/delta-paths"
   rm -f "$DIR/delta-paths"
+  # Hunks but no header the parser recognised: err toward source, never toward idle.
+  [[ "$any" == 1 && "$paths" == 0 && "$(grep -c '^@@' "$DIR/delta.patch" || true)" -gt 0 ]] && has_source=1
   if grep -qE "$PARSE_RE" "$DIR/delta.patch" 2>/dev/null; then has_parse=1; any=1; fi
   case "$tier" in
     light) allow_corr=0; allow_claims=0; [[ "$has_prose" == 1 ]] && allow_claims=1 ;;
   esac
-  if [[ "$has_test" == 1 || "$has_source" == 1 ]]; then out=gate-tests; fi   # not on a prose-only delta
+  if [[ "$has_source" == 1 ]]; then out=gate-tests; fi   # not on a prose-only delta, even one under spec/
   if [[ "$any" == 1 ]]; then if [[ -n "$out" ]]; then out="$out,gate-rules"; else out=gate-rules; fi; fi
   if [[ "$has_parse" == 1 ]]; then if [[ -n "$out" ]]; then out="$out,gate-parser"; else out=gate-parser; fi; fi
   if [[ "$has_source" == 1 && "$allow_corr" == 1 ]]; then if [[ -n "$out" ]]; then out="$out,gate-correctness"; else out=gate-correctness; fi; fi
@@ -260,12 +261,12 @@ round)
             while IFS= read -r f; do files[${#files[@]}]="$f"; done < "$DIR/merge-files"
             # every listed file differs from this parent, so the diff below is never empty
             printf '# merge %s against parent %s\n' "$(git rev-parse --short "$c")" "$(git rev-parse --short "$parent")" >> "$DIR/delta.patch"
-            git --literal-pathspecs diff --no-color --no-ext-diff "$parent" "$c" -- "${files[@]}" >> "$DIR/delta.patch" || die "git diff $(git rev-parse --short "$parent")..$(git rev-parse --short "$c") failed; the merge delta cannot be built"
+            git --literal-pathspecs diff --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$parent" "$c" -- "${files[@]}" >> "$DIR/delta.patch" || die "git diff $(git rev-parse --short "$parent")..$(git rev-parse --short "$c") failed; the merge delta cannot be built"
           fi
         done
         rm -f "$DIR/side1" "$DIR/side2" "$DIR/only1" "$DIR/only2" "$DIR/changed" "$DIR/merge-files"
       else
-        git show --format= --no-color --no-ext-diff --no-show-signature "$c" >> "$DIR/delta.patch"
+        git show --format= --no-color --no-ext-diff --no-show-signature --src-prefix=a/ --dst-prefix=b/ "$c" >> "$DIR/delta.patch"
       fi
     done
   fi
@@ -291,7 +292,7 @@ spawn)
   in_set=0
   if grep -q "^agents\\.$round=" "$LEDGER"; then
     round_agents="$(lget "agents.$round")"
-    case ",$round_agents," in *",$name,"*) in_set=1 ;; esac
+    for a in ${round_agents//,/ }; do [[ "$a" == "$name" ]] && in_set=1; done
     [[ "$in_set" == 1 ]] || refuse "$name is not in this round's agents ($round_agents)"
   else
     set_="$(tier_set "$tier")"
