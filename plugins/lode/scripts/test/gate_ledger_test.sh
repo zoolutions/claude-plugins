@@ -642,7 +642,9 @@ bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/nul
 check "idle path with a space (git does not quote a space)" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-parse-forms
-for form in 'x.match?(/a/)' 'y.gsub(/a/, "b")' 'sed -n "s|a|b|p" f' "awk '{print \$1}' f" 'case "$1" in' 're.search(p, s)' 's.replace(/a/g, "b")' '/foo/.test(s)' 're.findall(p, s)' 'gsed -n p f' 'case "$1" in  # switch' 'when /foo/' 'grep -E "a|b" f' 'x = Regex::new(p)'; do
+for form in 'x.match?(/a/)' 'y.gsub(/a/, "b")' 'sed -n "s|a|b|p" f' "awk '{print \$1}' f" 'case "$1" in' 're.search(p, s)' 's.replace(/a/g, "b")' '/foo/.test(s)' 're.findall(p, s)' 'gsed -n p f' 'case "$1" in  # switch' 'when /foo/' 'grep -E "a|b" f' 'x = Regex::new(p)' \
+  'PATTERN = /^\s*#/' 's[/foo/]' 's !~ /x/' 's.scan /x/' '%r[foo]' 'RegExp("x")' 'str.replaceAll(/x/g, "")' '  in /^\d+$/ then' 'grep -qE "^x" f' 'egrep "x" f' \
+  'preg_match("/x/", $s)' 'Pattern.compile("x")' '~r/foo/' 'm.exec(s)' 'for (const x of s.matchAll(/a/g))' 're.finditer(p, s)' 're.fullmatch(p, s)' 'grep -oP "x" f' "mawk '{print}' f" 'regexp.MustCompile(p)' 'if line =~ /^#/' 'StringScanner.new(s)' 'new RegExp("x")' ' sed -i "s/a/b/" f'; do
   feat_only lib/p.rb "$form"
   bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
   contains "idle parse forms: $form spawns the parser" "gate-parser" "$(field "$out" agents)"
@@ -654,7 +656,7 @@ bash "$LEDGER" begin main >/dev/null 2>&1; bash "$LEDGER" round >/dev/null 2>&1
 check "idle comma name: lode:gate-tests,gate-rules is refused, not fail-open" 2 "$(spawn 'lode:gate-tests,gate-rules')"
 
 make_repo idle-parse-negatives
-for form in 'the hawk flew' 'we superseded it' 'in case you wonder, it ends in' 'used = 1'; do
+for form in 'the hawk flew' 'we superseded it' 'in case you wonder, it ends in' 'used = 1' 'a sedan parsed the road' 'SED = 1' 'half of 1/2 and 3/4' 'x = a / b / c'; do
   feat_only lib/p.rb "$form"
   bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
   lacks "idle parse negatives: $form is not a parser hit" "gate-parser" "$(field "$out" agents)"
@@ -682,6 +684,20 @@ check "idle nested manifest: src/CMakeLists.txt is source" "gate-tests,gate-rule
 feat_only constraints.txt 'requests==2.32.0'
 bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle constraints.txt: a pin file is source" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+feat_only backend/requirements-dev.txt 'x==1'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+check "idle nested requirements: source at any depth" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-binary
+printf '\000\001\002binary' > logo.png; G add -A && G commit -qm 'binary'
+bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
+contains "idle binary: a binary file is listed and is source" "gate-correctness" "$(field "$out" agents)"
+
+make_repo idle-newline-name
+bash "$LEDGER" begin main >/dev/null 2>&1
+printf 'x\n' > "$(printf 'we\nird.rb')"; G add -A && G commit -qm 'newline name' 2>/dev/null
+bash "$LEDGER" round >/dev/null 2>"$TMP/err"; check "idle newline name: the round refuses loudly" 1 "$?"
+contains "idle newline name: the message is about the delta, not a merge" "the delta cannot be built" "$(cat "$TMP/err")"
 
 make_repo idle-rename-across
 feat_only lib/a.rb 'def a; end'

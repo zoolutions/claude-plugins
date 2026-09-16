@@ -8,7 +8,8 @@
 #       this branch reviewed. Prints tier=, cap=, invocation=, base=.
 #   gate-ledger.sh round
 #       Before a fan-out. Refuses past the cap. Writes lode/tmp/gate/diff.patch (the whole
-#       <base>...HEAD, context) and lode/tmp/gate/delta.patch (what the agents review): the
+#       <base>...HEAD, context), lode/tmp/gate/delta-paths (the delta's files, one per line,
+#       from git's name lists) and lode/tmp/gate/delta.patch (what the agents review): the
 #       full diff the first time a branch is seen, afterwards only what the branch added since
 #       the last round: each non-merge commit's own diff, and for a merge commit the diff from
 #       each parent to the merge result over every file except those only the other side
@@ -95,7 +96,7 @@ name_list() { # name_list <a> <b> — the files that differ, one per line, sorte
   z="$($GIT_DIFF --name-only --no-renames -z "$1" "$2" | tr -dc '\0' | wc -c | tr -d ' ')"
   $GIT_DIFF --name-only --no-renames -z "$1" "$2" | tr '\0' '\n' > "$DIR/names"
   n="$(wc -l < "$DIR/names" | tr -d ' ')"
-  [[ "$n" == "$z" ]] || die "a file name between $1 and $2 contains a newline; the merge delta cannot be built"
+  [[ "$n" == "$z" ]] || die "a file name between $(git rev-parse --short "$1" 2>/dev/null || echo "$1") and $(git rev-parse --short "$2" 2>/dev/null || echo "$2") contains a newline; the delta cannot be built"
   LC_ALL=C sort "$DIR/names"; rm -f "$DIR/names"
 }
 agents_summary() { # "gate-rules x3 (sonnet), gate-tests x1 (sonnet)"
@@ -120,11 +121,13 @@ is_prose_path() {
   return 1
 }
 # An added line that looks like a regex or a scanner. A miss here is a hook refusal of the
-# parser agent, so the net is wide: Ruby, JS, Python, Go and Rust regex calls, a Ruby
-# `when /re/`, bash =~, grep -E/-P, sed/gsed, awk/gawk/mawk/nawk, a case … in switch (with
-# or without a trailing comment). A false hit — prose that mentions sed — costs one idle
-# agent; the +++ header line is excluded so a file named sed.md is not a hit.
-PARSE_RE='^\+(.*(%r\{|/\\[A-Za-z]|=~|\.(match|matchAll|test|exec|replace|scan|split|sub|gsub|sub!|gsub!)\??\(|StringScanner|Regexp|regexp\.|Regex::|re\.(compile|match|search|sub|findall|finditer|fullmatch|split)\(|new RegExp|when /|grep -[EP])|(.*[^A-Za-z0-9_])?(g?sed|[gmn]?awk)([^A-Za-z0-9_]|$)|[[:space:]]*case .* in([[:space:]]|$))'
+# parser agent, so the net is wide: a /…/ literal with an escape anywhere inside, `= /…/`,
+# `s[/…/]`, =~ and !~, %r with any delimiter, Ruby/JS/Python/Go/Rust/PHP/Java/C#/Elixir
+# regex calls, `when /re/` and Ruby 3 `in /re/`, grep -E/-P with combined flags, egrep,
+# sed/gsed, awk/gawk/mawk/nawk, a case … in switch (with or without a trailing comment).
+# A false hit — prose that mentions sed, a path after "in" — costs one idle agent; the
+# +++ file header is excluded so a file named sed.md is not a hit.
+PARSE_RE='^\+(.*(%r[^A-Za-z0-9_[:space:]]|/[^/[:space:]]*\\[A-Za-z]|=~|!~|= /[^/]+/|\[/[^/]+/\]|\.(match|matchAll|test|exec|replace|replaceAll|search|scan|split|sub|gsub|sub!|gsub!|matches)\??\(|StringScanner|Regexp|RegExp\(|regexp\.|Regex::|new Regex\(|Pattern\.compile\(|preg_[a-z_]+\(|~r/|Regex\.(run|match|scan|replace)\(|re\.(compile|match|search|sub|findall|finditer|fullmatch|split)\(|new RegExp|when /|in /|grep -[A-Za-z]*[EP]|egrep)|(.*[^A-Za-z0-9_])?(scan|match) /|(.*[^A-Za-z0-9_])?(g?sed|[gmn]?awk)([^A-Za-z0-9_]|$)|[[:space:]]*case .* in([[:space:]]|$))'
 # classify_agents <tier> <delta_lines> — stdout is the comma-separated names this round may spawn, or empty
 classify_agents() {
   local tier="$1" p has_prose=0 has_source=0 has_parse=0 any=0
@@ -136,7 +139,7 @@ classify_agents() {
     if is_prose_path "$p"; then has_prose=1; else has_source=1; fi
   done < <(LC_ALL=C sort -u "$DIR/delta-paths" 2>/dev/null)
   # added lines only: a "+++ b/docs/sed.md" header is not code
-  if grep -v '^+++ ' "$DIR/delta.patch" | grep -qE "$PARSE_RE" 2>/dev/null; then has_parse=1; any=1; fi
+  if grep -vE '^\+\+\+ ([ab]/|/dev/null)' "$DIR/delta.patch" | grep -qE "$PARSE_RE" 2>/dev/null; then has_parse=1; any=1; fi
   case "$tier" in
     light) allow_corr=0; allow_claims=0; [[ "$has_prose" == 1 ]] && allow_claims=1 ;;
   esac
