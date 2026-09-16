@@ -483,6 +483,7 @@ out=$(bash "$LEDGER" round 2>/dev/null)
 check "idle source: same=1 on a full round" 1 "$(field "$out" same)"
 check "idle source: agents" "gate-tests,gate-rules,gate-correctness" "$(field "$out" agents)"
 check "idle source: ledger stores agents.1" "gate-tests,gate-rules,gate-correctness" "$(ledger_get 'agents.1')"
+check "idle source: ledger stores same.1" 1 "$(ledger_get 'same.1')"
 check "idle source: rules allowed" 0 "$(spawn lode:gate-rules)"
 check "idle source: correctness allowed" 0 "$(spawn lode:gate-correctness)"
 check "idle source: opus override on correctness denied" 2 "$(spawn lode:gate-correctness opus)"
@@ -655,6 +656,9 @@ make_repo idle-claude-hook
 mkdir -p .claude/rules; printf '#!/bin/sh\nexit 0\n' > .claude/rules/hook.sh; G add -A && G commit -qm 'a script under rules'
 bash "$LEDGER" begin main >/dev/null 2>&1; out=$(bash "$LEDGER" round 2>/dev/null)
 contains "idle .claude/rules/hook.sh: a script under rules is source" "gate-correctness" "$(field "$out" agents)"
+mkdir -p .claude/commands; printf 'run the thing\n' > .claude/commands/run; G add -A && G commit -qm 'a command file with no extension'
+out=$(bash "$LEDGER" round 2>/dev/null)
+contains "idle .claude/commands/run: no extension under .claude is source" "gate-correctness" "$(field "$out" agents)"
 
 make_repo idle-deletion
 feat_only lib/gone.rb 'def gone; end'
