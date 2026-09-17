@@ -10,3 +10,4 @@ Accepted findings in several repositories.
 - **Test fakes mirror production conversions.** A fake `dom_id`, a fake clock, a fake stream helper must produce the same keys production produces, or the test proves nothing about coalescing, ordering or identity.
 - **Fixtures fork; they do not mutate.** A test needing a different shape of an existing fixture adds a new fixture named for the shape.
 - **Isolation.** Anything that writes takes a path inside a `Dir.mktmpdir`; anything that sets a class-level accessor restores it in `ensure`.
+- **A display override's test covers every surface that formats the underlying fields.** When a new method replaces a raw value on the visitor's side (a label over a date range, a display name over an email), enumerate the surfaces by grepping the raw fields, not the helper the override wraps: the pages that never called the helper are the ones that keep printing the raw value under the new one.
