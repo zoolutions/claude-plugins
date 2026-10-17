@@ -38,12 +38,24 @@ After the workspace trust prompt Claude Code clones the marketplace and installs
 carry no `version`, so every commit to `main` is the release. By hand:
 `claude plugin update flow@zoolutions`.
 
-## Try it on one machine
+## Set up a machine (once)
+
+The trust prompt installs only in a folder that was not trusted yet. A checkout trusted before, and
+every new worktree path, reports the plugin as "enabled in project settings but isn't installed".
+Install all three once, at user scope:
 
 ```bash
-claude plugin marketplace add zoolutions/claude-plugins
-claude plugin install flow@zoolutions
+claude plugin marketplace add zoolutions/claude-plugins   # skip if `claude plugin marketplace list` has it
+claude plugin install flow@zoolutions --scope user
+claude plugin install rails-app@zoolutions --scope user
+claude plugin install ruby-gem@zoolutions --scope user
 ```
+
+`install --scope user` also writes `"<plugin>@zoolutions": true` to `~/.claude/settings.json` →
+`enabledPlugins`, which turns the plugin on in every repository. Delete those three keys. Don't set
+them to `false`: a repository that enables the plugin loads it anyway and warns on every load. With
+no user-level key, a plugin installed at user scope stays off until a repository's
+`.claude/settings.json` enables it. A running session picks it up with `/reload-plugins`.
 
 ## Changing a plugin
 
