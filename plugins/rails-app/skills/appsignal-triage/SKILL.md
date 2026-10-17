@@ -2,7 +2,7 @@
 name: appsignal-triage
 description: Scan AppSignal for open exception incidents across the app's environments and turn each unique error class into one GitHub issue, deduped against existing issues. Use to build a triage backlog before working through it with /rails-app:appsignal-debug.
 argument-hint: "blank (production) | staging | all | <environment> | a number of days to look back (default 30)"
-allowed-tools: Bash(*), Read, Grep, Glob, mcp__appsignal__get_exception_incidents, mcp__appsignal__get_incident, mcp__appsignal__get_applications
+allowed-tools: Bash(*), Read, Write, Grep, Glob, mcp__appsignal__get_exception_incidents, mcp__appsignal__get_incident, mcp__appsignal__get_applications
 model: sonnet
 ---
 
