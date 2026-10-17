@@ -118,7 +118,8 @@ this repository, its product, its customers or its domain.
    - **The fix, upstream:** `--unattended` (an agent under `/flow:follow-through`): do not start it —
      return `{repo, issue, adoption}`; the orchestrator runs it (its Phase 1.4). Interactive: spawn one
      `opus` agent in the library's checkout (`<parent of this repo's root>/<repo name>`, cloned with
-     `gh repo clone` if missing), `description: "upstream <repo>#<n>"`: run the library's
+     `gh repo clone` if missing), `description: "upstream <repo>#<n>"`: `cd <absolute library path>`
+     in every Bash call, `-R <owner/repo>` on every `gh` call, the library's own AGENTS.md; run its
      `/flow:follow-through <n>`, then its Workflow → Release as a patch; report the version. Tell the
      user it is running and where.
 9. **Hand off:** the upstream link, the adoption issue, the proposed API in two sentences, the

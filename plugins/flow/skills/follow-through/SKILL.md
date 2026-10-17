@@ -136,7 +136,7 @@ what isolates your worktree (databases, ports, a dev server); respect it.
    --body-file <file>): nobody reads this session before the merge.
 3. Phase 8 is /flow:finish-prs <PR> automerge. You have no ScheduleWakeup: wait with
    gh pr checks <PR> --watch --fail-fast (and gh run watch for a merge queue), per its Phase 3.
-4. A library limitation goes through /flow:plan upstream <owner/repo> <limitation> in unattended mode:
+4. A library limitation goes through /flow:plan upstream <owner/repo> <limitation> --unattended:
    it files the upstream issue and the adoption issue and returns their numbers. Keep the workaround,
    link both in the PR, and add them to your final JSON. Do not implement the library fix yourself.
 5. Never ask a question or offer a choice. A finding, failing check, queue eviction or validator note
@@ -173,7 +173,10 @@ Then the next wave, until nothing is runnable.
 For each `{repo, issue, adoption}` an agent reported (a `zoolutions/*` library): the library's local
 checkout is `<parent of this repo's root>/<repo name>` (clone with `gh repo clone <repo> <path>` if
 missing). Spawn one `opus` agent there, `description: "upstream <repo>#<issue>"`, brief: work only in
-that checkout; run its `/flow:follow-through <issue>` (it has the flow plugin like every repository);
+that checkout — `cd <absolute library path>` in every Bash call (the shell's directory resets
+between calls, and `{owner}/{repo}` resolves from it), pass `-R <owner/repo>` to every `gh` call, and
+read `<absolute library path>/AGENTS.md`, never this repository's; run its
+`/flow:follow-through <issue>` (it has the flow plugin like every repository);
 once merged, cut a patch release with the library's Workflow → Release (`/ruby-gem:release patch` for
 a gem); final message one JSON object `{"repo", "issue", "pr", "state": "released"|"needs-user",
 "version", "reason"}`. Never spawn two for the same issue.
