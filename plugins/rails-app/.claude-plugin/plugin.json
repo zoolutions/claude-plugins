@@ -1,0 +1,20 @@
+{
+  "name": "rails-app",
+  "description": "Layer specialists for Rails applications (models, controllers, views, interactivity, services, jobs, database, security, i18n, mailers, tests, architect) plus AppSignal triage and debugging. Each skill reads the app's facts from AGENTS.md → Workflow instead of being copied into every repository.",
+  "author": {
+    "name": "Zoolutions"
+  },
+  "homepage": "https://github.com/zoolutions/claude-plugins",
+  "repository": "https://github.com/zoolutions/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "rails",
+    "phlex",
+    "phlex-reactive",
+    "rspec",
+    "migrations",
+    "security",
+    "appsignal",
+    "specialists"
+  ]
+}
