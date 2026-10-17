@@ -147,7 +147,9 @@ rebuttal in the PR body.
   - *queue*: `gh pr merge <PR> --match-head-commit <headRefOid>` — no strategy flag, no
     `--delete-branch`. If gh reports it **enabled auto-merge** instead of queueing, a required check
     had not passed: `gh pr merge <PR> --disable-auto` and back to 2d. Then follow the queue (Phase 3).
-  - Never `--admin` (it bypasses the gate and any queue), never `--auto` (it waits only for required
+  - Never `--admin` (it bypasses a queue and every protection) unless Workflow → Merge names it as
+    the fallback for a protection the gate already covers (e.g. a required approval), and then only
+    after gates 1–6 hold and the plain merge was refused for that protection alone. Never `--auto` (it waits only for required
     checks). Judge a merge by `gh pr view <PR> --json state,mergeCommit`, never by gh's exit code
     (inside a worktree gh may fail to switch the local branch after a successful merge).
 - **Default:** report ✅ merge-ready with the URL and a one-line "what's in it", then wait (Phase 3).
@@ -205,6 +207,6 @@ Then what the user must do next.
 ## Never
 
 - Rebase or force-push a PR branch; sync a branch checked out in the user's tree.
-- Merge in default mode; merge on a `COMMENTED` cubic review; `--admin`; `--auto`.
+- Merge in default mode; merge on a `COMMENTED` cubic review; `--auto`; `--admin` beyond Workflow → Merge.
 - Re-implement `/flow:github-review-pr`, `-failures` or `-comments`: invoke them.
 - Let one stuck PR block the rest.

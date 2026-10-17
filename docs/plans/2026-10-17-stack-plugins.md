@@ -54,7 +54,7 @@ drifted from it). Target: under 1.5 KB. Each line is a fact, true of the tree as
 - **Specs:** fast loop `<cmd> <file>`; full suite `<cmd>`; two worktrees at once: <yes | how to isolate>
 - **CI:** required `<check>`; jobs `<names>`; full suite on <the PR | the merge queue>; failure report `<marker or none>`
 - **Review bot:** cubic | coderabbit | none
-- **Merge:** queue — `gh pr merge <PR> --match-head-commit <sha>` | squash — `gh pr merge <PR> --squash --delete-branch`
+- **Merge:** queue — `gh pr merge <PR> --match-head-commit <sha>` | squash — `gh pr merge <PR> --squash --delete-branch`; optional fallback after the gate: `--admin` for <the protection the gate covers>
 - **PR contract:** <required body sections, labels rule, screenshots rule>
 - **Conflicts:** `<file>` — <rule>; …
 - **Worktree setup:** <commands, or none>

@@ -32,7 +32,7 @@ label means "none". Keep it true of the tree; keep it short.
 - **Specs:** fast loop `<cmd> <file>`; full suite `<cmd>`; two worktrees at once: <yes | how>
 - **CI:** required `<check>`; jobs `<names>`; full suite on <the PR | the merge queue>; failure report <marker | none>
 - **Review bot:** cubic | coderabbit | none
-- **Merge:** queue — `gh pr merge <PR> --match-head-commit <sha>` | squash — `gh pr merge <PR> --squash --delete-branch`
+- **Merge:** queue — `gh pr merge <PR> --match-head-commit <sha>` | squash — `gh pr merge <PR> --squash --delete-branch`; optional fallback after the gate: `--admin` for <the protection the gate covers>
 - **PR contract:** <required body sections in order, label rule, screenshots rule>
 - **Conflicts:** `<file>` — <rule>; …
 - **Worktree setup:** <commands with <N> = issue or PR number, and how to undo them | none>
