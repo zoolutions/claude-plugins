@@ -38,7 +38,8 @@ lockfile or version bump alone), or already has your comment ending `Reviewed at
 - The rule files: `AGENTS.md` and `CLAUDE.md` at the root and in every ancestor directory of a changed
   file, and the files they import (`@path`).
 - The review bot's threads on this PR (Workflow → Review bot): what it already raised is not repeated.
-- A file at the PR's head: `git fetch origin pull/<PR>/head`, then `git show FETCH_HEAD:<path>`.
+- A file at the PR's head: `git fetch https://github.com/<owner>/<repo> pull/<PR>/head` (the PR's own
+  repository, not this checkout's `origin`), then `git show FETCH_HEAD:<path>`.
 - A five-line summary of the change, for the reviewers.
 
 ## 3. Five reviewers, in parallel
@@ -68,7 +69,7 @@ found it. It gets the PR, the issue and the rule files, and returns 0–100:
 - **0** — a false positive, does not survive scrutiny, or pre-existing.
 - **25** — might be real; or a style point no rule file names.
 - **50** — real, but minor relative to the PR.
-- **75** — double-checked and very likely real; it changes behaviour, or a rule file names it.
+- **80** — double-checked and very likely real; it changes behaviour, or a rule file names it.
 - **100** — certain, and it will happen in practice; the evidence confirms it.
 
 A written-rule issue scores 0 unless the scorer quotes the rule text that names it.

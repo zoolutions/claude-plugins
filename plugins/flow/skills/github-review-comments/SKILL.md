@@ -21,17 +21,19 @@ Confirm with `gh pr view <PR> --json title,state,url`.
 
 ```bash
 gh api graphql -F owner='{owner}' -F repo='{repo}' -F pr=<PR> -f query='
-  query($owner: String!, $repo: String!, $pr: Int!) {
+  query($owner: String!, $repo: String!, $pr: Int!, $cursor: String) {
     repository(owner: $owner, name: $repo) { pullRequest(number: $pr) {
-      reviewThreads(first: 100) { nodes {
+      reviewThreads(first: 100, after: $cursor) { pageInfo { hasNextPage endCursor } nodes {
         id isResolved path line
-        comments(first: 20) { nodes { databaseId body author { login } createdAt } }
+        comments(last: 20) { nodes { databaseId body author { login } createdAt } }
       } }
     } }
   }'
 ```
 
-Keep the unresolved ones (page with `after:` past 100). Skip `dependabot`. **Bot threads are review
+Keep the unresolved ones; while `pageInfo.hasNextPage`, run it again with `-F cursor=<endCursor>`
+(`comments(last: 20)` keeps each thread's newest replies). A `dependabot` thread is informational:
+resolve it after checking it asks for nothing, so the zero-thread check holds. **Bot threads are review
 threads**: a cubic (`cubic-dev-ai`) or CodeRabbit (`coderabbitai`) thread is treated exactly like a
 human's — a bot approves only once every issue it raised is fixed or answered, and a ruleset may
 refuse to merge with any thread open.
@@ -44,7 +46,9 @@ it, just resolve it. Its `review` block says whether cubic has seen the latest p
 still running, say the list may be incomplete.
 
 **CodeRabbit** also lists findings in its latest review body ("Nitpick comments", "Outside diff
-range"), with no thread. They are findings too: fix or answer them in one PR comment.
+range"), with no thread. Read it — `gh api 'repos/{owner}/{repo}/pulls/<PR>/reviews' --paginate --jq
+'[.[] | select(.user.login | startswith("coderabbitai"))] | last | .body'` — those are findings too: fix
+or answer them in one PR comment.
 
 No unresolved thread and no body findings → report it and stop.
 

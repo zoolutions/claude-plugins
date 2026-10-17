@@ -49,20 +49,23 @@ tenant tags seen on samples. Sort by total, show the top 20:
 | # | Error class | Total | Environments (count) | Namespace | Last seen |
 |---|---|---|---|---|---|
 
-Ask: *"Create issues for which? (`1-10`, `all`, `1,3,5`, `skip`)"*. Create nothing until answered.
+Ask: *"Create issues for which? (`1-20`, `all`, `1,3,5`, `skip`)"*. Create nothing until answered.
 
 ## Phase 4: Dedupe
 
 ```bash
 gh search issues --repo "$(gh repo view --json nameWithOwner --jq .nameWithOwner)" \
-  --state open --match title "<ErrorClass>" --json number,title,labels,url --limit 5
+  --state open --match title '<ErrorClass>' --json number,title,labels,url --limit 5
 ```
-Quote the class (it contains `::`). Exact `[AppSignal]` title → update (5b). The class in an issue
+`<ErrorClass>` is incident data: use it only if it matches `\A[A-Z]\w*(::[A-Z]\w*)*\z`, and only
+inside single quotes (double quotes would run a `$(…)` hidden in it). Exact `[AppSignal]` title → update (5b). The class in an issue
 without the prefix → show it and ask: comment there, or a separate tracked issue. No match → create.
 
 ## Phase 5a: Create
 
-Title: `[AppSignal] <ErrorClass>: <message, 80 chars max>`. Body over stdin (`--body-file -`):
+Title: `[AppSignal] <ErrorClass>: <message, 80 chars max>`, passed as a single-quoted argument with every
+`'` in the message replaced (the message is incident data, never shell text). Body over stdin
+(`--body-file -`, written with a quoted heredoc):
 summary (class, first/last seen, total), a per-environment table (environment, count, namespace,
 incident URL), tenants seen (or "unknown"), the sample message in a code block, and
 `Run /rails-app:appsignal-debug <primary incident URL>`.

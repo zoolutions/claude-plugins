@@ -34,7 +34,7 @@ tenant root (Workflow → Tenant) and authorizes with Workflow → Authorization
 | XSS | `html_safe`/`raw`/`unsafe_raw`/`<%==` on user data; `link_to` with a user URL (`javascript:` is a valid scheme); `simple_format(...).html_safe` | auto-escaping; `sanitize` with an allowlist; URL validated to `http`/`https` on the model |
 | Mass assignment | `permit!`; permitting role, owner, tenant FK, status, balance, verified flags | explicit `permit` of user-editable fields |
 | Dangerous dispatch | `send`/`public_send`/`constantize`/`safe_constantize` on params or stored user data | allowlist constant, then dispatch |
-| Code / deserialization | `eval`; `Marshal.load` of anything external; `YAML.load` on untrusted input; `symbolize_keys`/`to_sym` on unbounded input | JSON; `YAML.safe_load` |
+| Code / deserialization | `eval`; `Marshal.load` of anything external; `YAML.load` on untrusted input | JSON; `YAML.safe_load` |
 | Command injection | backticks, `system("… #{x}")`, `%x{}`, `IO.popen`, `Open3` with interpolation | array form: `system("cmd", arg1, arg2)` |
 | Files | no type/size check; user filename in a path (`../`); public storage without access control | content-type + size validation, generated names, signed or authorized URLs |
 | SSRF | fetching a user-supplied URL server-side | allowlisted hosts, or don't fetch |

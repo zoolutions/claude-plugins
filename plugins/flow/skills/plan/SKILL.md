@@ -15,7 +15,7 @@ above all.
 
 | `$ARGUMENTS` starts with | Artifact |
 |---|---|
-| `issue` or anything else | a GitHub issue |
+| `issue`, or anything not starting with `md`, `file` or `upstream` | a GitHub issue |
 | `md` / `file` | `docs/plans/YYYY-MM-DD-<slug>.md` (date from `date +%F`), left uncommitted |
 | `upstream <owner/repo>` | an issue on that library's tracker — **Upstream mode** replaces Phases 1–5 |
 
@@ -103,7 +103,9 @@ this repository, its product, its customers or its domain.
    Reproduction, Observed / Expected, Proposed API, Implementation notes, Acceptance criteria,
    Workaround today.
 6. **Scrub.** Read it as a stranger: if it tells them what this repository builds, rewrite it. Then
-   run the scrub Workflow → Upstream names (a denylist matcher); it must print nothing.
+   run the scrub Workflow → Upstream names (a denylist matcher); it must print nothing. A scrub of
+   `none` is valid only in a public repository (nothing private to leak); a private repository
+   without one stops at the draft and reports its path.
 7. **Emit.**
    - **A library we own** (Workflow → Upstream lists the owners, e.g. `zoolutions/*`): file it,
      `gh issue create -R <owner/repo> --title … --body-file <draft>`, with labels that exist there

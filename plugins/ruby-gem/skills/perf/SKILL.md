@@ -8,6 +8,8 @@ model: sonnet
 
 # Perf: $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 Measure, don't guess. **Read the repository first:** `AGENTS.md` → `## Workflow` → **Bench** names the
 bench command (full and one), the doc that lists the hot paths, and what CI holds (e.g. allocations
 against a committed baseline). `none` → there is no suite: use a scratch script (step 3).
@@ -42,14 +44,17 @@ results: three runs per tree, report the middle one. Then
 `git worktree remove --force .claude/worktrees/perf-main`.
 
 **No suite.** A scratch script, never committed, run in both trees (`bin/rails runner` for an engine's
-dummy app): per operation, wall time over N iterations and allocations from
-`GC.stat(:total_allocated_objects)` with GC disabled around the loop. Measure a cached and a cold path
+dummy app): per operation, wall time over N iterations and allocations from the
+`GC.stat(:total_allocated_objects)` delta around the loop; retained objects separately: `GC.start`
+before and after N operations, then compare `ObjectSpace.count_objects` (or `memory_profiler`'s
+retained report) — allocation counts never show retention. Measure a cached and a cold path
 separately when there is a cache.
 
 ## 4. Report honestly
 
-- Time (i/s or µs/call with its ±) **and** allocations (objects/call, retained). Retained > 0 per
-  operation after warm-up is a leak: name it.
+- Time (i/s or µs/call with its ±) **and** allocations (objects/call, retained). Retention that keeps growing
+  across repeated runs after warm-up, with no cache or memo to explain it, is a leak: name it. A
+  bounded cache or a memoised value retains by design.
 - A delta inside the ± (or inside the spread of the three runs) is "within noise".
 - Say what level the number describes: one method, or a whole render, request or job. A 2× faster
   method is not a 2× faster system when I/O dominates it.

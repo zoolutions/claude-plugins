@@ -14,8 +14,9 @@ missing label means "none". Write the model spec first (/flow:tdd). Query speed 
 ## Migrations
 
 - Generate them: `bin/rails g migration AddFooToBars foo:string`. Never type a filename with a round
-  time (`…0000`, `…1500`, `…3000`, `…4500`): two branches cut the same day land on one version, and
-  once one is applied `db:migrate` silently skips the other. Writing the file yourself: version from
+  time (`…0000`, `…1500`, `…3000`, `…4500`): two branches cut the same day land on one version: in one
+  tree `db:migrate` raises `DuplicateMigrationVersionError`, and where one branch's migration already
+  ran, the other is treated as applied and silently skipped. Writing the file yourself: version from
   `date -u +%Y%m%d%H%M%S`. Before merge, confirm main has no file with that version:
   `git ls-tree --name-only origin/main db/migrate/ | grep <version>`.
 - Run up, down, up locally. The `db/schema.rb` diff holds only what you meant.
@@ -28,7 +29,7 @@ missing label means "none". Write the model spec first (/flow:tdd). Query speed 
 |---|---|---|
 | Index on an existing table | plain `add_index` | `disable_ddl_transaction!` + `algorithm: :concurrently`. Without the first, PG refuses: `CREATE INDEX CONCURRENTLY cannot run inside a transaction block` |
 | Unique index | build and hope | check for duplicates first; a failed concurrent build leaves an `INVALID` index, drop it before retrying |
-| Reference | `add_reference …, foreign_key: true` | `add_reference …, index: { algorithm: :concurrently }`; `add_foreign_key …, validate: false`; `validate_foreign_key` in a follow-up migration |
+| Reference | `add_reference …, foreign_key: true` | `disable_ddl_transaction!` + `add_reference …, index: { algorithm: :concurrently }`; `add_foreign_key …, validate: false`; `validate_foreign_key` in a follow-up migration |
 | NOT NULL on an existing column | `null: false` or `change_column_null` on a large table (ACCESS EXCLUSIVE + full scan) | add nullable → backfill in batches (a task or job, not the migration) → `add_check_constraint "col IS NOT NULL", validate: false` → `validate_check_constraint` → `change_column_null` (instant once a validated CHECK covers it) |
 | `change_column_null … validate: false` | does not exist | only `add_check_constraint` and `add_foreign_key` take `validate:` |
 | Volatile default (`now()`, `gen_random_uuid()`) on a big table | rewrites the table | constant default (metadata-only on PG 11+), or backfill |

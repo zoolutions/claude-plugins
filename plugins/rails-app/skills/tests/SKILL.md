@@ -54,7 +54,8 @@ on the bug.
 
 ## Coverage
 
-80% minimum; 100% for money, authorization, authentication and security-critical code.
+The bar AGENTS.md sets (Workflow → Specs); without one, every branch the change adds is covered. Always
+100% for money, authorization, authentication and security-critical code.
 
 ## Running
 

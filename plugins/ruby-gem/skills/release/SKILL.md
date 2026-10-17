@@ -8,6 +8,8 @@ model: opus
 
 # Release: $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 Ship what `main` holds. **Read the repository first:** `AGENTS.md` → `## Workflow` → **Release**
 names the release command, the changelog and its heading, prep commands, the lockfiles that pin the
 gem, the docs deploy and any human step. Verify, Merge and PR contract apply to the changelog PR. A
@@ -67,7 +69,9 @@ gem releases first (its own `/ruby-gem:release`), or `needs-user` naming it.
 
 ## Phase 3: Roll the changelog (a PR)
 
-`git switch -c release/v<X.Y.Z>` in the clone, then in `CHANGELOG.md`:
+`git switch -c release/v<X.Y.Z>` in the clone (resuming an open roll PR: `git fetch origin
+release/v<X.Y.Z>` and `git switch release/v<X.Y.Z>` instead, then continue where it stops), then in
+`CHANGELOG.md`:
 
 1. **Missed releases.** Every `v*` tag newer than the newest version heading gets its heading (date:
    `git log -1 --format=%cs <tag>`) with the bullets whose PR it shipped (`git tag --contains <merge
@@ -104,7 +108,9 @@ abort before anything is pushed: read the message, fix the cause, run again. A r
 
 ## Phase 5: Verify
 
-1. The publish: `gh run list --workflow release.yml --limit 1 --json databaseId,status,conclusion`, then
+1. The publish — this release's run, never just the latest: `gh run list --workflow release.yml
+   --limit 20 --json databaseId,headBranch,headSha,status,conclusion --jq '.[] | select(.headBranch ==
+   "v<X.Y.Z>" or .headSha == "<the tag's commit>")'` (none yet: it is still starting, ask again), then
    `gh run watch <id> --exit-status` (Bash timeout 600000; re-run until it finishes). A job waiting on
    an environment approval → `needs-user`.
 2. RubyGems: `curl -fsS https://rubygems.org/api/v2/rubygems/<gem>/versions/<X.Y.Z>.json` (the index

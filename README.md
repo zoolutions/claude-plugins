@@ -14,7 +14,7 @@ costs nothing until one of its skills is invoked.
 
 - `AGENTS.md` with a `## Workflow` section: the facts the `flow` skills act on, one line each —
   Verify, Specs, CI, Review bot, Merge, PR contract, Conflicts, Worktree setup, Release, Main health,
-  Upstream. Template and rules: [`docs/plans/2026-10-17-stack-plugins.md`](docs/plans/2026-10-17-stack-plugins.md).
+  Upstream, Bench, and Base when the default branch is not `main`. Template and rules: [`docs/plans/2026-10-17-stack-plugins.md`](docs/plans/2026-10-17-stack-plugins.md).
 - `CLAUDE.md` as a one-line `@AGENTS.md` import.
 - `.claude/settings.json` enabling `flow` and its stack plugin.
 - Only the commands that are truly its own.
@@ -29,7 +29,7 @@ costs nothing until one of its skills is invoked.
       "autoUpdate": true
     }
   },
-  "enabledPlugins": { "flow@zoolutions": true, "rails-app@zoolutions": true }
+  "enabledPlugins": { "flow@zoolutions": true, "<stack plugin: rails-app or ruby-gem>@zoolutions": true }
 }
 ```
 

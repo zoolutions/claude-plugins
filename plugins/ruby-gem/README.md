@@ -1,7 +1,7 @@
 # ruby-gem
 
-For the zoolutions Ruby libraries, next to `flow`. Every fact these skills act on comes from the
-repository's `AGENTS.md` → `## Workflow`; nothing here names a repository.
+For Ruby libraries, next to `flow`. Every fact these skills act on comes from the repository's
+`AGENTS.md` → `## Workflow`; nothing here is specific to one repository.
 
 ```bash
 claude plugin install ruby-gem@zoolutions
@@ -9,19 +9,20 @@ claude plugin install ruby-gem@zoolutions
 
 | Skill | What it does | Model |
 |---|---|---|
-| `/ruby-gem:release [patch\|minor\|major\|X.Y.Z]` | Rolls `CHANGELOG.md` into the version's heading through a PR (`/flow:finish-prs automerge`), runs `bin/release <X.Y.Z>` from a clean clone of `main`, watches `release.yml`, checks RubyGems and the docs deploy. Asks only for a major bump or an empty changelog. `/flow:follow-through` runs it as `patch` after an upstream fix. | opus |
+| `/ruby-gem:release [patch\|minor\|major\|X.Y.Z]` | Rolls `CHANGELOG.md` into the version's heading through a PR (`/flow:finish-prs <that PR> automerge`), runs `bin/release <X.Y.Z>` from a clean clone of `main`, watches `release.yml`, checks RubyGems and the docs deploy. Asks only for a major bump or an empty changelog; parks on a **human** step. `/flow:follow-through` runs it as `patch` after an upstream fix. | opus |
 | `/ruby-gem:perf [bench]` | Branch against `main` (in a worktree), same machine, same harness; time and allocations, honest about noise and level. | sonnet |
 
 The release kit (`bin/release`, `rakelib/release.rake`, `release.yml`'s shared jobs) stays in each
-repository, byte-identical, with docs-kit as its canonical home. `release` drives it and never edits it.
+repository, byte-identical, copied from one canonical repository. `release` drives it and never edits it.
 
 Enable it as the marketplace README shows, with `"enabledPlugins": { "flow@zoolutions": true,
 "ruby-gem@zoolutions": true }`.
 
 ## The `## Workflow` lines a gem adds
 
-Besides the lines every repository has (Verify, Specs, CI, Review bot, Merge, PR contract, Worktree
-setup, Main health):
+Besides the lines every repository has (Verify, Specs, CI, Review bot, Merge, PR contract, Conflicts,
+Worktree setup, Main health, Upstream), a gem adds Release and Bench, and its Conflicts line carries
+the changelog rule:
 
 ```markdown
 - **Release:** `bin/release <v>`; changelog `CHANGELOG.md`, heading `## [X.Y.Z] - YYYY-MM-DD` under `## [Unreleased]`; prep none; lockfiles `Gemfile.lock` `docs/Gemfile.lock`; docs `deploy-docs.yml` on release; human none
@@ -40,28 +41,3 @@ setup, Main health):
 - The changelog conflict rule is a Conflicts line, not a skill: `/flow:finish-prs` and
   `/flow:github-review-pr` already resolve conflicts by Workflow → Conflicts.
 
-## Stays local
-
-| Repository | Keeps | Why |
-|---|---|---|
-| importmap-plus | `upstream-sync` (+ its rule) | the only live fork: merges rails/importmap-rails tags |
-| docs-kit | `release-kit` | rolls the kit out from its canonical copy |
-| daisyui | `add-component`, `audit-components`, `check-component`, `fix-docs-tests`, `test-all` | component work against the DaisyUI docs |
-| each gem | `architect`, `security` (or folded into AGENTS.md) | its own layers and threat surface |
-| dash-proxy | `perf` | Go (`make bench`) |
-
-dash and dash-proxy's `upstream-sync` rules are retirement notes: fold the surviving facts (proxy image
-before gem, no suffix tags) into AGENTS.md. The `perf` copies in pgbus, phlex-reactive, stationery,
-glyphs, importmap-plus and dash go; their hot-path tables belong in the doc the Bench line names.
-
-## Fit
-
-| Repository | `release` |
-|---|---|
-| pgbus, phlex-reactive, phlex-forms, docs-kit, glyphs, locallingo, daisyui | fits |
-| importmap-plus | fits: `VERSION` is often bumped in a feature PR, so the target is that version |
-| conformance-kit | fits: no `[Unreleased]`, headings written in feature PRs, so the roll is usually empty |
-| dash | fits: `release:preflight` aborts until the dash-proxy image tagged `MINIMUM_VERSION` exists |
-| stationery | fits with **human**: the Acrobat reader checklist parks every release; **prep** `bundle exec rake metrics:update` |
-| sidekiq-unique-jobs | partly: a 9.0 prerelease line (any level bump finalises 9.0.0, so it asks) and a generated changelog; pass the explicit version |
-| dash-proxy | no: Go, tag-only `vX.Y.Z.N`, no version file or changelog. `flow` only, Release `bin/release` |

@@ -8,6 +8,8 @@ model: opus
 
 # Investigate production error: $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 The stack trace says WHERE; this skill finds WHY, and is not done until the fix is in an open PR.
 
 **Read the repository first.** `AGENTS.md` → `## Workflow`: **APM** (AppSignal app name, environments
@@ -56,6 +58,10 @@ per call, clamped window). Incident write-back stays CLI-only.
 
 ## Phase 0: Branch
 
+A clean tree first: `git status --porcelain` must print nothing (else work in a fresh worktree,
+`git worktree add ../<repo>-fix-<error-slug> -b fix/<error-slug> origin/main`), so no unrelated edit rides
+into the fix.
+
 ```bash
 git fetch origin main && git switch -c fix/<error-slug> origin/main
 ```
@@ -65,9 +71,11 @@ Never commit to `main` or to an already-merged feature branch; cherry-pick acros
 
 ```bash
 gh search issues --repo "$(gh repo view --json nameWithOwner --jq .nameWithOwner)" \
-  --state open --label "<triage label>" --match title "<ErrorClass>" --json number,title,url --limit 5
+  --state open --label "<triage label>" --match title '<ErrorClass>' --json number,title,url --limit 5
 ```
-The triage label is in Workflow → APM; quote the class (it contains `::`). A match: the PR closes it, and its comments say what was already tried. No match:
+The triage label is in Workflow → APM. `<ErrorClass>` comes from incident data: use it only if it
+matches `\A[A-Z]\w*(::[A-Z]\w*)*\z`, inside single quotes, and single-quote every free-text
+`--query` term too (double quotes would run a `$(…)` hidden in it). A match: the PR closes it, and its comments say what was already tried. No match:
 carry on; filing issues is /rails-app:appsignal-triage's job.
 
 ## Phase 2: Identify the error
@@ -76,7 +84,7 @@ carry on; filing issues is /rails-app:appsignal-triage's job.
   environment and collide across them: never guess the environment.
 - `recent` or empty: `incidents list-exceptions --state OPEN --order LAST --limit 10` on the primary
   production environment; show `# | Error class | Message | Count | Last seen` and ask which.
-- A class or description: `incidents list-exceptions --query "<terms>"`.
+- A class or description: `incidents list-exceptions --query '<terms>'`.
 
 ## Phase 3: Gather context
 
@@ -91,7 +99,7 @@ carry on; filing issues is /rails-app:appsignal-triage's job.
    commit that removed the class. Check the schedule at the running revision with the validated class
    and revision: `git grep -n -E -e "^[[:space:]]*class:[[:space:]]*(<Class>|'<Class>'|\"<Class>\")([[:space:]]+(#.*)?)?$" '<revision>' -- <schedule file>`.
    An empty grep does not clear the queue: enqueued payloads and dead letters can still name it.
-5. **Logs:** `logs search --query "<request id or keyword>" --severities error,warn --start <iso8601>
+5. **Logs:** `logs search --query '<request id or keyword>' --severities error,warn --start <iso8601>
    --page-all` (without `--page-all` it stops at 100 lines and you reason about a partial window).
 6. **Metrics:** MCP `get_metrics_timeseries` for correlated queue depth or latency.
 

@@ -42,10 +42,9 @@ locale, the translate/sync command, the validate command and the money/date form
 3. `bundle exec i18n-tasks normalize -p`; `bundle exec i18n-tasks unused` for keys you orphaned.
 4. Workflow → I18n's validate command must pass before commit.
 
-With `bin/lingo`: never run an unscoped `accept-edits` to silence one violation (it accepts every
-hand-edited key at once); run the exact scoped command `validate` prints. `--all` is for first
-adoption only.
-
+Never silence one validator violation with the tool's accept-everything command (it accepts every
+hand-edited key at once): run the exact scoped command the validator prints. Workflow → I18n names the
+tool and any such command.
 ## Never
 
 | Wrong | Right |

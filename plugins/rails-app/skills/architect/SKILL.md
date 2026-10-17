@@ -9,7 +9,8 @@ model: opus
 # Architect: $ARGUMENTS
 
 **Read the repository first.** `AGENTS.md` → `## Workflow`, all of it: the specialists act on its
-labels, so a missing or wrong label is the first thing to fix (or ask about).
+labels. A missing label means "none"; only a label that is wrong (the tree contradicts it) is the
+first thing to fix (or ask about).
 
 Unknown scope, a schema or public API choice, or more than a day of work: `/flow:plan` first and work
 from the plan. Executing an issue end to end is `/flow:lfg`; this skill is the layer map it follows.
@@ -46,7 +47,7 @@ flow is written before layer 5.
 | Model method or service? | the record's own state → model; several records, external calls or a workflow → service |
 | Inline or job? | external call, mail, file processing or more than ~500 ms → job |
 | Component or inline markup? | used twice, or streamed/morphed/broadcast → component |
-| How does the page update? | Workflow → Interactivity's order (phlex-reactive client op → action → `broadcast_to`), never a new Turbo Stream by default |
+| How does the page update? | Follow Workflow → Interactivity: when it names phlex-reactive, client op → action → `broadcast_to`, never a new Turbo Stream by default; otherwise the app's existing client stack |
 | New table or column? | a column unless it has its own lifecycle or cardinality |
 | A gem? | only after reading what the app already has; a dependency is an advisor-level decision |
 

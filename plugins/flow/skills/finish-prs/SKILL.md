@@ -7,6 +7,8 @@ allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent, Skill, TaskCreate,
 
 # Finish PRs: $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 Drive a set of open pull requests to **merge-ready**, one at a time, in a fixed order, so parallel
 PRs stop churning on each other.
 
@@ -43,7 +45,8 @@ Prefer, in order: the current directory if it is on the PR's branch (`/flow:lfg`
 `/flow:follow-through` run this skill where the work happened); an existing worktree on that branch
 (`git worktree list`); else create one — `git fetch origin <branch>`,
 `git worktree add .claude/worktrees/finish-<PR> <branch>`, then run Workflow → Worktree setup in it
-with `<N>` = the PR number. Remember that you created it: Phase 3 removes it.
+with `<N>` = the PR number. Remember that you created it: Phase 3 removes it after an `automerge`
+merge; in default mode it stays (the user merges later), so name it in the Phase 4 report.
 
 Never sync a branch checked out in the user's main working directory unless you were started there.
 Never touch `main` directly.
@@ -100,17 +103,17 @@ checks, so its review of the head has posted; a new comment from it is an open t
 **`automerge` mode:** all of these, cheapest first. `reviewDecision` is ignored (bots never feed it).
 
 1. **Mergeable.** `gh pr view <PR> --json mergeable --jq .mergeable` is `MERGEABLE`. `UNKNOWN` →
-   `git merge-tree --write-tree --name-only origin/main FETCH_HEAD` after
-   `git fetch origin main pull/<PR>/head`. `CONFLICTING` → 2a.
+   `git fetch origin main`, then `git fetch origin pull/<PR>/head` (its own command, so `FETCH_HEAD`
+   is the PR head), then `git merge-tree --write-tree --name-only origin/main FETCH_HEAD`. `CONFLICTING` → 2a.
 2. **Checks green.** Every bucket `pass` or `skipping` — stricter than any ruleset on purpose. Trust
    the JSON, not a condensed view (`rtk` files `SKIPPED` under "Failed"). Anything else → 2c.
 3. **No open thread, from any author.**
 
    ```bash
-   gh api graphql -F owner='{owner}' -F repo='{repo}' -F pr=<PR> -f query='query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { nodes { isResolved } } } } }' --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)] | length'
+   gh api graphql -F owner='{owner}' -F repo='{repo}' -F pr=<PR> -f query='query($owner: String!, $repo: String!, $pr: Int!) { repository(owner: $owner, name: $repo) { pullRequest(number: $pr) { reviewThreads(first: 100) { pageInfo { hasNextPage } nodes { isResolved } } } } }' --jq '.data.repository.pullRequest.reviewThreads | "\([.nodes[] | select(.isResolved | not)] | length) more=\(.pageInfo.hasNextPage)"'
    ```
 
-   Must print `0` (past 100 threads, page with `after:`). Anything else → 2c.
+   Must print `0 more=false` (`more=true`: page with `after:` as `/flow:github-review-comments` does). Anything else → 2c.
 4. **The review bot approved the head** (Workflow → Review bot):
    - **cubic** — its latest review is `APPROVED` **and** its `commit_id` is the PR's `headRefOid`:
      `gh api 'repos/{owner}/{repo}/pulls/<PR>/reviews' --paginate --jq '.[] | select(.user.login | startswith("cubic-dev-ai")) | "\(.submitted_at) \(.state) \(.commit_id)"' | sort | tail -n 1`.
@@ -121,7 +124,8 @@ checks, so its review of the head has posted; a new comment from it is an open t
    - **coderabbit** — its check is `pass` on the head and gate 3 holds (it does not approve).
    - **none** — skip.
 5. **Main is green** — only when Workflow → Merge is a queue (a queue evicts every entry while main
-   is red). Run Workflow → Main health. Red → **is this PR the fix?** Run main's failing specs (from
+   is red). Run Workflow → Main health; no such line → read the CI status of main's head
+   (`gh api "repos/{owner}/{repo}/commits/main/check-runs"`) — never treat a missing line as green. Red → **is this PR the fix?** Run main's failing specs (from
    its red run's `--log-failed`) on this branch: all pass, and they fail on `origin/main` → go on and
    queue it (the queue proves it). Otherwise park (2f) with `main red since <short sha> (#N)`; fixing
    main is its own PR. With a direct squash, a red main shows up in this PR's own checks and is fixed
@@ -147,10 +151,10 @@ rebuttal in the PR body.
   - *queue*: `gh pr merge <PR> --match-head-commit <headRefOid>` — no strategy flag, no
     `--delete-branch`. If gh reports it **enabled auto-merge** instead of queueing, a required check
     had not passed: `gh pr merge <PR> --disable-auto` and back to 2d. Then follow the queue (Phase 3).
-  - Never `--admin` (it bypasses a queue and every protection) unless Workflow → Merge names it as
-    the fallback for a protection the gate already covers (e.g. a required approval), and then only
-    after gates 1–6 hold and the plain merge was refused for that protection alone. Never `--auto` (it waits only for required
-    checks). Judge a merge by `gh pr view <PR> --json state,mergeCommit`, never by gh's exit code
+  - Never `--admin` with a queue (it bypasses the queue and the full suite only the queue runs). With
+    a squash, only when Workflow → Merge names it as the fallback for a protection the gate already
+    covers (e.g. a required approval), after gates 1–6 hold and the plain merge was refused for that
+    protection alone. Never `--auto` (it waits only for required checks). Judge a merge by `gh pr view <PR> --json state,mergeCommit`, never by gh's exit code
     (inside a worktree gh may fail to switch the local branch after a successful merge).
 - **Default:** report ✅ merge-ready with the URL and a one-line "what's in it", then wait (Phase 3).
 

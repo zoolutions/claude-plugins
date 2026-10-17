@@ -16,7 +16,7 @@
     {
       "name": "rails-app",
       "source": "./plugins/rails-app",
-      "description": "Rails applications (Phlex, DaisyUI, phlex-reactive, ActionPolicy, RSpec): the layer specialists, AppSignal debugging and triage, phlex-reactive debugging.",
+      "description": "Rails applications (Phlex, DaisyUI, phlex-reactive, ActionPolicy, RSpec): the layer specialists, AppSignal debugging and triage.",
       "category": "development",
       "keywords": ["rails", "phlex", "daisyui", "rspec", "appsignal"]
     },

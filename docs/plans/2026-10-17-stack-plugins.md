@@ -17,7 +17,7 @@ Inventory of the 29 repositories in scope, default branch, 2026-10-17:
 | `.claude/commands/github-review-comments.md` | 26 | 26 |
 | `.claude/commands/github-review-failures.md` | 25 | 25 |
 | `.claude/commands/plan.md`, `tdd.md`, `review-pr.md` | 17 each | 17 each |
-| `.claude/agents/fable-validator.md` | 25 | 17 (the 8 SDK clients share one) |
+| `.claude/agents/fable-validator.md` | 24 | 16 (the 8 SDK clients share one, two other repositories another) |
 
 Always-loaded context per session (AGENTS.md + CLAUDE.md + `.claude/rules/`): 9–53 KB, of which
 `.claude/rules/` is 6–32 KB in most repositories. Every session pays it before the first prompt.
@@ -35,7 +35,7 @@ one-line descriptions are listed).
 |---|---|---|
 | `flow` | every repository | `lfg`, `plan` (incl. upstream mode), `tdd`, `review-pr`, `github-review-pr`, `github-review-failures`, `github-review-comments`, `finish-prs`, `follow-through`, `debug-flaky`; agent `fable-validator` |
 | `rails-app` | the Rails applications | the layer specialists (`models`, `controllers`, `views`, `jobs`, `services`, `database`, `security`, `i18n`, `mailers`, `stimulus`, `tests`, `architect`, …), `appsignal-debug`, `appsignal-triage` |
-| `ruby-gem` | the zoolutions libraries | `release` (version, CHANGELOG `[Unreleased]`, frozen lockfiles, `bin/release`), `perf` (benchmark a branch against main), `upstream-sync` |
+| `ruby-gem` | the zoolutions libraries | `release` (version, CHANGELOG `[Unreleased]`, frozen lockfiles, `bin/release`), `perf` (benchmark a branch against main) |
 
 A repository enables `flow` plus its stack plugin in a committed `.claude/settings.json`
 (`extraKnownMarketplaces` + `enabledPlugins`). It keeps locally only what is truly its own (an SEO routine, a component generator, a production
@@ -59,9 +59,10 @@ drifted from it). Target: under 1.5 KB. Each line is a fact, true of the tree as
 - **Conflicts:** `<file>` — <rule>; …
 - **Worktree setup:** <commands, or none>
 - **Release:** <`bin/release <v>` | none>; changelog <path | none>
-- **Main health:** <command that prints success/failure for main, or "CI status of main's head">
+- **Main health:** <command that prints success/failure for main> (missing: the skills read the CI status of main's head, never assume green)
 - **Upstream:** libraries we own `<owner/*>`; scrub `<denylist command, or none>`
 - **Bench:** <benchmark command for /ruby-gem:perf | none>
+- **Base:** <default branch, when it is not `main`>
 ```
 
 The skills name these by label ("AGENTS.md → Workflow → Merge"). A missing label means "none".

@@ -8,6 +8,8 @@ allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent, Skill, TaskCreate,
 
 # /flow:lfg — $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 One pass from nothing to a merge-ready PR. The phases are the same everywhere; every fact they act
 on comes from the repository. **Read `AGENTS.md` first**, its `## Workflow` section above all
 (Verify, Specs, CI, Review bot, Merge, PR contract, Conflicts, Worktree setup, Release). "Workflow → X"
@@ -44,6 +46,8 @@ never worked around silently: `/flow:plan upstream <owner/repo> <limitation>`, l
 
 ## Phase 4: Implement (TDD)
 
+A bug fix runs Phase 5 first: the root cause decides where the failing test and the fix belong.
+
 **Deviation log from the first edit.** The moment reality forces a choice the plan did not settle,
 add one line to `implementation-notes.md` at the repo root: deviation (planned X, did Y, because Z),
 discovery (a fact the plan did not know), or judgment call (a choice the user might have made
@@ -52,7 +56,7 @@ differently). Take the conservative option and keep going. Never commit the file
 Per logical unit: a failing test first (run it, see it fail for the right reason) → the minimum code
 to pass → refactor green → Workflow → Verify on the changed files. `/flow:tdd` is the long form.
 
-## Phase 5: Root cause (bug fixes)
+## Phase 5: Root cause (bug fixes — before Phase 4)
 
 Trace the failing value back to where it was created; `git log -S` / `git blame` for why the code is
 the way it is; map every caller; five whys to the earliest point the error could be prevented, and

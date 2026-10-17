@@ -8,6 +8,8 @@ allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent
 
 # CI failures: $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 Repository facts: `AGENTS.md` → `## Workflow` (CI: the jobs, the required check, where the full suite
 runs and how a failure is reported; Verify; Specs). PR number as in `/flow:github-review-comments`
 Phase 0.
@@ -21,8 +23,12 @@ because another job failed is fixed by fixing that job. A PR-body contract check
 
 **Evicted from a merge queue** (Workflow → CI says the full suite runs only in the queue): the PR's own
 checks can be green while the queue's run failed. Read the report Workflow → CI names (often a PR
-comment with a marker, edited in place: current only when its `updated_at` is newer than the PR's
-last push, `gh pr view <PR> --json commits --jq '.commits[-1].committedDate'`), and the run it links.
+comment with a marker, edited in place: current only when its `updated_at` is newer than the first
+CI run on the PR's head, `gh run list --commit <headRefOid> --limit 50 --json createdAt --jq 'map(.createdAt) | min'`;
+a commit's own date is its authoring time, not when it was pushed), and the run it links. Workflow →
+CI names no report: find the failed queue run itself —
+`gh run list --event merge_group --limit 20 --json databaseId,headBranch,conclusion --jq '.[] | select(.headBranch | startswith("gh-readonly-queue/main/pr-<PR>-"))'`
+— and read `gh run view <id> --log-failed`.
 The failure is on the merge commit — this PR, whatever was ahead of it, and main — so merge
 `origin/main` before reproducing. Whether main itself is red comes from Workflow → Main health, never
 from the report: red, and the same specs fail on `origin/main` → report it; the fix belongs on main.

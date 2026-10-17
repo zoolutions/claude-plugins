@@ -8,6 +8,8 @@ allowed-tools: Bash(*), Read, Glob, Grep, Agent, Skill, TaskCreate, TaskUpdate, 
 
 # /flow:follow-through — $ARGUMENTS
 
+`main` below is the default branch: Workflow → Base when set, else `main`.
+
 `/flow:lfg` takes one issue to a merge-ready PR and stops. This takes one issue or a whole epic to
 merged: it orders the issues by their dependencies, runs `/flow:lfg` on each in its own worktree with
 `automerge` on its last phase, and follows any upstream fix through to a release. A run left alone
@@ -59,7 +61,7 @@ First match wins:
 |---|---|---|
 | issue closed | `done` | nothing |
 | an open PR closes it | `resume-pr #<pr>` | `/flow:finish-prs <pr> automerge` |
-| worktree `.claude/worktrees/follow-<N>` or branch `issue-<N>-*` with commits ahead of `origin/main` or uncommitted changes, no PR | `resume-worktree` | `/flow:lfg` from Phase 4, then finish |
+| worktree `.claude/worktrees/follow-<N>` or branch `issue-<N>-*` with commits ahead of `origin/main` or uncommitted changes, no PR | `resume-worktree` | `/flow:lfg` as lfg-resume (skip Phase 0, rebuild Phases 1–3, continue Phase 4), then finish |
 | none | `todo` | the full run |
 
 Open PRs closing an issue (GitHub's own reading of `Closes #N`, so `#54` never matches `#544`):
@@ -99,6 +101,7 @@ Prepare every runnable issue of the wave, then spawn all its agents **in one mes
 
 - `todo`: `git fetch origin main` and
   `git worktree add .claude/worktrees/follow-<N> -b issue-<N>-<slug> origin/main`
+  (a leftover `issue-<N>-*` branch with nothing ahead and no worktree: `git branch -D` it first)
   (slug: title, lowercase kebab-case, ≤ 5 words, ASCII).
 - `resume-worktree`: use it as it is; a branch without one gets
   `git worktree add .claude/worktrees/follow-<N> <branch>`.

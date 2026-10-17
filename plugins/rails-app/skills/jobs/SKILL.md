@@ -19,8 +19,10 @@ systems (ActiveJob jobs and Sidekiq workers) follows the pattern of the director
   the feature enabled before working.
 - Idempotent: safe to run twice. Guard on persisted state, and re-check inside a lock:
   ```ruby
-  def perform(thing_id)
-    thing = Thing.find(thing_id)
+  def perform(tenant_id, thing_id)
+    tenant = Tenant.find_by(id: tenant_id)            # Workflow → Tenant names the root
+    return unless tenant&.feature_enabled?(:things)    # gone or switched off: nothing to do
+    thing = tenant.things.find(thing_id)
     return if thing.processed?
     thing.with_lock do
       return if thing.processed?
