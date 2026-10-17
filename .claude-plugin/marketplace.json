@@ -1,26 +1,31 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "zoolutions",
-  "description": "Shared Claude Code machinery. Knowledge stays in each repo; the machinery that reads and grows it lives here.",
+  "description": "Shared Claude Code machinery for our repositories. Knowledge stays in each repo (AGENTS.md → ## Workflow); the workflow and the stack specialists live here, once.",
   "owner": {
     "name": "Zoolutions"
   },
   "plugins": [
     {
-      "name": "lode",
-      "source": "./plugins/lode",
-      "description": "Per-repo memory (lode/), a pre-PR gate enforced by a push hook, and the shared workflows /lode:lfg, /lode:review-pr, /lode:finish-prs, /lode:debug-flaky, /lode:tdd and /lode:plan, which read lode/workflow.md so one copy serves every repository; its Rigor tier decides how much review the gate, lfg, review-pr, finish-prs and plan buy a change.",
-      "version": "0.4.0",
+      "name": "flow",
+      "source": "./plugins/flow",
+      "description": "Every repository: /flow:lfg (issue to merge-ready PR), /flow:follow-through (epic to merged, unattended), /flow:finish-prs, /flow:plan (incl. upstream fixes carried to a release), /flow:github-review-*, /flow:tdd, /flow:review-pr, /flow:debug-flaky, flow:fable-validator.",
       "category": "productivity",
-      "keywords": [
-        "review",
-        "memory",
-        "lode",
-        "gate",
-        "pre-pr",
-        "workflow",
-        "lfg"
-      ]
+      "keywords": ["workflow", "lfg", "pull-request", "review", "tdd", "merge-queue", "epic"]
+    },
+    {
+      "name": "rails-app",
+      "source": "./plugins/rails-app",
+      "description": "Rails applications (Phlex, DaisyUI, phlex-reactive, ActionPolicy, RSpec): the layer specialists, AppSignal debugging and triage, phlex-reactive debugging.",
+      "category": "development",
+      "keywords": ["rails", "phlex", "daisyui", "rspec", "appsignal"]
+    },
+    {
+      "name": "ruby-gem",
+      "source": "./plugins/ruby-gem",
+      "description": "Ruby libraries: an unattended release (version, changelog, frozen lockfiles), branch-versus-main benchmarks.",
+      "category": "development",
+      "keywords": ["ruby", "gem", "release", "changelog", "benchmark"]
     }
   ]
 }

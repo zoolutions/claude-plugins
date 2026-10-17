@@ -1,0 +1,11 @@
+{
+  "name": "flow",
+  "description": "The shared engineering workflow for every repository: /flow:lfg (issue to merge-ready PR), /flow:follow-through (epic to merged, unattended), /flow:finish-prs, /flow:plan (incl. upstream library fixes carried to a release), /flow:github-review-pr|failures|comments, /flow:tdd, /flow:review-pr, /flow:debug-flaky, and the flow:fable-validator agent. Repository facts come from the `## Workflow` section of each repo's AGENTS.md. No hooks, no gates, no memory layer.",
+  "author": {
+    "name": "Zoolutions"
+  },
+  "homepage": "https://github.com/zoolutions/claude-plugins",
+  "repository": "https://github.com/zoolutions/claude-plugins",
+  "license": "MIT",
+  "keywords": ["workflow", "lfg", "pull-request", "review", "tdd", "merge-queue", "epic"]
+}
