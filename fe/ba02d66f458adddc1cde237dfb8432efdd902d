@@ -1,0 +1,119 @@
+plugins/rails-app/skills/stimulus/SKILL.md
+  s_707f05896d2adc::t_84a4fd3918cf6a 43-45
+  s_707f05896d2adc::t_26560f65283bec 1-42,46-63,66-67
+plugins/flow/skills/lfg/SKILL.md
+  s_707f05896d2adc::t_9bf24fc816c22e 1-99
+plugins/flow/skills/plan/SKILL.md
+  s_707f05896d2adc::t_6f002a2d968384 1-125
+plugins/rails-app/skills/appsignal-debug/SKILL.md
+  s_707f05896d2adc::t_d983795656ab37 66-70
+  s_707f05896d2adc::t_38060c783c8aa2 1-65,71-147
+plugins/flow/skills/review-pr/SKILL.md
+  s_707f05896d2adc::t_e8197a2ad64ebd 119-120
+  s_707f05896d2adc::t_a3df6f16f1e945 33
+  s_707f05896d2adc::t_97d52bafb99bb4 65-66
+  s_707f05896d2adc::t_cc3a6fbe68009b 1-19,21-32,34-41,43-64,67-118
+  s_707f05896d2adc::t_40a80497bbd11d 20
+  s_707f05896d2adc::t_165e1e21e20c90 42
+docs/plans/2026-10-17-stack-plugins.md
+  s_707f05896d2adc::t_063a45f9f21d37 1-24,26-36,38-40,43-62,65-70,72-88,90,94-101,103-107,110-112
+  s_707f05896d2adc::t_670c16623a8a59 63
+plugins/flow/.claude-plugin/plugin.json
+  s_707f05896d2adc::t_ac088ceda0f203 1-11
+README.md
+  s_707f05896d2adc::t_a45d20f765f2ec 3-5,7-9,11,13-20,22,27-30,32,36-39,45,48,50-53
+  s_707f05896d2adc::t_8a19d3c976896c 10
+plugins/rails-app/skills/security/SKILL.md
+  s_707f05896d2adc::t_0a9fb0d1c14d91 1-64
+plugins/rails-app/skills/mailers/SKILL.md
+  s_707f05896d2adc::t_6a2c36c2a00999 1-45
+plugins/rails-app/.claude-plugin/plugin.json
+  s_707f05896d2adc::t_d98e27d09580b1 1-20
+plugins/rails-app/skills/appsignal-triage/SKILL.md
+  s_707f05896d2adc::t_829811296eacfa 1-94
+plugins/rails-app/skills/i18n/SKILL.md
+  s_707f05896d2adc::t_76a795b387b36f 16-17
+  s_707f05896d2adc::t_66e08b17005244 1-15,18-60
+plugins/rails-app/skills/architect/SKILL.md
+  s_707f05896d2adc::t_9a6f4b937df2f0 1-71
+plugins/rails-app/skills/database/SKILL.md
+  s_707f05896d2adc::t_81f45bf0c7fdbd 1-61
+plugins/flow/skills/tdd/SKILL.md
+  s_707f05896d2adc::t_b0465a796bb6b6 1-74
+plugins/flow/README.md
+  s_707f05896d2adc::t_f7ef8c8ef52602 1-43
+plugins/flow/skills/follow-through/SKILL.md
+  s_707f05896d2adc::t_0401c1005e830c 1-60,62-63,70-207
+  s_707f05896d2adc::t_8fb3379cae23cf 61,64-69
+.claude-plugin/marketplace.json
+  s_707f05896d2adc::t_35214e667689c6 10-12,14-28
+plugins/rails-app/skills/views/SKILL.md
+  s_707f05896d2adc::t_d61b6d4387ece1 1-70
+  s_707f05896d2adc::t_6960806c3b219e 71-72
+plugins/flow/skills/finish-prs/SKILL.md
+  s_707f05896d2adc::t_91bcc9625f131d 1-123,127-170,172,175-179,189-210
+  s_707f05896d2adc::t_e966cd14ccdd55 171,173-174
+  s_707f05896d2adc::t_80d63b930bb260 180-188
+  s_707f05896d2adc::t_cbeb2d0e56046b 124-126
+plugins/flow/skills/debug-flaky/SKILL.md
+  s_707f05896d2adc::t_50287b2925de77 91-94
+  s_707f05896d2adc::t_291a2afdfd89e5 103-104
+  s_707f05896d2adc::t_d126dc6d70ffcf 34-37
+  s_707f05896d2adc::t_7883fb5d82a2f7 113
+  s_707f05896d2adc::t_78a9f3289cd096 81-82
+  s_707f05896d2adc::t_efed0061652c24 51-53
+  s_707f05896d2adc::t_3b271bb20892e8 29-32
+  s_707f05896d2adc::t_3d1dcf509831d8 1-10,15-28,33,38-40,43-44,46-50,54-80,83-90,95-102,105-112,114-120
+  s_707f05896d2adc::t_610481cd190746 41-42,45
+  s_707f05896d2adc::t_64db34c0012822 11-14
+plugins/rails-app/skills/tests/SKILL.md
+  s_707f05896d2adc::t_dfd6217f3eab27 1-65
+plugins/ruby-gem/README.md
+  s_707f05896d2adc::t_867f0c4eaffa0f 1-17,20-67
+  s_707f05896d2adc::t_6e64262b948625 18-19
+plugins/ruby-gem/skills/release/SKILL.md
+  s_707f05896d2adc::t_4eb50e3883ec61 1-39,43-131
+  s_707f05896d2adc::t_39ab114ba0f6f7 40-42
+plugins/ruby-gem/skills/perf/SKILL.md
+  s_707f05896d2adc::t_9110d2bae57c3d 1-67
+plugins/flow/agents/fable-validator.md
+  s_707f05896d2adc::t_985dc4d9122a82 24
+plugins/flow/skills/github-review-pr/SKILL.md
+  s_707f05896d2adc::t_1b3e9115036a27 1-73
+plugins/flow/skills/github-review-failures/SKILL.md
+  s_707f05896d2adc::t_660e88d390d964 1-23,29,31-65
+  s_707f05896d2adc::t_81444260957a85 24-28,30
+plugins/flow/skills/github-review-comments/SKILL.md
+  s_707f05896d2adc::t_43349b81dd3a82 47
+  s_707f05896d2adc::t_8d0b3a37bb7622 1-46,48-96
+plugins/rails-app/skills/services/SKILL.md
+  s_707f05896d2adc::t_677ee67266aa9b 29
+  s_707f05896d2adc::t_7ba6961c0103fb 1-28,30-67
+plugins/ruby-gem/.claude-plugin/plugin.json
+  s_707f05896d2adc::t_2dd44aeebaf653 1-11
+plugins/rails-app/skills/jobs/SKILL.md
+  s_707f05896d2adc::t_3b19dfdac82c10 1-61
+plugins/rails-app/README.md
+  s_707f05896d2adc::t_2455a21b01623a 1-54
+plugins/rails-app/skills/models/SKILL.md
+  s_707f05896d2adc::t_dd3badb9cb602f 1-38,40-66
+  s_707f05896d2adc::t_9fb1bd771502f5 39
+plugins/rails-app/skills/controllers/SKILL.md
+  s_707f05896d2adc::t_c3998318a727f4 1-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "feba02d66f458adddc1cde237dfb8432efdd902d",
+  "prompts": {},
+  "sessions": {
+    "s_707f05896d2adc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "882973f7-72ec-475c-b8ff-7f7f6099c58c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
