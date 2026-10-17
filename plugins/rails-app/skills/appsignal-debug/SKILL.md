@@ -58,13 +58,12 @@ per call, clamped window). Incident write-back stays CLI-only.
 
 ## Phase 0: Branch
 
-A clean tree first: `git status --porcelain` must print nothing (else work in a fresh worktree,
-`git worktree add ../<repo>-fix-<error-slug> -b fix/<error-slug> origin/main`), so no unrelated edit rides
-into the fix.
+`git fetch origin main` first. Then, so no unrelated edit rides into the fix:
 
-```bash
-git fetch origin main && git switch -c fix/<error-slug> origin/main
-```
+- clean tree (`git status --porcelain` prints nothing): `git switch -c fix/<error-slug> origin/main`;
+- dirty tree: `git worktree add ../<repo>-fix-<error-slug> -b fix/<error-slug> origin/main` and work
+  from that worktree (it already has the branch).
+
 Never commit to `main` or to an already-merged feature branch; cherry-pick across if you did.
 
 ## Phase 1: Find the triage issue

@@ -16,7 +16,8 @@ systems (ActiveJob jobs and Sidekiq workers) follows the pattern of the director
 
 - Arguments are IDs and primitives, never records: plus the tenant ID when the record is tenant-owned.
   Reload through the tenant root (Workflow → Tenant) and check the tenant still exists and still has
-  the feature enabled before working.
+  the feature enabled before working. Changing an existing job's arguments is a rename: accept the old
+  shape too until the queue has drained (jobs enqueued before the deploy still carry it).
 - Idempotent: safe to run twice. Guard on persisted state, and re-check inside a lock:
   ```ruby
   def perform(tenant_id, thing_id)

@@ -47,7 +47,7 @@ flow is written before layer 5.
 | Model method or service? | the record's own state → model; several records, external calls or a workflow → service |
 | Inline or job? | external call, mail, file processing or more than ~500 ms → job |
 | Component or inline markup? | used twice, or streamed/morphed/broadcast → component |
-| How does the page update? | Follow Workflow → Interactivity: when it names phlex-reactive, client op → action → `broadcast_to`, never a new Turbo Stream by default; otherwise the app's existing client stack |
+| How does the page update? | Follow Workflow → Interactivity: when it names phlex-reactive, client ops for client-only changes, a reactive action answering with `reply.morph`/`reply.replace`/`reply.also` for server changes, `broadcast_to` only for other viewers, never a new Turbo Stream by default; otherwise the app's existing client stack |
 | New table or column? | a column unless it has its own lifecycle or cardinality |
 | A gem? | only after reading what the app already has; a dependency is an advisor-level decision |
 

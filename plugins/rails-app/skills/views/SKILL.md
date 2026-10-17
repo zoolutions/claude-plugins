@@ -30,8 +30,8 @@ still holds.
   (`button(class: "btn …")`, `link_to … class: "btn"`) and never the underlying library's classes
   directly (e.g. `DaisyUI::Card.new`).
 - Wrapper modifiers are positional symbols: `Button(:primary, :sm)`, never `Button(primary: true)`.
-- Forms use the form API Workflow → Views names (e.g. a `Form(model:)` component and its field
-  helpers, or `form_for`), never a second one beside it. Show
+- Forms use the form API Workflow → UI kit names (e.g. a `Form(model:)` component and its field
+  helpers, or `form_for`), never a form builder it forbids (e.g. `form_with`) or a second one beside it. Show
   the record's errors with the kit's error component.
 - Classes: `class_names("base", "variant" => condition)` or Phlex `mix`; never `.join(" ")` or a
   ternary inside a class array. Keep class strings literal (`"btn-primary"`, not `"btn-#{kind}"`):

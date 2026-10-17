@@ -1,6 +1,6 @@
 {
   "name": "ruby-gem",
-  "description": "The zoolutions Ruby libraries: /ruby-gem:release (changelog roll through a PR, then the release kit from a clean main, verified on RubyGems; unattended unless the bump is major, the changelog is empty, or Workflow → Release names a human step) and /ruby-gem:perf (branch against main, same machine, main in a worktree). Repository facts come from the `## Workflow` section of each repo's AGENTS.md.",
+  "description": "Ruby libraries: /ruby-gem:release (changelog roll through a PR, then the release kit from a clean main, verified on RubyGems; unattended unless the bump is major, the changelog is empty, or Workflow → Release names a human step) and /ruby-gem:perf (branch against main, same machine, main in a worktree). Repository facts come from the `## Workflow` section of each repo's AGENTS.md.",
   "author": {
     "name": "Zoolutions"
   },

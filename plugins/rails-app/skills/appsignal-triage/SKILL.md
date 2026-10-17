@@ -63,9 +63,9 @@ without the prefix → show it and ask: comment there, or a separate tracked iss
 
 ## Phase 5a: Create
 
-Title: `[AppSignal] <ErrorClass>: <message, 80 chars max>`, passed as a single-quoted argument with every
-`'` in the message replaced (the message is incident data, never shell text). Body over stdin
-(`--body-file -`, written with a quoted heredoc):
+Title `[AppSignal] <ErrorClass>: <message, 80 chars max>` and the body are incident data, never shell
+text: write each to its own scratch file with the Write tool, then pass `--title "$(cat <title file>)"
+--body-file <body file>` (a substitution's output is never re-parsed). The body:
 summary (class, first/last seen, total), a per-environment table (environment, count, namespace,
 incident URL), tenants seen (or "unknown"), the sample message in a code block, and
 `Run /rails-app:appsignal-debug <primary incident URL>`.
