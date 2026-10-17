@@ -1,0 +1,19 @@
+plugins/rails-app/skills/appsignal-triage/SKILL.md
+  s_707f05896d2adc::t_a0e31686c7ad28 66-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f643d0873fc173fec522f6c6d1629d2cb9459a8d",
+  "prompts": {},
+  "sessions": {
+    "s_707f05896d2adc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "882973f7-72ec-475c-b8ff-7f7f6099c58c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
