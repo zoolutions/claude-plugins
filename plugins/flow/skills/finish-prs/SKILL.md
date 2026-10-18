@@ -147,7 +147,10 @@ blocker and note (failing test first for code) and back to 2c. A factually wrong
 rebuttal in the PR body.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
-`## Effort & cost`, and you correct its **Where it went** line where they changed the story. A body
+`## Effort & cost`. Its **Where it went** line is the account of the session that did the work: if
+that is this session, correct it where the numbers changed the story; if not (a later
+`/flow:finish-prs`), never rewrite it — append only what the threads and commits since it was written
+show (what the review rounds were about). A body
 edit, not a round: no re-review, no validator, no reason to hold a PR that 1–6 cleared. A workflow
 the repository runs on `edited` (a PR-contract check) re-runs, though: wait for it (Phase 3) and
 re-read gate 2 before merging or reporting merge-ready.

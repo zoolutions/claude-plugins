@@ -178,21 +178,22 @@ module FlowEffort
   # Session files that may hold the branch's work, each with how it was found:
   # :branch (a checkout of this repository whose session, or one of its agents,
   # names the branch), :trailer (a commit's Claude-Session trailer names it, in
-  # any checkout) or :explicit (--session).
-  def find_sessions(projects:, repo_root:, branch:, bridge_ids:, explicit:, floor: nil)
-    recent = lambda do |pattern|
-      Dir.glob(File.join(projects, pattern)).select { |f| floor.nil? || File.mtime(f) >= floor }.sort
-    end
+  # any checkout) or :explicit (--session). `floor` bounds only the trailer
+  # scan over every checkout's transcripts: a session that wrote a commit was
+  # alive when it did. `same_repo` decides whether another clone's directory
+  # (`acme-2` beside `acme`) is this repository.
+  def find_sessions(projects:, repo_root:, branch:, bridge_ids:, explicit:, floor: nil, same_repo: method(:same_repo?))
     found = {}
-    checkouts = repo_root.to_s.empty? ? [] : recent.call(File.join("#{slug(repo_root)}*", "*.jsonl"))
-    checkouts.each do |file|
+    checkouts(projects, repo_root, same_repo).each do |file|
       named = contains?(file, branch) || subagent_files(file).any? { |sub| contains?(sub, branch) }
       found[file] = :branch if named
     end
     names, bridges = explicit.partition { |id| id !~ /\A(session|cse)_/ }
     trailers = (bridge_ids + bridges).map { |id| id.sub(/\A(session|cse)_/, "") }.uniq
     unless trailers.empty?
-      recent.call(File.join("*", "*.jsonl")).each do |file|
+      Dir.glob(File.join(projects, "*", "*.jsonl")).sort.each do |file|
+        next if floor && File.mtime(file) < floor
+
         text = read(file)
         hit = trailers.select { |id| text.include?("cse_#{id}") }
         next if hit.empty?
@@ -202,6 +203,42 @@ module FlowEffort
     end
     names.each { |name| Dir.glob(File.join(projects, "*", "#{name}.jsonl")).each { |file| found[file] = :explicit } }
     found
+  end
+
+  # The repository's own session files: its checkout's directory and the
+  # worktrees inside it (`<slug>--…`), and another clone of it (`<slug>-2`)
+  # once the checkout it recorded has the same origin. A different repository
+  # whose path starts the same (`acme2`) has another origin.
+  def checkouts(projects, repo_root, same_repo)
+    return [] if repo_root.to_s.empty?
+
+    own = slug(repo_root)
+    Dir.glob(File.join(projects, "#{own}*")).sort.flat_map do |dir|
+      name = File.basename(dir)
+      files = Dir.glob(File.join(dir, "*.jsonl")).sort
+      next files if name == own || name.start_with?("#{own}--")
+
+      files.select { |file| (cwd = recorded_cwd(file)) && same_repo.call(cwd) }
+    end
+  end
+
+  def recorded_cwd(file)
+    File.foreach(file).first(200).each do |line|
+      cwd = line[/"cwd":"((?:[^"\\]|\\.)*)"/, 1]
+      return JSON.parse(%("#{cwd}")) if cwd
+    end
+    nil
+  rescue SystemCallError, JSON::ParserError
+    nil
+  end
+
+  def same_repo?(cwd)
+    @origins ||= {}
+    ours = (@origins[:ours] ||= run("git", "config", "--get", "remote.origin.url").to_s.strip)
+    return false if ours.empty? || !File.directory?(cwd)
+
+    theirs = (@origins[cwd] ||= run("git", "-C", cwd, "config", "--get", "remote.origin.url").to_s.strip)
+    theirs == ours
   end
 
   def pick(found, branch:, since: nil, till: nil)
@@ -466,7 +503,9 @@ module FlowEffort
   def estimate_for(file:, pr:, issue:, repo:)
     if file
       found = File.exist?(file) && parse_estimate(File.read(file))
-      return [found, "made before the first edit (`#{File.basename(file)}`)"] if found
+      name = File.basename(file)
+      # /flow:lfg's own estimate lives in its deviation log; any other file is a plan.
+      return [found, name == "implementation-notes.md" ? "made before the first edit (`#{name}`)" : "plan `#{name}`"] if found
     end
     carried = read_data(pr && pr["body"])
     if carried && carried["estimate"]

@@ -44,8 +44,9 @@ features are built, the integration points, and the existing tests.
 Files to change and why; new files; migrations; the tests to write first. A library limitation is
 never worked around silently: `/flow:plan upstream <owner/repo> <limitation>`, linked from the PR.
 
-**Estimate.** The plan has an `## Estimate`: that is what this PR is measured against. None (an issue
-without a plan, a description): write one now, before the first edit, at the top of
+**Estimate.** The plan has an `## Estimate`: that is what this PR is measured against. None (a plan
+written before plans had one, an issue without a plan, a description): write one now, before the
+first edit, at the top of
 `implementation-notes.md`, by `../effort/SKILL.md` → The estimate (beside this skill's directory),
 calibrated as it says. Never revise either after the work starts: the deviation is the measurement.
 
@@ -86,8 +87,9 @@ PASS, or PASS WITH NOTES with every note fixed or rebutted.
 Conventional commit (`feat(scope): …`), body says why. Push with `-u`. `gh pr create` with the labels
 from Phase 1 and every section Workflow → PR contract requires, in its order. The body ends with
 `## Deviations & judgment calls`, copied from `implementation-notes.md`'s log, not its estimate
-("None — the plan held." if empty). Then `/flow:effort <PR> --write` (Skill tool; add `--estimate implementation-notes.md` when
-Phase 3 wrote the estimate there): it puts `## Effort & cost` before the deviations, and you write its
+("None — the plan held." if empty). Then `/flow:effort <PR> --write` (Skill tool; add
+`--estimate <file>` naming where the estimate is when it is not on the issue: the plan file you ran,
+or `implementation-notes.md` when Phase 3 wrote it): it puts `## Effort & cost` before the deviations, and you write its
 **Where it went** line when a row is outside the estimate. Then delete the file. A UI change attaches
 before/after screenshots (`gh pr comment <n> --attach '<file>#<alt>'`) when the PR contract asks for
 them.

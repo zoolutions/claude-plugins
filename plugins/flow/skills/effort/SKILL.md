@@ -19,7 +19,7 @@ guesses: a number it cannot read says "not measured".
 | When | Arguments (`<N>`: `570`, `#570` or `PR570`) |
 |---|---|
 | Write or refresh a PR's section | `<N> --write` |
-| The first write, when `/flow:lfg` made the estimate itself | `<N> --write --estimate implementation-notes.md` |
+| The first write, when the estimate is not on the issue | `<N> --write --estimate <file>`: the plan file `/flow:lfg` ran, or `implementation-notes.md` when it made the estimate itself |
 | Look without writing | `<N>`, or `<N> --json` for the data |
 | Before the PR exists | `--branch <name> --issue <N>` |
 | The work ran from a session whose checkout is another repository or a throw-away clone, and its commits have no `Claude-Session` trailer | add `--session <id>` (the transcript's file name, or a `session_…` id) and `--since <ISO 8601 time the work began>` |
@@ -35,11 +35,13 @@ waits for that check before merging.
 the work, never a fresh agent) writes one to three sentences under the end marker, starting
 `**Where it went:**`: what made it bigger or smaller, by name (the deviation log's items, what the
 validation passes and review rounds were about). Re-read it after each refresh and correct it when the
-numbers changed the story. A PR without an estimate gets the sentences only when something stands out.
+numbers changed the story; a later session (a separate `/flow:finish-prs`) only appends what it saw,
+never rewrites it. A PR without an estimate gets the sentences only when something stands out.
 
 ## What it counts
 
-- **Which transcripts.** A session's rows recorded on the branch, in any checkout of the repository.
+- **Which transcripts.** A session's rows recorded on the branch, in the checkout, its worktrees, or
+  another clone whose `origin` is the same.
   An agent whose brief names the branch (a `/flow:follow-through` agent, whose rows record the
   orchestrator's checkout), and every agent a counted row or agent spawned (validators). A session
   named by a commit's `Claude-Session` trailer or `--session` that never ran on the branch, from its

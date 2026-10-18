@@ -119,8 +119,33 @@ class EffortTest < Minitest::Test
 
   def pick(**opts)
     found = FlowEffort.find_sessions(projects: @projects, repo_root: REPO, branch: BRANCH,
-                                     bridge_ids: opts.fetch(:bridge_ids, []), explicit: opts.fetch(:explicit, []))
+                                     bridge_ids: opts.fetch(:bridge_ids, []), explicit: opts.fetch(:explicit, []),
+                                     floor: opts[:floor], same_repo: opts.fetch(:same_repo, ->(_cwd) { false }))
     FlowEffort.pick(found, branch: BRANCH, since: opts[:since], till: opts[:till])
+  end
+
+  # Another clone of the repository (acme-2) counts; a different repository
+  # whose path starts the same (acme2) does not, whatever its branch is called.
+  def test_a_sibling_checkout_counts_only_when_it_is_the_same_repository
+    %w[/work/acme2 /work/acme-2].each do |cwd|
+      write(FlowEffort.slug(cwd), "sib.jsonl", [
+        assistant(1, "msg_#{cwd}", input: 1, read: 0, output: 1).merge("cwd" => cwd)
+      ])
+    end
+    picked = pick(same_repo: ->(cwd) { cwd == "/work/acme-2" })
+
+    assert_equal ["#{FlowEffort.slug('/work/acme-2')}/sib.jsonl"],
+                 picked.map { |p| p.transcript.path.delete_prefix("#{@projects}/") }
+  end
+
+  # The floor bounds only the scan for trailers across every checkout: a
+  # session in this repository that ended long before the first commit counts.
+  def test_an_old_session_of_this_repository_is_not_cut_by_the_floor
+    worktree_session
+    old = Time.now - 10 * 86_400
+    Dir.glob(File.join(@projects, "**", "*.jsonl")).each { |f| File.utime(old, old, f) }
+
+    assert_equal ["main", "flow:fable-validator"], pick(floor: Time.now).map(&:role)
   end
 
   def line(lines, role, model)
