@@ -1,0 +1,68 @@
+plugins/flow/skills/lfg/SKILL.md
+  s_0abf69c445fa20::t_a9f6d7896cfaef 47-51
+  s_0abf69c445fa20::t_fb917a15fcda00 90-93
+  s_0abf69c445fa20::t_07de1786414e7a 31
+  s_0abf69c445fa20::t_b0d4de3b104848 88-89
+plugins/flow/skills/follow-through/SKILL.md
+  s_0abf69c445fa20::t_21a90cf82d3bd5 197-206
+test/effort_test.rb
+  s_0abf69c445fa20::t_6c556fa94367ec 97,99,101-102,104-107
+  s_0abf69c445fa20::t_0e49d7712d33e8 76-79,82,84
+  s_0abf69c445fa20::t_bd623dd8926281 141-145
+  s_0abf69c445fa20::t_4415f672835fb1 146-152
+  s_0abf69c445fa20::t_08fa63b971f757 1-75,80-81,83,85-96,98,100,103,108-140,153-167,169-172,182-223,227,261-354
+  s_0abf69c445fa20::t_612020181dc345 173-181
+  s_0abf69c445fa20::t_5be15919169cbb 224-226,228-237,239-260
+  s_0abf69c445fa20::t_f5091c9f5d5c6e 238
+README.md
+  s_0abf69c445fa20::t_5d1cedb07d32f3 65-67
+plugins/flow/skills/plan/SKILL.md
+  s_0abf69c445fa20::t_21d83e73f9fb4d 90-91
+  s_0abf69c445fa20::t_90c78416fe3236 114
+  s_0abf69c445fa20::t_4907e0bce05664 74-77
+  s_0abf69c445fa20::t_0ca885e3f3a52c 48-52
+  s_0abf69c445fa20::t_1b075485f43b3f 3
+plugins/flow/README.md
+  s_0abf69c445fa20::t_80a837e376a494 15-16
+plugins/flow/skills/effort/SKILL.md
+  s_0abf69c445fa20::t_3a36d11566df72 1-96
+plugins/flow/skills/effort/effort.rb
+  s_0abf69c445fa20::t_5073ac8b165395 614-621
+  s_0abf69c445fa20::t_d56dcacb58a987 643-648
+  s_0abf69c445fa20::t_43a13c65d25e1c 623-629
+  s_0abf69c445fa20::t_a87bdca915b0e3 278
+  s_0abf69c445fa20::t_21b5dba1421de1 245
+  s_0abf69c445fa20::t_4bc267e18ed832 468
+  s_0abf69c445fa20::t_06f2d30aaeb047 255-258
+  s_0abf69c445fa20::t_7053ca905a4f02 1-47,51,54-97,106-125,127,133-167,170,176-186,189-195,198-209,214-244,246-254,259-262,266,268-271,273,279-291,315-467,469-516,518-521,523-597,601-602,609-613,622,630-642,649-691
+  s_0abf69c445fa20::t_e5bb6805b17295 292-314
+  s_0abf69c445fa20::t_f5471951569c42 168-169,171-175
+  s_0abf69c445fa20::t_ccb277699cc6e4 196-197
+  s_0abf69c445fa20::t_bb7f4b241e0040 98-105
+  s_0abf69c445fa20::t_88bf06b5b47965 210-213
+  s_0abf69c445fa20::t_29da1b75522b9e 263-265,267,272,274-277
+  s_0abf69c445fa20::t_ea94f230cc7a95 517,522
+  s_0abf69c445fa20::t_3cbd503bedd47d 126,128-132
+  s_0abf69c445fa20::t_ed127e7967ae4b 598-600,603-608
+  s_0abf69c445fa20::t_a7ccc576d1e131 48-50,52-53
+  s_0abf69c445fa20::t_7b749e48f15eca 187-188
+plugins/flow/skills/finish-prs/SKILL.md
+  s_0abf69c445fa20::t_90df55bfd65370 211
+  s_0abf69c445fa20::t_ea9dc7d871c10a 149-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e99068b95a87ccbb7a1f042b6920dff5820e4b6a",
+  "prompts": {},
+  "sessions": {
+    "s_0abf69c445fa20": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "780215a4-ac92-4464-839c-86e03bcf05b0",
+        "model": "unknown"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
