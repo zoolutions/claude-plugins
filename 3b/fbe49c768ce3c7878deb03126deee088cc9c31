@@ -1,0 +1,30 @@
+test/effort_test.rb
+  s_0abf69c445fa20::t_b98081a590940c 432-466
+plugins/flow/skills/effort/SKILL.md
+  s_0abf69c445fa20::t_dc37bbf056236e 25
+plugins/flow/skills/effort/effort.rb
+  s_0abf69c445fa20::t_9d6bda0c27c53a 60
+  s_0abf69c445fa20::t_c60e93188e49d7 112-113
+  s_0abf69c445fa20::t_7216218be930b8 639-640
+  s_0abf69c445fa20::t_9bdec052c47c50 215-220
+  s_0abf69c445fa20::t_4f47014f7f8613 634
+  s_0abf69c445fa20::t_a95cc4b1a58590 55
+  s_0abf69c445fa20::t_5cc961a54d9113 415-417,420-426
+  s_0abf69c445fa20::t_b3e228cdd4fe39 721-722
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3bfbe49c768ce3c7878deb03126deee088cc9c31",
+  "prompts": {},
+  "sessions": {
+    "s_0abf69c445fa20": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "780215a4-ac92-4464-839c-86e03bcf05b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
