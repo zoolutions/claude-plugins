@@ -345,6 +345,15 @@ class EffortTest < Minitest::Test
     assert_equal "x\n\n## Effort & cost\n\n#{section}\n", FlowEffort.splice("x\n", section)
   end
 
+  # /flow:effort passes its arguments as typed: "570 --write", "#570", "PR570".
+  def test_a_bare_pr_number_is_the_pr
+    assert_equal 570, FlowEffort.options(%w[570 --write])[:pr]
+    assert_equal 570, FlowEffort.options(["#570"])[:pr]
+    assert_equal 570, FlowEffort.options(%w[--pr #570])[:pr]
+    assert_equal 570, FlowEffort.options(%w[PR570])[:pr]
+    assert_raises(OptionParser::InvalidArgument) { FlowEffort.options(%w[570 571]) }
+  end
+
   def test_the_data_comment_cannot_close_early
     comment = FlowEffort.data_comment("branch" => "a-->b")
 

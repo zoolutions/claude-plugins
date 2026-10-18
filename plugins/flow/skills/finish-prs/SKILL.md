@@ -148,7 +148,9 @@ rebuttal in the PR body.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
 `## Effort & cost`, and you correct its **Where it went** line where they changed the story. A body
-edit, not a round: no gate re-runs for it, and it is no reason to hold a PR that 1–6 cleared.
+edit, not a round: no re-review, no validator, no reason to hold a PR that 1–6 cleared. A workflow
+the repository runs on `edited` (a PR-contract check) re-runs, though: wait for it (Phase 3) and
+re-read gate 2 before merging or reporting merge-ready.
 
 - **`automerge`:** Workflow → Merge, only once 1–6 hold.
   - *squash*: `gh pr merge <PR> --squash --delete-branch --match-head-commit <headRefOid>`.

@@ -16,19 +16,20 @@ guesses: a number it cannot read says "not measured".
 
 `ruby <this skill's base directory>/effort.rb <arguments>` from the repository's checkout:
 
-| When | Arguments |
+| When | Arguments (`<N>`: `570`, `#570` or `PR570`) |
 |---|---|
-| Write or refresh a PR's section | `--pr <N> --write` |
-| The first write, when `/flow:lfg` made the estimate itself | `--pr <N> --write --estimate implementation-notes.md` |
-| Look without writing | `--pr <N>`, or `--json` for the data |
+| Write or refresh a PR's section | `<N> --write` |
+| The first write, when `/flow:lfg` made the estimate itself | `<N> --write --estimate implementation-notes.md` |
+| Look without writing | `<N>`, or `<N> --json` for the data |
 | Before the PR exists | `--branch <name> --issue <N>` |
 | The work ran from a session whose checkout is another repository or a throw-away clone, and its commits have no `Claude-Session` trailer | add `--session <id>` (the transcript's file name, or a `session_…` id) and `--since <ISO 8601 time the work began>` |
 
 `--write` re-reads the body, replaces only what lies between `<!-- flow:effort:start -->` and
 `<!-- flow:effort:end -->`, or, the first time, inserts the section before
 `## Deviations & judgment calls` (else before the session link, else before a bot's generated block,
-else at the end). Everything outside the markers stays as it is. A body edit is not a review round: it
-needs no new CI run, re-review or gate.
+else at the end). Everything outside the markers stays as it is. A body edit is not a review round:
+no re-review, no validator. A workflow the repository runs on `edited` re-runs on it, so the caller
+waits for that check before merging.
 
 **Where it went.** When any row's deviation is not `within` (or `—`), the caller (the session that did
 the work, never a fresh agent) writes one to three sentences under the end marker, starting

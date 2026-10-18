@@ -651,11 +651,19 @@ module FlowEffort
 
   # --- CLI ------------------------------------------------------------------
 
+  # "570", "#570", "PR570" — however the PR was typed.
+  def pr_number(text)
+    number = text.to_s[/\A(?:PR|#)?(\d+)\z/i, 1]
+    raise OptionParser::InvalidArgument, text unless number
+
+    number.to_i
+  end
+
   def options(argv)
     opts = { sessions: [] }
-    OptionParser.new do |o|
-      o.banner = "Usage: effort.rb [options]"
-      o.on("--pr N", Integer) { |v| opts[:pr] = v }
+    rest = OptionParser.new do |o|
+      o.banner = "Usage: effort.rb [<pr>] [options]"
+      o.on("--pr N") { |v| opts[:pr] = pr_number(v) }
       o.on("--issue N", Integer) { |v| opts[:issue] = v }
       o.on("--branch NAME") { |v| opts[:branch] = v }
       o.on("--base NAME") { |v| opts[:base] = v }
@@ -666,13 +674,20 @@ module FlowEffort
       o.on("--until TIME") { |v| opts[:until] = Time.parse(v) }
       o.on("--json") { opts[:json] = true }
       o.on("--write", "replace the PR body's section (needs --pr)") { opts[:write] = true }
-    end.parse!(argv)
+    end.parse(argv)
+    raise OptionParser::InvalidArgument, rest.join(" ") if rest.size > 1
+
+    opts[:pr] ||= pr_number(rest.first) if rest.first
     opts
   end
 
   def main(argv)
-    opts = options(argv)
-    abort "effort: --write needs --pr" if opts[:write] && !opts[:pr]
+    opts = begin
+      options(argv)
+    rescue OptionParser::ParseError => e
+      abort "effort: #{e.message} (usage: effort.rb [<pr>] [--write] [--estimate FILE] …)"
+    end
+    abort "effort: --write needs a PR" if opts[:write] && !opts[:pr]
     data = measure(opts)
     return puts(JSON.pretty_generate(data)) if opts[:json]
 
