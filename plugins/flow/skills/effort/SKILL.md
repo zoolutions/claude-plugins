@@ -43,9 +43,9 @@ numbers changed the story. A PR without an estimate gets the sentences only when
   An agent whose brief names the branch (a `/flow:follow-through` agent, whose rows record the
   orchestrator's checkout), and every agent a counted row or agent spawned (validators). A session
   named by a commit's `Claude-Session` trailer or `--session` that never ran on the branch, from its
-  first row naming the branch (an explicit session that never names it counts whole within
-  `--since`/`--until`); a session that briefed an agent with the branch is an orchestrator, and only
-  its agents count. A merged or closed PR stops at its merge.
+  first row naming the branch; `--session` with `--since` counts that session from then. A session
+  that briefed an agent with the branch is an orchestrator, and only its agents count. A merged or
+  closed PR stops at its merge.
 - **Time.** Wall clock from the first counted entry to the last. Active: per transcript, the gaps
   between entries, leaving out any gap over 10 min and the wait after `ScheduleWakeup`,
   `gh pr checks --watch` or `gh run watch`; then the union over transcripts, so an agent working while

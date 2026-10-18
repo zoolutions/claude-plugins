@@ -211,7 +211,7 @@ module FlowEffort
       # A session that briefed an agent with the branch is an orchestrator: the
       # work is the agent's, and the agent's commits carry the session's id.
       how = :branch if subs.any? { |sub| briefed?(sub, branch) }
-      rows = within(session_rows(session, how, branch), since, till)
+      rows = within(how == :explicit && since ? session.rows : session_rows(session, how, branch), since, till)
       picked << Picked.new("main", session, rows) unless rows.empty?
       attribute(subs, rows.flat_map(&:tool_ids).to_set, branch).each do |sub|
         sub_rows = within(sub.rows, since, till)
@@ -223,7 +223,8 @@ module FlowEffort
   # A session's own rows: those recorded on the branch. A session named by a
   # trailer or --session that never ran on the branch (its checkout was
   # elsewhere) counts from the first row that names it; an explicit one that
-  # never names it counts whole, within --since/--until.
+  # never names it counts whole. An explicit session with --since counts
+  # everything from then (pick).
   def session_rows(session, how, branch)
     on_branch = session.rows.select { |row| row.branch == branch }
     return on_branch unless on_branch.empty?

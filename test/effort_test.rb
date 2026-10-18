@@ -214,6 +214,19 @@ class EffortTest < Minitest::Test
     assert_equal [1, 2], line(lines, "main", "claude-opus-5-5").values_at(:calls, :output)
   end
 
+  # Named and timed by hand: the time wins over the first mention.
+  def test_an_explicit_session_with_since_counts_from_since
+    write("-elsewhere", "e2.jsonl", [
+      assistant(1, "msg_f0", branch: "other", input: 1, read: 0, output: 1),
+      assistant(12, "msg_f1", branch: "other", input: 2, read: 0, output: 2),
+      user(20, "git switch -c #{BRANCH}", branch: "other"),
+      assistant(21, "msg_f2", branch: "other", input: 3, read: 0, output: 4)
+    ])
+    lines = FlowEffort.token_lines(pick(explicit: ["e2"], since: Time.iso8601(ts(10))))
+
+    assert_equal [2, 6], line(lines, "main", "claude-opus-5-5").values_at(:calls, :output)
+  end
+
   def test_leaves_out_what_comes_after_the_merge
     worktree_session
     lines = FlowEffort.token_lines(pick(till: Time.iso8601(ts(10))))
