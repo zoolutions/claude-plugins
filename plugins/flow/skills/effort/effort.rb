@@ -48,8 +48,9 @@ module FlowEffort
   # A call that waits on something outside (CI, a review bot): the time until
   # the next action is waiting, however short.
   WAIT_COMMAND = /\bgh\s+(pr\s+checks\b.*--watch|run\s+watch)\b/.freeze
-  # A call that changes the branch: the agent making it does the work.
-  COMMIT_COMMAND = /\bgit\s+(-C\s+\S+\s+)?(commit|push)\b/.freeze
+  # A commit: the agent making one does the branch's work (a push may be of
+  # another ref, so it says nothing).
+  COMMIT_COMMAND = /\bgit\s+(-C\s+\S+\s+)?commit\b/.freeze
 
   Row = Struct.new(:time, :branch, :mentions, :usage_id, :model, :usage, :advisor, :tool_ids, :compact,
                    :assistant, :waits, :commits, :text, keyword_init: true)
@@ -393,16 +394,13 @@ module FlowEffort
 
   # Rows in file order (a transcript is written in order; sorting would swap
   # same-millisecond lines). A message's content blocks are lines of their
-  # own: one waiting call makes the whole message wait.
+  # own, and the waiting call may be any of them: one makes the whole
+  # message wait, from its first line.
   def busy_spans(rows)
+    waiting_messages = rows.select { |row| row.waits && row.usage_id }.map(&:usage_id).to_set
     waiting = false
-    message = nil
     rows.each_cons(2).each_with_object([]) do |(a, b), spans|
-      if a.assistant
-        same = !a.usage_id.nil? && a.usage_id == message
-        waiting = same ? (waiting || a.waits) : a.waits
-        message = a.usage_id
-      end
+      waiting = a.waits || waiting_messages.include?(a.usage_id) if a.assistant
       gap = b.time - a.time
       spans << [a.time, b.time] if !waiting && gap >= 0 && gap <= IDLE_SECONDS
     end

@@ -352,6 +352,29 @@ class EffortTest < Minitest::Test
     assert_equal 40 + 60, FlowEffort.active_seconds([rows])
   end
 
+  # The waiting call can stream in on a later line of its message than the
+  # first: the gap between the message's own lines waits too.
+  def test_a_wait_on_a_later_line_makes_the_whole_message_wait
+    first = FlowEffort::Row.new(time: Time.at(40), assistant: true, waits: false, usage_id: "m1")
+    later = FlowEffort::Row.new(time: Time.at(45), assistant: true, waits: true, usage_id: "m1")
+    rows = [row(0, assistant: true), first, later, row(46), row(345), row(350, assistant: true), row(410)]
+
+    assert_equal 40 + 60, FlowEffort.active_seconds([rows])
+  end
+
+  # Only a commit marks the agent that does the branch's work; a push may be
+  # of another ref.
+  def test_marks_the_calls_that_commit
+    dir = "#{FlowEffort.slug(REPO)}--claude-worktrees-issue-42"
+    commands = ["git commit -m fix", "git -C /tmp/w commit --amend", "git push origin other-branch", "git log"]
+    rows = commands.each_with_index.map do |command, i|
+      assistant(i, "msg_c#{i}", input: 1, read: 0, output: 1, content: bash("toolu_c#{i}", command))
+    end
+    transcript = FlowEffort::Transcript.new(write(dir, "c1.jsonl", rows), BRANCH)
+
+    assert_equal [true, true, false, false], transcript.rows.map(&:commits)
+  end
+
   # The main session waits on CI while a validator works: that time is work.
   def test_active_time_counts_an_agent_working_through_a_wait
     main = [row(0, assistant: true, waits: true), row(1), row(300), row(310, assistant: true), row(320)]

@@ -89,8 +89,9 @@ from Phase 1 and every section Workflow → PR contract requires, in its order. 
 `## Deviations & judgment calls`, copied from `implementation-notes.md`'s log, not its estimate
 ("None — the plan held." if empty). Then `/flow:effort <PR> --write` (Skill tool; add
 `--estimate <file>` naming where the estimate is when it is not on the issue: the plan file you ran,
-or `implementation-notes.md` when Phase 3 wrote it): it puts `## Effort & cost` before the deviations, and you write its
-**Where it went** line when a row is outside the estimate. Then delete the file. A UI change attaches
+or `implementation-notes.md` when Phase 3 wrote it): it puts `## Effort & cost` before the deviations,
+and you write its **Where it went** line when a row is outside the estimate. Then delete
+`implementation-notes.md` (never the plan file). A UI change attaches
 before/after screenshots (`gh pr comment <n> --attach '<file>#<alt>'`) when the PR contract asks for
 them.
 
