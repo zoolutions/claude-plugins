@@ -144,6 +144,15 @@ class EffortTest < Minitest::Test
                  picked.map { |p| p.transcript.path.delete_prefix("#{@projects}/") }
   end
 
+  # An ssh clone and an https clone of one repository have one origin.
+  def test_an_origin_is_the_same_over_ssh_and_https
+    same = %w[git@github.com:acme/app.git https://github.com/acme/app ssh://git@github.com/acme/app.git
+              https://github.com/acme/app.git/].map { |url| FlowEffort.origin_key(url) }.uniq
+
+    assert_equal ["github.com/acme/app"], same
+    refute_equal FlowEffort.origin_key("git@github.com:acme/app2.git"), FlowEffort.origin_key("git@github.com:acme/app.git")
+  end
+
   # The floor bounds only the scan for trailers across every checkout: a
   # session in this repository that ended long before the first commit counts.
   def test_an_old_session_of_this_repository_is_not_cut_by_the_floor

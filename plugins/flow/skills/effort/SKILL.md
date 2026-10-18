@@ -27,7 +27,9 @@ guesses: a number it cannot read says "not measured".
 `--write` re-reads the body, replaces only what lies between `<!-- flow:effort:start -->` and
 `<!-- flow:effort:end -->`, or, the first time, inserts the section before
 `## Deviations & judgment calls` (else before the session link, else before a bot's generated block,
-else at the end). Everything outside the markers stays as it is. A body edit is not a review round:
+else at the end). Everything outside the markers stays as it is. A body whose end marker was lost (a
+hand edit) is replaced from the start marker to the next `## ` heading, prose included: write it
+again. A body edit is not a review round:
 no re-review, no validator. A workflow the repository runs on `edited` re-runs on it, so the caller
 waits for that check before merging.
 
@@ -46,8 +48,10 @@ never rewrites it. A PR without an estimate gets the sentences only when somethi
   orchestrator's checkout), and every agent a counted row or agent spawned (validators). A session
   named by a commit's `Claude-Session` trailer or `--session` that never ran on the branch, from its
   first row naming the branch; `--session` with `--since` counts that session from then. A session
-  that briefed an agent with the branch is an orchestrator, and only its agents count. A merged or
-  closed PR stops at its merge.
+  found by trailer whose agent, briefed with the branch, commits to it (a `/flow:follow-through`
+  orchestrator) counts only through its agents; one whose briefed agents only read (a validator) did
+  the work itself. Naming the branch means the name as a word, not inside a longer one (`fix` in
+  `prefix`). A merged or closed PR stops at its merge.
 - **Time.** Wall clock from the first counted entry to the last. Active: per transcript, the gaps
   between entries, leaving out any gap over 10 min and the wait after `ScheduleWakeup`,
   `gh pr checks --watch` or `gh run watch`; then the union over transcripts, so an agent working while

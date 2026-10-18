@@ -245,11 +245,18 @@ module FlowEffort
 
   def same_repo?(cwd)
     @origins ||= {}
-    ours = (@origins[:ours] ||= run("git", "config", "--get", "remote.origin.url").to_s.strip)
+    ours = (@origins[:ours] ||= origin_key(run("git", "config", "--get", "remote.origin.url")))
     return false if ours.empty? || !File.directory?(cwd)
 
-    theirs = (@origins[cwd] ||= run("git", "-C", cwd, "config", "--get", "remote.origin.url").to_s.strip)
+    theirs = (@origins[cwd] ||= origin_key(run("git", "-C", cwd, "config", "--get", "remote.origin.url")))
     theirs == ours
+  end
+
+  # host/owner/name of a remote URL, so an ssh clone and an https clone of one
+  # repository compare equal.
+  def origin_key(url)
+    url.to_s.strip.sub(%r{\A[a-z+]+://}, "").sub(/\A[^@\/]+@/, "").sub(/:(?!\d)/, "/")
+       .sub(%r{/+\z}, "").sub(/\.git\z/, "").downcase
   end
 
   def pick(found, branch:, since: nil, till: nil)
