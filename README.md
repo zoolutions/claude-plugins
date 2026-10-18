@@ -6,7 +6,7 @@ costs nothing until one of its skills is invoked.
 
 | Plugin | For | What it does |
 |---|---|---|
-| [`flow`](plugins/flow) | every repository | `/flow:lfg` (issue → merge-ready PR, never merges), `/flow:follow-through` (epic → merged, unattended: dependency waves, one agent per issue, upstream fixes carried to a release), `/flow:finish-prs` (review rounds until green; `automerge` merges or queues), `/flow:plan` (incl. `upstream`), `/flow:github-review-pr` / `-failures` / `-comments`, `/flow:tdd`, `/flow:review-pr`, `/flow:debug-flaky`, the `flow:fable-validator` agent |
+| [`flow`](plugins/flow) | every repository | `/flow:lfg` (issue → merge-ready PR, never merges), `/flow:follow-through` (epic → merged, unattended: dependency waves, one agent per issue, upstream fixes carried to a release), `/flow:finish-prs` (review rounds until green; `automerge` merges or queues), `/flow:plan` (incl. `upstream`, with an effort estimate), `/flow:effort` (each PR's time and tokens against the estimate), `/flow:github-review-pr` / `-failures` / `-comments`, `/flow:tdd`, `/flow:review-pr`, `/flow:debug-flaky`, the `flow:fable-validator` agent |
 | [`rails-app`](plugins/rails-app) | Rails applications | the layer specialists, AppSignal debugging and triage |
 | [`ruby-gem`](plugins/ruby-gem) | Ruby libraries | an unattended release, branch-versus-main benchmarks |
 
@@ -62,4 +62,6 @@ no user-level key, a plugin installed at user scope stays off until a repository
 A plugin change reaches every repository at once, so write it for all of them: no repository names,
 paths or tools in a skill — a fact one repository needs goes in that repository's `## Workflow`
 section, and the skill names the label. `claude plugin validate plugins/<name>` before the PR;
-`claude plugin details <name>` shows what a skill costs in context.
+`claude plugin details <name>` shows what a skill costs in context. A script a skill runs ships beside
+its `SKILL.md`, stdlib only, and has its tests in `test/` (outside the plugins, so they do not ship):
+`ruby test/effort_test.rb`.

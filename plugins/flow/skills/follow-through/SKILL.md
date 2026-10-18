@@ -194,14 +194,16 @@ issue stays open and is listed in the report.
 1. Close an umbrella only if it was named in the arguments and **every** child (not only this run's)
    is closed: `gh issue close <umbrella> --comment "<#N → #pr per child>"`. A child still open is
    reported, never closed by hand.
-2. One table:
+2. One table. Effort is each PR's estimate → actual, from the data comment `/flow:finish-prs` left in
+   its body: `gh pr view <pr> --json body --jq '.body | capture("<!-- flow:effort (?<j>\\{.*?\\}) -->")?.j | fromjson | "\(.estimate.size // "—") → \(.actual.size), \(.actual.active_hours) h"'`
+   (empty: `—`). The orchestrator's own turns are in no PR's numbers.
 
-   | Issue | PR | Result |
-   |---|---|---|
-   | #538 | #600 | merged ✅ `abc1234` |
-   | #540 | #601 | parked ⚠️ <reason> |
-   | #541 | — | blocked ⛔ by #540 |
-   | lib#77 | lib#80 | released ✅ v1.4.2 → adoption #612 merged |
+   | Issue | PR | Result | Effort |
+   |---|---|---|---|
+   | #538 | #600 | merged ✅ `abc1234` | M → M, 3.1 h |
+   | #540 | #601 | parked ⚠️ <reason> | S → M, 2.4 h |
+   | #541 | — | blocked ⛔ by #540 | — |
+   | lib#77 | lib#80 | released ✅ v1.4.2 → adoption #612 merged | S → S, 1.2 h |
 
 3. Per parked issue: what the user must do (from its PR comment), then the resume command:
    `/flow:follow-through <same arguments>` — Phase 0.4 picks up every PR and worktree where it was left.

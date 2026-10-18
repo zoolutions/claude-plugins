@@ -146,6 +146,10 @@ this exact head SHA (`/flow:lfg` Phase 6.5, no commit since). BLOCK or PASS WITH
 blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line
 rebuttal in the PR body.
 
+Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
+`## Effort & cost`, and you correct its **Where it went** line where they changed the story. A body
+edit, not a round: no gate re-runs for it, and it is no reason to hold a PR that 1–6 cleared.
+
 - **`automerge`:** Workflow → Merge, only once 1–6 hold.
   - *squash*: `gh pr merge <PR> --squash --delete-branch --match-head-commit <headRefOid>`.
   - *queue*: `gh pr merge <PR> --match-head-commit <headRefOid>` — no strategy flag, no
@@ -204,7 +208,7 @@ A PR merged out of order: drop it from the list and sync what is now next.
 
 | PR | Result | Note |
 |----|--------|------|
-| #a | ✅ merged / ✅ merge-ready / ⏳ in queue / ⚠️ needs-user | rounds, evictions, the blocker |
+| #a | ✅ merged / ✅ merge-ready / ⏳ in queue / ⚠️ needs-user | rounds, evictions, the blocker; size and active time against the estimate |
 
 Then what the user must do next.
 

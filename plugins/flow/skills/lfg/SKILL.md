@@ -28,7 +28,7 @@ below means that line; a missing line means none. AGENTS.md's never-do rules bin
 
 - Issue: `gh issue view <n> --json title,body,labels,comments`. Plan file: read it whole. Keep the
   issue's type/area labels for the PR (Workflow → PR contract says how labels work); never edit the
-  issue's own labels.
+  issue's own labels. Note whether the plan has an `## Estimate` (Phase 3).
 - Write acceptance criteria as GIVEN / WHEN / THEN. Do not go on until you can.
 - Comprehension gate — one line each: the problem; why it matters; what changes for the user; edge
   cases nobody mentioned; the code path or data flow. Can't answer one → investigate more.
@@ -43,6 +43,11 @@ features are built, the integration points, and the existing tests.
 
 Files to change and why; new files; migrations; the tests to write first. A library limitation is
 never worked around silently: `/flow:plan upstream <owner/repo> <limitation>`, linked from the PR.
+
+**Estimate.** The plan has an `## Estimate`: that is what this PR is measured against. None (an issue
+without a plan, a description): write one now, before the first edit, at the top of
+`implementation-notes.md`, by `../effort/SKILL.md` → The estimate (beside this skill's directory),
+calibrated as it says. Never revise either after the work starts: the deviation is the measurement.
 
 ## Phase 4: Implement (TDD)
 
@@ -80,9 +85,12 @@ PASS, or PASS WITH NOTES with every note fixed or rebutted.
 
 Conventional commit (`feat(scope): …`), body says why. Push with `-u`. `gh pr create` with the labels
 from Phase 1 and every section Workflow → PR contract requires, in its order. The body ends with
-`## Deviations & judgment calls`, copied from `implementation-notes.md` ("None — the plan held." if
-empty); then delete the file. A UI change attaches before/after screenshots
-(`gh pr comment <n> --attach '<file>#<alt>'`) when the PR contract asks for them.
+`## Deviations & judgment calls`, copied from `implementation-notes.md`'s log, not its estimate
+("None — the plan held." if empty). Then `/flow:effort <PR> --write` (Skill tool; add `--estimate implementation-notes.md` when
+Phase 3 wrote the estimate there): it puts `## Effort & cost` before the deviations, and you write its
+**Where it went** line when a row is outside the estimate. Then delete the file. A UI change attaches
+before/after screenshots (`gh pr comment <n> --attach '<file>#<alt>'`) when the PR contract asks for
+them.
 
 ## Phase 8: Finish the PR — never merge
 
