@@ -195,7 +195,7 @@ issue stays open and is listed in the report.
    is closed: `gh issue close <umbrella> --comment "<#N → #pr per child>"`. A child still open is
    reported, never closed by hand.
 2. One table. Effort is each PR's estimate → actual, from the data comment `/flow:finish-prs` left in
-   its body: `gh pr view <pr> --json body --jq '.body | capture("<!-- flow:effort (?<j>\\{.*?\\}) -->")?.j | fromjson | "\(.estimate.size // "—") → \(.actual.size), \(.actual.active_hours) h"'`
+   its body: `gh pr view <pr> --json body --jq '.body | capture("<!-- flow:effort (?<j>\\{.*?\\}) -->")?.j | fromjson | "\(.estimate.size // "—") → \(.actual.size // "—"), \(.actual.active_hours | if . then "\(.) h" else "not measured" end)"'`
    (empty: `—`). The orchestrator's own turns are in no PR's numbers.
 
    | Issue | PR | Result | Effort |

@@ -48,9 +48,11 @@ module FlowEffort
   # A call that waits on something outside (CI, a review bot): the time until
   # the next action is waiting, however short.
   WAIT_COMMAND = /\bgh\s+(pr\s+checks\b.*--watch|run\s+watch)\b/.freeze
+  # A call that changes the branch: the agent making it does the work.
+  COMMIT_COMMAND = /\bgit\s+(-C\s+\S+\s+)?(commit|push)\b/.freeze
 
   Row = Struct.new(:time, :branch, :mentions, :usage_id, :model, :usage, :advisor, :tool_ids, :compact,
-                   :assistant, :waits, keyword_init: true)
+                   :assistant, :waits, :commits, keyword_init: true)
   Picked = Struct.new(:role, :transcript, :rows)
 
   # One transcript file: a session, or a subagent with its .meta.json beside it.
@@ -78,6 +80,10 @@ module FlowEffort
       meta && meta["toolUseId"]
     end
 
+    def commits?
+      rows.any?(&:commits)
+    end
+
     private
 
     def read_meta
@@ -98,11 +104,12 @@ module FlowEffort
       assistant = data["type"] == "assistant"
       usage = assistant && message["usage"].is_a?(Hash) ? message["usage"] : nil
       calls = tool_calls(message)
-      @rows << Row.new(time: time, branch: data["gitBranch"], mentions: line.include?(@branch),
+      @rows << Row.new(time: time, branch: data["gitBranch"], mentions: FlowEffort.mentions?(line, @branch),
                        usage_id: message["id"] || data["uuid"], model: message["model"],
                        usage: usage && FlowEffort.tokens(usage), advisor: usage ? advisor(usage) : [],
                        tool_ids: calls.map { |call| call["id"] }.compact, compact: data["isCompactSummary"] == true,
-                       assistant: assistant, waits: calls.any? { |call| waits?(call) })
+                       assistant: assistant, waits: calls.any? { |call| waits?(call) },
+                       commits: calls.any? { |call| bash?(call, COMMIT_COMMAND) })
     rescue JSON::ParserError
       nil
     end
@@ -128,8 +135,12 @@ module FlowEffort
     end
 
     def waits?(call)
+      call["name"] == "ScheduleWakeup" || bash?(call, WAIT_COMMAND)
+    end
+
+    def bash?(call, pattern)
       input = call["input"].is_a?(Hash) ? call["input"] : {}
-      call["name"] == "ScheduleWakeup" || (call["name"] == "Bash" && input["command"].to_s =~ WAIT_COMMAND)
+      call["name"] == "Bash" && input["command"].to_s =~ pattern ? true : false
     end
   end
 
@@ -245,15 +256,22 @@ module FlowEffort
     found.each_with_object([]) do |(file, how), picked|
       session = Transcript.new(file, branch)
       subs = subagent_files(file).map { |sub| Transcript.new(sub, branch) }
-      # A session that briefed an agent with the branch is an orchestrator: the
-      # work is the agent's, and the agent's commits carry the session's id.
-      how = :branch if subs.any? { |sub| briefed?(sub, branch) }
+      how = :branch if how == :trailer && orchestrator?(subs, branch)
       rows = within(how == :explicit && since ? session.rows : session_rows(session, how, branch), since, till)
       picked << Picked.new("main", session, rows) unless rows.empty?
       attribute(subs, rows.flat_map(&:tool_ids).to_set, branch).each do |sub|
         sub_rows = within(sub.rows, since, till)
         picked << Picked.new(sub.agent_type, sub, sub_rows) unless sub_rows.empty?
       end
+    end
+  end
+
+  # Transcripts of this repository that name the branch but record no branch
+  # on any row (a Claude Code older than gitBranch): not counted, reported.
+  def unbranched(found, branch:)
+    found.select { |_, how| how == :branch }.keys.select do |file|
+      rows = Transcript.new(file, branch).rows
+      rows.any?(&:mentions) && rows.none?(&:branch)
     end
   end
 
@@ -291,7 +309,24 @@ module FlowEffort
   end
 
   def briefed?(subagent, branch)
-    subagent.brief.to_s.include?(branch)
+    mentions?(subagent.brief.to_s, branch)
+  end
+
+  # A session whose agent, briefed with the branch, commits to it is an
+  # orchestrator (/flow:follow-through): the work is the agent's, and the
+  # agent's commits carry the session's id. A session whose briefed agents
+  # only read (a validator) did the work itself.
+  def orchestrator?(subagents, branch)
+    subagents.any? { |sub| briefed?(sub, branch) && sub.commits? }
+  end
+
+  # The branch name as a word, in a raw JSON line or a text: not part of a
+  # longer name (`fix` in `prefix`, `feat/x` in `feat/x-2`). JSON escapes
+  # (`\n`) are read as the space they stand for.
+  def mentions?(text, branch)
+    return false unless text.include?(branch)
+
+    text.gsub(/\\[nrt]/, "  ") =~ /(?<![\w.-])#{Regexp.escape(branch)}(?![\w\/-])/ ? true : false
   end
 
   def within(rows, since, till)
@@ -332,7 +367,7 @@ module FlowEffort
   # then the union over transcripts, so an agent working while the session
   # waits on CI counts, and two agents at once count once.
   def active_seconds(row_lists, before: nil)
-    spans = row_lists.flat_map { |rows| busy_spans(rows.sort_by(&:time)) }
+    spans = row_lists.flat_map { |rows| busy_spans(rows) }
     spans = spans.map { |a, b| [a, [b, before].min] }.select { |a, b| b > a } if before
     merged = spans.sort.each_with_object([]) do |(a, b), out|
       if out.any? && a <= out.last[1]
@@ -344,11 +379,20 @@ module FlowEffort
     merged.sum { |a, b| b - a }
   end
 
+  # Rows in file order (a transcript is written in order; sorting would swap
+  # same-millisecond lines). A message's content blocks are lines of their
+  # own: one waiting call makes the whole message wait.
   def busy_spans(rows)
     waiting = false
+    message = nil
     rows.each_cons(2).each_with_object([]) do |(a, b), spans|
-      waiting = a.waits if a.assistant
-      spans << [a.time, b.time] if !waiting && b.time - a.time <= IDLE_SECONDS
+      if a.assistant
+        same = !a.usage_id.nil? && a.usage_id == message
+        waiting = same ? (waiting || a.waits) : a.waits
+        message = a.usage_id
+      end
+      gap = b.time - a.time
+      spans << [a.time, b.time] if !waiting && gap >= 0 && gap <= IDLE_SECONDS
     end
   end
 
@@ -437,6 +481,15 @@ module FlowEffort
     body = body.to_s
     marked = /#{Regexp.escape(START_MARK)}.*?#{Regexp.escape(END_MARK)}/m
     return body.sub(marked) { section } if body =~ marked
+
+    # The end marker was lost (a hand edit): replace up to the next section.
+    if (start = body.index(START_MARK))
+      rest = body[start..-1]
+      stop = ([/^## /] + INSERT_BEFORE).map { |pattern| rest.index(pattern) }.compact.min
+      return "#{body[0...start]}#{section}\n\n#{rest[stop..-1]}" if stop
+
+      return "#{body[0...start]}#{section}\n"
+    end
 
     block = "#{HEADING}\n\n#{section}"
     at = INSERT_BEFORE.map { |pattern| body.index(pattern) }.compact.first
@@ -548,10 +601,11 @@ module FlowEffort
     nwo = pr && pr["url"].to_s[%r{github\.com/([^/]+/[^/]+)/pull/}, 1]
     report(branch: branch, pr: pr, picked: picked, commits: commits, estimate: estimate, source: source,
            diff: pr ? { files: pr["changedFiles"], additions: pr["additions"], deletions: pr["deletions"] } : diff_from_git(base),
-           rounds: nwo && review_rounds(nwo, pr["number"]), threads: nwo && thread_count(nwo, pr["number"]))
+           rounds: nwo && review_rounds(nwo, pr["number"]), threads: nwo && thread_count(nwo, pr["number"]),
+           unbranched: unbranched(found, branch: branch).size)
   end
 
-  def report(branch:, pr:, picked:, commits:, estimate:, source:, diff:, rounds:, threads:)
+  def report(branch:, pr:, picked:, commits:, estimate:, source:, diff:, rounds:, threads:, unbranched: 0)
     times = picked.flat_map { |entry| entry.rows.map(&:time) }.sort
     opened = pr && parse_time(pr["createdAt"])
     active = times.size > 1 ? active_seconds(picked.map(&:rows)) / 3600.0 : nil
@@ -576,7 +630,8 @@ module FlowEffort
         { "role" => role, "model" => model, "transcripts" => t[:files].size, "calls" => t[:calls], "input" => t[:input],
           "cache_write" => t[:cache_write], "cache_read" => t[:cache_read], "output" => t[:output] }
       end,
-      "coverage" => { "sessions" => picked.count { |e| e.role == "main" }, "subagents" => picked.count { |e| e.role != "main" } }
+      "coverage" => { "sessions" => picked.count { |e| e.role == "main" }, "subagents" => picked.count { |e| e.role != "main" },
+                      "unbranched" => unbranched }
     }
   end
 
@@ -686,6 +741,10 @@ module FlowEffort
     facts << plural(act["compactions"], "context compaction") if act["compactions"].positive?
     facts << "measured from #{plural(cov['sessions'], 'session')} and #{plural(cov['subagents'], 'agent transcript')} " \
              "on this machine; work elsewhere is not in these numbers"
+    if cov["unbranched"].to_i.positive?
+      facts << "#{plural(cov['unbranched'], 'transcript')} name the branch but record no branch on their rows " \
+               "(an older Claude Code): not counted; `--session <id> --since <time>` counts one"
+    end
     facts.join(" · ") + "."
   end
 

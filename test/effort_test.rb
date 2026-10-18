@@ -44,8 +44,12 @@ class EffortTest < Minitest::Test
     { "type" => "user", "timestamp" => ts(minute), "gitBranch" => branch, "message" => { "content" => text } }
   end
 
-  def spawn(id)
-    [{ "type" => "tool_use", "id" => id, "name" => "Agent" }]
+  def spawn(id, prompt = nil)
+    [{ "type" => "tool_use", "id" => id, "name" => "Agent", "input" => { "prompt" => prompt.to_s } }]
+  end
+
+  def bash(id, command)
+    [{ "type" => "tool_use", "id" => id, "name" => "Bash", "input" => { "command" => command } }]
   end
 
   def write(dir, name, rows, meta: nil)
@@ -108,7 +112,9 @@ class EffortTest < Minitest::Test
     write(dir, "o1/subagents/agent-ft.jsonl", [
       user(41, "You are running issue #42.\nYour worktree: #{REPO}/.claude/worktrees/follow-42 (branch #{BRANCH})",
            branch: "main"),
-      assistant(42, "msg_ft1", branch: "main", input: 1, read: 400, output: 50, content: spawn("toolu_nested"))
+      assistant(42, "msg_ft1", branch: "main", input: 1, read: 400, output: 50, content: spawn("toolu_nested")),
+      assistant(45, "msg_ft2", branch: "main", input: 1, read: 400, output: 50,
+                               content: bash("toolu_c", "git -C #{REPO}/.claude/worktrees/follow-42 commit -m fix"))
     ], meta: { "agentType" => "general-purpose", "toolUseId" => "toolu_ft" })
     write(dir, "o1/subagents/agent-nested.jsonl", [
       user(43, "Validate issue #42", branch: "main"),
@@ -239,6 +245,57 @@ class EffortTest < Minitest::Test
     assert_equal [1, 2], line(lines, "main", "claude-opus-5-5").values_at(:calls, :output)
   end
 
+  # Work on another repository's branch from this checkout's session, with a
+  # validator briefed with the branch: the session did the work (its agent
+  # never commits), so it is no orchestrator, found by trailer or by hand.
+  def worker_elsewhere
+    write("-elsewhere", "w2.jsonl", [
+      { "type" => "bridge-session", "bridgeSessionId" => "cse_01WORK" },
+      assistant(1, "msg_g0", branch: "other", input: 1, read: 0, output: 1),
+      assistant(5, "msg_g1", branch: "other", input: 1, read: 0, output: 2,
+                             content: bash("toolu_g", "git worktree add -b #{BRANCH} /tmp/x origin/main")),
+      assistant(8, "msg_g2", branch: "other", input: 1, read: 0, output: 4,
+                             content: spawn("toolu_gv", "Validate branch #{BRANCH}")),
+      assistant(9, "msg_g3", branch: "other", input: 1, read: 0, output: 8,
+                             content: bash("toolu_gc", "git commit -m feat"))
+    ])
+    write("-elsewhere", "w2/subagents/agent-gv.jsonl", [
+      user(8, "Validate branch #{BRANCH}", branch: "other"),
+      assistant(9, "msg_gv", branch: "other", model: "claude-fable-5-1", input: 1, read: 0, output: 16,
+                             content: [{ "type" => "text", "text" => "**PASS**" }])
+    ], meta: { "agentType" => "flow:fable-validator", "toolUseId" => "toolu_gv" })
+  end
+
+  def test_a_session_that_briefed_a_validator_is_no_orchestrator
+    worker_elsewhere
+    by_trailer = FlowEffort.token_lines(pick(bridge_ids: ["session_01WORK"]))
+    by_hand = FlowEffort.token_lines(pick(explicit: ["w2"], since: Time.iso8601(ts(0))))
+
+    assert_equal [3, 14], line(by_trailer, "main", "claude-opus-5-5").values_at(:calls, :output)
+    assert_equal [4, 15], line(by_hand, "main", "claude-opus-5-5").values_at(:calls, :output)
+    assert_equal 16, line(by_hand, "flow:fable-validator", "claude-fable-5-1")[:output]
+  end
+
+  # A session whose rows record no branch at all (an older Claude Code) is
+  # reported, not silently dropped.
+  def test_reports_a_transcript_that_records_no_branch
+    row = assistant(1, "msg_nb", input: 1, read: 0, output: 1, content: bash("toolu_nb", "git switch #{BRANCH}"))
+    row.delete("gitBranch")
+    write(FlowEffort.slug(REPO), "nb.jsonl", [row])
+    found = FlowEffort.find_sessions(projects: @projects, repo_root: REPO, branch: BRANCH, bridge_ids: [],
+                                     explicit: [], same_repo: ->(_cwd) { false })
+
+    assert_empty FlowEffort.pick(found, branch: BRANCH)
+    assert_equal [File.join(@projects, FlowEffort.slug(REPO), "nb.jsonl")], FlowEffort.unbranched(found, branch: BRANCH)
+  end
+
+  def test_a_mention_is_the_branch_name_as_a_word
+    assert FlowEffort.mentions?(%("git switch fix\\n"), "fix")
+    assert FlowEffort.mentions?(%("git push origin/feat/x"), "feat/x")
+    refute FlowEffort.mentions?(%("the prefix is fixture"), "fix")
+    refute FlowEffort.mentions?(%("feat/x-2 is another"), "feat/x")
+  end
+
   # Named and timed by hand: the time wins over the first mention.
   def test_an_explicit_session_with_since_counts_from_since
     write("-elsewhere", "e2.jsonl", [
@@ -274,6 +331,16 @@ class EffortTest < Minitest::Test
             row(350, assistant: true), row(410)]
 
     assert_equal 30 + 10 + 60, FlowEffort.active_seconds([rows])
+  end
+
+  # One message, two parallel calls in two lines, only the first waits: the
+  # message waits. Same-millisecond lines keep their file order.
+  def test_a_wait_holds_for_every_line_of_its_message
+    waits = FlowEffort::Row.new(time: Time.at(40), assistant: true, waits: true, usage_id: "m1")
+    sibling = FlowEffort::Row.new(time: Time.at(40), assistant: true, waits: false, usage_id: "m1")
+    rows = [row(0, assistant: true), waits, sibling, row(41), row(340), row(350, assistant: true), row(410)]
+
+    assert_equal 40 + 60, FlowEffort.active_seconds([rows])
   end
 
   # The main session waits on CI while a validator works: that time is work.
@@ -373,6 +440,17 @@ class EffortTest < Minitest::Test
     refute_includes out, "old"
     assert_includes out, "auto-generated description by cubic. -->\nbot"
     assert_equal out, FlowEffort.splice(out, section)
+  end
+
+  # A hand-edit that lost the end marker: the section is replaced up to the
+  # next one, not written twice.
+  def test_replaces_a_section_whose_end_marker_was_lost
+    body = "## Effort & cost\n\n#{FlowEffort::START_MARK}\nold numbers\n\n## Deviations & judgment calls\n\nNone.\n"
+    out = FlowEffort.splice(body, section)
+
+    assert_equal 1, out.scan(FlowEffort::START_MARK).size
+    assert_includes out, "#{section}\n\n## Deviations & judgment calls\n\nNone."
+    refute_includes out, "old numbers"
   end
 
   def test_inserts_before_the_session_link_or_a_bot_block_otherwise
