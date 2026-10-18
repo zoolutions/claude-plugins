@@ -426,7 +426,44 @@ class EffortTest < Minitest::Test
   def test_verdict
     assert_equal "PASS WITH NOTES", FlowEffort.verdict("**PASS WITH NOTES**\n\nRisks")
     assert_equal "PASS", FlowEffort.verdict("PASS — checked the specs")
-    assert_equal "?", FlowEffort.verdict(nil)
+    assert_equal "no verdict", FlowEffort.verdict(nil)
+  end
+
+  # A validator resumed for a second pass answers twice in one transcript;
+  # a pass after the merge is not this PR's.
+  def test_counts_each_answer_of_a_resumed_validator_within_the_window
+    dir = "#{FlowEffort.slug(REPO)}--claude-worktrees-issue-42"
+    write(dir, "r1.jsonl", [assistant(1, "msg_r0", input: 1, read: 0, output: 1, content: spawn("toolu_r", "check"))])
+    answer = ->(minute, id, text) { assistant(minute, id, model: "claude-fable-5-1", input: 1, read: 0, output: 1,
+                                                          content: [{ "type" => "text", "text" => text }]) }
+    write(dir, "r1/subagents/agent-r.jsonl", [
+      user(1, "Validate"), answer.call(2, "msg_a1", "Reading the diff; the PASS criteria first."),
+      answer.call(3, "msg_a2", "**BLOCK**\n\nBlockers: …"), user(4, "Re-validate"),
+      answer.call(5, "msg_a3", "**PASS WITH NOTES**\n\nNotes: …"), user(30, "Again, after the merge"),
+      answer.call(31, "msg_a4", "**PASS**")
+    ], meta: { "agentType" => "flow:fable-validator", "toolUseId" => "toolu_r" })
+
+    assert_equal ["BLOCK", "PASS WITH NOTES"], FlowEffort.verdicts(pick(till: Time.iso8601(ts(10))))
+  end
+
+  def test_a_session_given_by_its_file_name_or_path
+    write("-elsewhere", "f1.jsonl", [assistant(1, "msg_f", branch: "other", input: 1, read: 0, output: 1)])
+
+    [%w[f1], %w[f1.jsonl], [File.join(@projects, "-elsewhere", "f1.jsonl")]].each do |explicit|
+      assert_equal 1, FlowEffort.token_lines(pick(explicit: explicit)).values.sum { |l| l[:calls] }, explicit.inspect
+    end
+  end
+
+  def test_reports_active_time_after_the_pr_opened
+    worktree_session
+    found = FlowEffort.find_sessions(projects: @projects, repo_root: REPO, branch: BRANCH, bridge_ids: [], explicit: [],
+                                     same_repo: ->(_cwd) { false })
+    picked = FlowEffort.pick(found, branch: BRANCH)
+    data = FlowEffort.report(branch: BRANCH, pr: { "number" => 1, "createdAt" => ts(3) }, picked: picked, commits: [],
+                             estimate: nil, source: nil, diff: {}, rounds: nil, threads: nil)
+
+    assert_equal [0.03, 0.03], data["actual"].values_at("active_before_pr_hours", "active_after_pr_hours")
+    assert_match(/2 min of it before the PR opened and 2 min after/, FlowEffort.time_text(data["actual"]))
   end
 
   def section(text = "new")

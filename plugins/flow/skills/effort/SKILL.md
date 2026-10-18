@@ -22,7 +22,7 @@ guesses: a number it cannot read says "not measured".
 | The first write, when the estimate is not on the issue | `<N> --write --estimate <file>`: the plan file `/flow:lfg` ran, or `implementation-notes.md` when it made the estimate itself |
 | Look without writing | `<N>`, or `<N> --json` for the data |
 | Before the PR exists | `--branch <name> --issue <N>` |
-| The work ran from a session whose checkout is another repository or a throw-away clone, and its commits have no `Claude-Session` trailer | add `--session <id>` (the transcript's file name, or a `session_…` id) and `--since <ISO 8601 time the work began>` |
+| The work ran from a session whose checkout is another repository or a throw-away clone, and its commits have no `Claude-Session` trailer | add `--session <id>` (the transcript's file name, with or without `.jsonl`, its path, or a `session_…` id) and `--since <ISO 8601 time the work began>` |
 
 `--write` re-reads the body, replaces only what lies between `<!-- flow:effort:start -->` and
 `<!-- flow:effort:end -->`, or, the first time, inserts the section before

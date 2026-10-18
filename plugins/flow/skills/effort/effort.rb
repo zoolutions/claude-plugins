@@ -52,12 +52,12 @@ module FlowEffort
   COMMIT_COMMAND = /\bgit\s+(-C\s+\S+\s+)?(commit|push)\b/.freeze
 
   Row = Struct.new(:time, :branch, :mentions, :usage_id, :model, :usage, :advisor, :tool_ids, :compact,
-                   :assistant, :waits, :commits, keyword_init: true)
+                   :assistant, :waits, :commits, :text, keyword_init: true)
   Picked = Struct.new(:role, :transcript, :rows)
 
   # One transcript file: a session, or a subagent with its .meta.json beside it.
   class Transcript
-    attr_reader :path, :rows, :meta, :brief, :final_text
+    attr_reader :path, :rows, :meta, :brief
 
     def initialize(path, branch)
       @path = path
@@ -109,7 +109,8 @@ module FlowEffort
                        usage: usage && FlowEffort.tokens(usage), advisor: usage ? advisor(usage) : [],
                        tool_ids: calls.map { |call| call["id"] }.compact, compact: data["isCompactSummary"] == true,
                        assistant: assistant, waits: calls.any? { |call| waits?(call) },
-                       commits: calls.any? { |call| bash?(call, COMMIT_COMMAND) })
+                       commits: calls.any? { |call| bash?(call, COMMIT_COMMAND) },
+                       text: assistant ? FlowEffort.text_of(message["content"])[0, 400] : nil)
     rescue JSON::ParserError
       nil
     end
@@ -119,7 +120,6 @@ module FlowEffort
       return if text.empty?
 
       @brief ||= text if type == "user"
-      @final_text = text if type == "assistant"
     end
 
     # The top-level usage sums the "message" iterations alone. An advisor
@@ -212,7 +212,12 @@ module FlowEffort
         found[file] = bridges.any? { |id| hit.include?(id.sub(/\A(session|cse)_/, "")) } ? :explicit : :trailer
       end
     end
-    names.each { |name| Dir.glob(File.join(projects, "*", "#{name}.jsonl")).each { |file| found[file] = :explicit } }
+    names.each do |name|
+      next found[File.expand_path(name)] = :explicit if File.file?(name)
+
+      stem = File.basename(name, ".jsonl")
+      Dir.glob(File.join(projects, "*", "#{stem}.jsonl")).each { |file| found[file] = :explicit }
+    end
     found
   end
 
@@ -407,12 +412,22 @@ module FlowEffort
     picked.sum { |entry| entry.rows.count(&:compact) }
   end
 
+  # One verdict per answer a validator gave inside the window: an answer opens
+  # with its verdict, and a validator resumed for another pass answers again in
+  # the same transcript. One that never opened an answer with a verdict gives
+  # the verdict its last counted text names, or "no verdict" (still working when the window closed).
   def verdicts(picked)
-    picked.select { |entry| entry.role.end_with?("fable-validator") }.map { |entry| verdict(entry.transcript.final_text) }
+    picked.select { |entry| entry.role.end_with?("fable-validator") }.flat_map do |entry|
+      texts = entry.rows.select { |row| row.text && !row.text.empty? }
+      answers = texts.each_with_object({}) do |row, by_message|
+        by_message[row.usage_id] = row.text if row.text.lstrip =~ /\A[*_`#\s]*(PASS WITH NOTES|PASS|BLOCK)\b/
+      end
+      answers.empty? ? [verdict(texts.last && texts.last.text)] : answers.values.map { |text| verdict(text) }
+    end
   end
 
   def verdict(text)
-    text.to_s[0, 400][/\b(PASS WITH NOTES|PASS|BLOCK)\b/, 1] || "?"
+    text.to_s[0, 400][/\b(PASS WITH NOTES|PASS|BLOCK)\b/, 1] || "no verdict"
   end
 
   def size_for(hours)
@@ -616,11 +631,13 @@ module FlowEffort
     times = picked.flat_map { |entry| entry.rows.map(&:time) }.sort
     opened = pr && parse_time(pr["createdAt"])
     active = times.size > 1 ? active_seconds(picked.map(&:rows)) / 3600.0 : nil
+    before = opened && active && active_seconds(picked.map(&:rows), before: opened) / 3600.0
     validations = verdicts(picked)
     merges = commits.count { |c| c["messageHeadline"].to_s =~ MERGE_HEADLINE }
     actual = {
       size: active && size_for(active), active_hours: active && active.round(2),
-      active_before_pr_hours: opened && active && (active_seconds(picked.map(&:rows), before: opened) / 3600.0).round(2),
+      active_before_pr_hours: before && before.round(2),
+      active_after_pr_hours: before && (active - before).round(2),
       wall_hours: times.size > 1 ? ((times.last - times.first) / 3600.0).round(2) : nil,
       started_at: times.first && times.first.utc.iso8601, ended_at: times.last && times.last.utc.iso8601,
       validation_passes: picked.empty? ? nil : validations.size,
@@ -701,7 +718,8 @@ module FlowEffort
     stop = act["ended_at"].sub("T", " ")[0, 16]
     stop = stop[11..-1] if stop[0, 10] == start[0, 10]
     split = act["active_before_pr_hours"] &&
-            ", #{hours_text(act['active_before_pr_hours'])} of it before the PR opened"
+            ", #{hours_text(act['active_before_pr_hours'])} of it before the PR opened and " \
+            "#{hours_text(act['active_after_pr_hours'])} after"
     "Wall clock #{hours_text(act['wall_hours'])} (#{start} → #{stop} UTC); active #{hours_text(act['active_hours'])}" \
       "#{split}. Active leaves out waiting on CI or a review bot and any gap over #{IDLE_SECONDS / 60} min."
   end
