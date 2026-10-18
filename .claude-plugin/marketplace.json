@@ -9,7 +9,7 @@
     {
       "name": "flow",
       "source": "./plugins/flow",
-      "description": "Every repository: /flow:lfg (issue to merge-ready PR), /flow:follow-through (epic to merged, unattended), /flow:finish-prs, /flow:plan (incl. upstream fixes carried to a release), /flow:github-review-*, /flow:tdd, /flow:review-pr, /flow:debug-flaky, flow:fable-validator.",
+      "description": "Every repository: /flow:lfg (issue to merge-ready PR), /flow:follow-through (epic to merged, unattended), /flow:finish-prs, /flow:plan (incl. upstream fixes carried to a release), /flow:effort, /flow:github-review-*, /flow:tdd, /flow:review-pr, /flow:debug-flaky, flow:fable-validator.",
       "category": "productivity",
       "keywords": ["workflow", "lfg", "pull-request", "review", "tdd", "merge-queue", "epic"]
     },

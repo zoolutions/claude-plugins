@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Investigate, design and write a self-contained plan — a GitHub issue (default) or docs/plans/ markdown — that /flow:lfg executes without guessing. `upstream <owner/repo> <limitation>` plans a public issue for a library limitation and, for a library we own, carries the fix through to a release and an adoption issue. Read-only on source code.
+description: Investigate, design and write a self-contained plan — a GitHub issue (default) or docs/plans/ markdown — that /flow:lfg executes without guessing, with the effort estimate its PR is measured against. `upstream <owner/repo> <limitation>` plans a public issue for a library limitation and, for a library we own, carries the fix through to a release and an adoption issue. Read-only on source code.
 argument-hint: "issue <feature> | md <feature> | upstream <owner/repo> <limitation> [--unattended] | <feature>"
 model: fable
 allowed-tools: Bash(*), Read, Grep, Glob, Write, Agent, AskUserQuestion
@@ -45,6 +45,11 @@ Two or three candidate approaches with real tradeoffs; pick one, say why the oth
 every invariant AGENTS.md states (architecture, interactivity, authorization, i18n, testing strategy).
 Name the test strategy. A library limitation in the way gets its own `upstream` plan first.
 
+Then estimate the effort of the chosen approach: the `## Estimate` table and size bands in
+`../effort/SKILL.md` → The estimate (beside this skill's directory), calibrated by the command there
+against what recent PRs cost. The PR that executes the plan is measured against it (`/flow:effort`),
+so name in "Would grow if" the unknown most likely to break it.
+
 ## Phase 4 — Emit
 
 ```markdown
@@ -66,6 +71,10 @@ Settled in interview: <bullets the executor must not re-litigate>
 ## Verification gates
 <Workflow → Verify and the specs for this change, each with its expected outcome.>
 
+## Estimate
+<The table from `../effort/SKILL.md` → The estimate: Size, Active time, Validation passes, Review
+rounds, Files, Would grow if.>
+
 ## Out of scope
 <What an eager executor must NOT do.>
 
@@ -78,7 +87,8 @@ Workflow → PR contract (typically: a plan label, one type, the areas the Conte
 
 ## Phase 5 — Handoff
 
-The link (or path), the approach in 2–3 sentences, the execute command. Stop: never implement.
+The link (or path), the approach in 2–3 sentences, the estimate's size and active time, the execute
+command. Stop: never implement.
 
 ---
 
@@ -101,7 +111,7 @@ this repository, its product, its customers or its domain.
    `--unattended`: take the most conservative API and say so).
 5. **Draft** to `docs/plans/YYYY-MM-DD-upstream-<repo>-<slug>.md`: Summary, Environment (versions),
    Reproduction, Observed / Expected, Proposed API, Implementation notes, Acceptance criteria,
-   Workaround today.
+   Estimate (as in Phase 3, for the library's change), Workaround today.
 6. **Scrub.** Read it as a stranger: if it tells them what this repository builds, rewrite it. Then
    run the scrub Workflow → Upstream names (a denylist matcher); it must print nothing. A scrub of
    `none` is valid only in a public repository (nothing private to leak); a private repository
