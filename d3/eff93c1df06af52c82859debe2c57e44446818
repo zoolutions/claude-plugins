@@ -1,0 +1,39 @@
+test/effort_test.rb
+  s_0abf69c445fa20::t_a1191a0e1c9a59 47-52
+  s_0abf69c445fa20::t_556d0ad49d6233 115-117
+  s_0abf69c445fa20::t_e2de1123e39dcb 248-298
+  s_0abf69c445fa20::t_8a4f7be0017e7b 336-345
+  s_0abf69c445fa20::t_d17518976b684c 445-455
+plugins/flow/skills/effort/effort.rb
+  s_0abf69c445fa20::t_712aaa218a8362 51-52,55
+  s_0abf69c445fa20::t_4754def7938d6d 138-141,143
+  s_0abf69c445fa20::t_5031ec83bc7513 83-86
+  s_0abf69c445fa20::t_9c9ea006fabfff 269-277
+  s_0abf69c445fa20::t_3324ca192cec8e 312-329
+  s_0abf69c445fa20::t_bca851c6e7f830 370
+  s_0abf69c445fa20::t_08830735773d9b 485-493
+  s_0abf69c445fa20::t_96024ebab5b1e1 744-747
+  s_0abf69c445fa20::t_864fea050700d5 107,111-112
+  s_0abf69c445fa20::t_ef5c594a975a23 633-634
+  s_0abf69c445fa20::t_ea20733c6bc958 604-605,608
+  s_0abf69c445fa20::t_255a4896bd81e7 382-384,387,389-395
+  s_0abf69c445fa20::t_4c904f709559df 259
+plugins/flow/skills/follow-through/SKILL.md
+  s_0abf69c445fa20::t_b0bf6582f2632f 198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d3eff93c1df06af52c82859debe2c57e44446818",
+  "prompts": {},
+  "sessions": {
+    "s_0abf69c445fa20": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "780215a4-ac92-4464-839c-86e03bcf05b0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
