@@ -27,7 +27,10 @@ commands they call, and `AGENTS.md` → `## Workflow`. All `gh api` paths use `{
 **Umbrella**: labelled `epic`, or task-list items `- [ ] #N` / `- [x] #N`, or sub-issues
 (`gh api 'repos/{owner}/{repo}/issues/<n>/sub_issues' --jq '.[] | "\(.number) \(.repository_url)"'`).
 Its children are those items and sub-issues, classified the same way. **Leaf**: anything else. Only
-leaves run.
+leaves run. A leaf whose plan would land as several PRs (phases, "one PR per step") is split before
+the waves: `/flow:plan split <n> --unattended` (Skill tool) makes its steps sub-issues, and it is an
+umbrella from then on. One PR per issue: a PR that only `Refs` its issue leaves it open forever.
+Under `--dry-run` nothing is split: list it as `todo (would split into steps)`, one leaf.
 
 ### 0.2 Each leaf's umbrellas
 
@@ -164,7 +167,11 @@ Not the JSON, or a `merged` the PR does not confirm → `needs-user` with that r
 
 - **merged**: undo Workflow → Worktree setup, `git worktree remove .claude/worktrees/follow-<N>`
   (`--force` only over leftover untracked files: the work is merged), `git branch -D <branch>`.
-  Comment on each umbrella: `#<N> merged in #<pr> (<short sha>)`. Task completed.
+  Comment on each umbrella: `#<N> merged in #<pr> (<short sha>)`. An umbrella with no open child
+  left (`gh api 'repos/<its owner/repo>/issues/<umbrella>/sub_issues' --jq '[.[] | select(.state ==
+  "open")] | length'` prints 0, and no open `- [ ] #N` item) closes now, named in the arguments or
+  not: `gh issue close <umbrella> -R <its owner/repo> --comment "<#N → #pr per child>"`, with the
+  repository 0.2 resolved for it. Task completed.
 - **needs-user**: leave worktree and PR; task gets the reason. Every issue depending on it, directly
   or transitively, is `blocked by parked #<N>` and never starts.
 - **upstream** entries: Phase 1.4.
@@ -191,8 +198,8 @@ issue stays open and is listed in the report.
 
 ## Phase 2: Close out
 
-1. Close an umbrella only if it was named in the arguments and **every** child (not only this run's)
-   is closed: `gh issue close <umbrella> --comment "<#N → #pr per child>"`. A child still open is
+1. Close every umbrella of the run whose children (not only this run's) are all closed, if 1.3 has
+   not: `gh issue close <umbrella> --comment "<#N → #pr per child>"`. A child still open is
    reported, never closed by hand.
 2. One table. Effort is each PR's estimate → actual, from the data comment `/flow:finish-prs` left in
    its body: `gh pr view <pr> --json body --jq '.body | capture("<!-- flow:effort (?<j>\\{.*?\\}) -->")?.j | fromjson | "\(.estimate.size // "—") → \(.actual.size // "—"), \(.actual.active_hours | if . then "\(.) h" else "not measured" end)"'`
