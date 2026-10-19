@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Investigate, design and write a self-contained plan — a GitHub issue (default) or docs/plans/ markdown — that /flow:lfg executes without guessing, with the effort estimate its PR is measured against. `upstream <owner/repo> <limitation>` plans a public issue for a library limitation and, for a library we own, carries the fix through to a release and an adoption issue. Read-only on source code.
-argument-hint: "issue <feature> | md <feature> | upstream <owner/repo> <limitation> [--unattended] | <feature>"
+argument-hint: "issue <feature> | md <feature> | split <issue> [--unattended] | upstream <owner/repo> <limitation> [--unattended] | <feature>"
 model: fable
 allowed-tools: Bash(*), Read, Grep, Glob, Write, Agent, AskUserQuestion
 ---
@@ -17,6 +17,7 @@ above all.
 |---|---|
 | `issue`, or anything not starting with `md`, `file` or `upstream` | a GitHub issue |
 | `md` / `file` | `docs/plans/YYYY-MM-DD-<slug>.md` (date from `date +%F`), left uncommitted |
+| `split <issue>` | that issue as the umbrella of one sub-issue per PR — **Split mode** (Phase 4) |
 | `upstream <owner/repo>` | an issue on that library's tracker — **Upstream mode** replaces Phases 1–5 |
 
 **Hard constraints:** never edit source code, commit or branch (the only file you write is a plan or
@@ -44,6 +45,12 @@ recommended default and record it as `Assumed:` instead.
 Two or three candidate approaches with real tradeoffs; pick one, say why the others lost. Respect
 every invariant AGENTS.md states (architecture, interactivity, authorization, i18n, testing strategy).
 Name the test strategy. A library limitation in the way gets its own `upstream` plan first.
+
+**One PR per issue.** When the approach needs more than one PR (steps that must land and deploy
+apart, phases, an XL estimate), split it: an **umbrella** issue (Problem / Goal, Context, Decision,
+Out of scope, and a table of its steps) and one **sub-issue per PR**, each a complete plan in the
+Phase 4 format with its own estimate. Never one issue whose steps say "one PR each": every PR of
+such a plan says `Refs #N`, so none closes it and it outlives its last step.
 
 Then estimate the effort of the chosen approach: the `## Estimate` table and size bands in
 `../effort/SKILL.md` → The estimate (beside this skill's directory), calibrated by the command there
@@ -85,10 +92,22 @@ rounds, Files, Would grow if.>
 Issue: `gh issue create --title … --body-file <file>` (or a single-quoted heredoc). Labels per
 Workflow → PR contract (typically: a plan label, one type, the areas the Context paths map to).
 
+A split plan (Phase 3): create the umbrella, then each step, then attach each as a sub-issue
+(`gh api -X POST 'repos/{owner}/{repo}/issues/<umbrella>/sub_issues' -F sub_issue_id=<the step's id
+from gh api repos/{owner}/{repo}/issues/<n> --jq .id>`). A step that needs another first says so in a
+sentence `/flow:follow-through` reads: `Builds on #N.` A step's first line is `Part of #<umbrella>.`
+The umbrella's Execution is `/flow:follow-through <umbrella>`; each step's is `/flow:lfg <step>`.
+
+**Split mode** (`split <n>`, an existing issue whose plan lands as several PRs): #n stays and becomes
+the umbrella — rewrite its body to the umbrella shape, keeping its context; never a second umbrella.
+Re-runnable: list its sub-issues and `gh issue list --state all --search '"Part of #<n>" in:body'`
+first, and create and attach only the steps still missing. `--unattended` (an orchestrator or an
+unattended lfg) skips the Phase 2 interview as everywhere else.
+
 ## Phase 5 — Handoff
 
-The link (or path), the approach in 2–3 sentences, the estimate's size and active time, the execute
-command. Stop: never implement.
+The link (or path), the approach in 2–3 sentences, the estimate's size and active time (each step's,
+for a split plan), the execute command. Stop: never implement.
 
 ---
 

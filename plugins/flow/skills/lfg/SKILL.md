@@ -29,6 +29,11 @@ below means that line; a missing line means none. AGENTS.md's never-do rules bin
 - Issue: `gh issue view <n> --json title,body,labels,comments`. Plan file: read it whole. Keep the
   issue's type/area labels for the PR (Workflow → PR contract says how labels work); never edit the
   issue's own labels. Note whether the plan has an `## Estimate` (Phase 3).
+- **One PR per issue.** An umbrella (sub-issues, or task-list items `- [ ] #N`) is not run here:
+  stop and name `/flow:follow-through <n>`, or `/flow:lfg` on its first open child. A plan whose
+  steps would land as several PRs (phases, "one PR per step") is split first: `/flow:plan split <n>`
+  (Skill tool; `--unattended` when an orchestrator runs this) makes #n the umbrella of one sub-issue
+  per PR. Then `git branch -m issue-<first step>-<slug>`; this run takes the first step as `<n>`.
 - Write acceptance criteria as GIVEN / WHEN / THEN. Do not go on until you can.
 - Comprehension gate — one line each: the problem; why it matters; what changes for the user; edge
   cases nobody mentioned; the code path or data flow. Can't answer one → investigate more.
@@ -85,7 +90,9 @@ PASS, or PASS WITH NOTES with every note fixed or rebutted.
 ## Phase 7: Commit and PR
 
 Conventional commit (`feat(scope): …`), body says why. Push with `-u`. `gh pr create` with the labels
-from Phase 1 and every section Workflow → PR contract requires, in its order. The body ends with
+from Phase 1 and every section Workflow → PR contract requires, in its order. The issue this run
+implements closes with the PR: `Closes #<n>` in the body (one PR per issue, Phase 1); `Refs #N` only
+for other issues it touches. The body ends with
 `## Deviations & judgment calls`, copied from `implementation-notes.md`'s log, not its estimate
 ("None — the plan held." if empty). Then `/flow:effort <PR> --write` (Skill tool; add
 `--estimate <file>` naming where the estimate is when it is not on the issue: the plan file you ran,
@@ -112,3 +119,9 @@ End the final message with:
    deviation-log items first.
 2. **Three merge-gate questions** the user should be able to answer before merging; offer a
    walkthrough if any is not obvious.
+3. **The umbrella, when this is its last open child.** Its parent
+   (`gh api 'repos/{owner}/{repo}/issues/<n>/parent' --jq .number`, 404 = none), else the first `#N`
+   after `Part of`. When `gh api 'repos/{owner}/{repo}/issues/<umbrella>/sub_issues' --jq '[.[] |
+   select(.state == "open" and .number != <n>)] | length'` prints 0, merging closes the issue but not
+   the umbrella: give `gh issue close <umbrella> --comment "<#N → #pr per child>"`. Under
+   `/flow:follow-through`, leave it out: the orchestrator closes it.
