@@ -54,6 +54,11 @@ at the marketplace clone's stable path — never the `cache/<hash>` path, which 
 ~/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb
 ```
 
+Each job is one `exec` of the script, no shell in front of it, and the script names its process
+`machine govern` / `machine reap` in `ps`, so a schedule is told from a leftover at a glance.
+`reap --auto --notify` sends the desktop notification itself (`osascript` on macOS, `notify-send` on
+Linux, silent without either) when it killed something or something is left to review.
+
 ### SessionStart line
 
 `~/.claude/settings.json` (merge into an existing `hooks` block):
@@ -78,7 +83,8 @@ at the marketplace clone's stable path — never the `cache/<hash>` path, which 
 
 ### macOS: launchd
 
-`~/Library/LaunchAgents/world.zoolutions.machine.govern.plist`, every 60 s:
+`~/Library/LaunchAgents/world.zoolutions.machine.govern.plist`, every 60 s. launchd expands neither
+`$HOME` nor `~` in `ProgramArguments`: write the home directory out.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -88,8 +94,9 @@ at the marketplace clone's stable path — never the `cache/<hash>` path, which 
   <key>Label</key><string>world.zoolutions.machine.govern</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/sh</string><string>-c</string>
-    <string>exec /usr/bin/ruby --disable-gems "$HOME/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb" govern</string>
+    <string>/usr/bin/ruby</string><string>--disable-gems</string>
+    <string>/Users/<you>/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb</string>
+    <string>govern</string>
   </array>
   <key>StartInterval</key><integer>60</integer>
   <key>ProcessType</key><string>Background</string>
@@ -109,8 +116,9 @@ it killed something or something is left to review:
   <key>Label</key><string>world.zoolutions.machine.reap</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/sh</string><string>-c</string>
-    <string>m="$HOME/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb"; killed=$(/usr/bin/ruby --disable-gems "$m" reap --auto | grep -c '^killed'); left=$(/usr/bin/ruby --disable-gems "$m" status); [ "$killed" -gt 0 ] || [ -n "$left" ] || exit 0; /usr/bin/osascript -e "display notification \"killed $killed · ${left:-nothing left}\" with title \"machine:reap\""</string>
+    <string>/usr/bin/ruby</string><string>--disable-gems</string>
+    <string>/Users/<you>/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb</string>
+    <string>reap</string><string>--auto</string><string>--notify</string>
   </array>
   <key>StartInterval</key><integer>1800</integer>
   <key>ProcessType</key><string>Background</string>
@@ -132,7 +140,7 @@ Description=machine: test processes to background priority
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'exec ruby --disable-gems %h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb govern'
+ExecStart=/usr/bin/env ruby --disable-gems %h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb govern
 ```
 
 ```ini
@@ -153,7 +161,7 @@ Description=machine: reap leftover agent processes
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'm=%h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb; killed=$$(ruby --disable-gems $$m reap --auto | grep -c "^killed"); left=$$(ruby --disable-gems $$m status); [ "$$killed" -gt 0 ] || [ -n "$$left" ] || exit 0; notify-send machine:reap "killed $$killed · $${left:-nothing left}"'
+ExecStart=/usr/bin/env ruby --disable-gems %h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb reap --auto --notify
 ```
 
 ```ini
@@ -165,5 +173,5 @@ OnUnitActiveSec=30min
 WantedBy=timers.target
 ```
 
-`%h` is systemd's home directory and `$$` a literal `$` for the shell.
+`%h` is systemd's home directory.
 `systemctl --user daemon-reload && systemctl --user enable --now machine-govern.timer machine-reap.timer`.

@@ -19,6 +19,7 @@ touches this session's own ancestors, PID 1's system daemons, or anything anothe
 |---|---|
 | `report [--json] [--older-than AGE]` | One line per finding: class, pid, age, working directory, command |
 | `reap --auto [--dry-run]` | Kills the auto classes only (`orphan`, `stale-wait`) |
+| `reap --auto --notify` | The same, then a desktop notification (`osascript` on macOS, `notify-send` on Linux) when it killed something or something is left: the scheduled job's form |
 | `reap --kill <class>… [--dry-run]` | Kills the named classes |
 | `govern [--dry-run]` | Moves running test processes to background QoS, once each |
 | `status` | One line when there is something (`load 28/12 · 2 auto-reapable, 3 to review · /machine:reap`), nothing otherwise; always exits 0 |
@@ -57,5 +58,6 @@ A runner is a process that runs the pattern (`rspec`, `bundle exec rspec`, `pyth
    `renice 10` + `ionice -c3` on Linux). A demoted suite that trips its own timeouts is put back with
    `taskpolicy -B -p <pid>` (macOS) or `renice -n 0 -p <pid>`.
 
-The schedule (`govern` every 60 s, `reap --auto` every 30 min) and the SessionStart `status` line are
-wired per machine, not by this plugin: see the plugin's README.
+The schedule (`govern` every 60 s, `reap --auto --notify` every 30 min) and the SessionStart `status`
+line are wired per machine, not by this plugin: see the plugin's README. Every run is named
+`machine <command>` in `ps`.
