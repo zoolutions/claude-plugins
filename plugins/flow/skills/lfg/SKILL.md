@@ -23,6 +23,11 @@ below means that line; a missing line means none. AGENTS.md's never-do rules bin
    `issue-<number>-…` for this issue, `git status --porcelain` is empty, `HEAD` equals `origin/main`.
 3. Otherwise `git switch -c issue-<number>-<slug> origin/main` (`feature/<slug>` without an issue).
    Works in a worktree too, where `git checkout main` fails.
+4. **Machine load.** `ruby ${CLAUDE_PLUGIN_ROOT}/skills/follow-through/load.rb` (add `--max <x>` when
+   Workflow → Agents sets `max load <x>× cores`), now and before each heavy step: the full suite
+   run locally, a system or browser test run, `flow:fable-validator`. `busy` (load more than that
+   many times the cores) → say so once, run tests one file at a time, never two test commands at
+   once, and go on: load slows this run down, never stops it.
 
 ## Phase 1: Understand
 
@@ -76,8 +81,9 @@ that hides the cause.
 
 ## Phase 6: Verify
 
-All of Workflow → Verify, and the specs for what changed (Workflow → Specs). Then re-read the
-request: would the requester call it done; is it the root cause; do the tests prove it?
+All of Workflow → Verify, and the tests for what changed (Workflow → Specs → changed); the full
+suite only when `/flow:tdd` → Done says it runs locally. Then re-read the request: would the
+requester call it done; is it the root cause; do the tests prove it?
 
 ## Phase 6.5: Fable validation
 

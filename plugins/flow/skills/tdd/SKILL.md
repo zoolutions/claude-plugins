@@ -8,10 +8,11 @@ model: sonnet
 
 # TDD: $ARGUMENTS
 
-**Read the repository first.** `AGENTS.md` → `## Workflow`: **Specs** gives the fast loop (one file)
-and the full suite, **Verify** the checks a change must pass. A missing label means "none". The test
-framework, file layout, fixtures and stubbing style are whatever `AGENTS.md` and the nearest existing
-test show: copy the neighbouring test's shape; never bring in a framework or helper the suite lacks.
+**Read the repository first.** `AGENTS.md` → `## Workflow`: **Specs** gives the fast loop (one file),
+the full suite and `changed` (the tests for the diff), **Verify** the checks a change must pass. A
+missing label means "none". The test framework, file layout, fixtures and stubbing style are
+whatever `AGENTS.md` and the nearest existing test show: copy the neighbouring test's shape; never
+bring in a framework or helper the suite lacks.
 
 **Pick the layer.** The cheapest test that proves what a caller depends on: a unit test for logic, a
 request or integration test for an endpoint or a contract between parts, a browser or end-to-end
@@ -65,10 +66,14 @@ boundary), every error path, every branch the change adds.
 
 ## Done
 
-1. Full suite (Workflow → Specs), judged by its exit status — a load error can print "0 failures"
-   while running nothing. Read the skip count: a skipped test did not run.
+1. **The local gate.** When Workflow → CI says the full suite runs on the PR or in the merge queue,
+   run the tests for the diff: Workflow → Specs → changed; without it, the fast loop on every
+   changed test file and on the test file each changed source file maps to by the repository's
+   layout. The full suite is CI's. Otherwise (no CI line, or CI does not run the full suite), run
+   the full suite (Workflow → Specs). Either way judged by its exit status — a load error can print
+   "0 failures" while running nothing. Read the skip count: a skipped test did not run.
 2. Workflow → Verify, all of it.
 3. Coverage: the bar `AGENTS.md` states; with none, every branch the change adds is exercised.
 
-Report each test (`file:line`), the RED line you quoted for it, and the suite's exit status.
+Report each test (`file:line`), the RED line you quoted for it, and the exit status of step 1.
 Committing and the PR are `/flow:lfg`'s; this skill produces the diff.

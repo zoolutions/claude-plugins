@@ -48,7 +48,8 @@ is code, environment or ordering. Read the failing code before deciding.
 ## Phase 4: Fix and verify
 
 Order: lint first (fast, deterministic), then schema/migration, then specs, then security and build.
-Reproduce locally with Workflow → Specs, fix, re-run, then Workflow → Verify on the changed files.
+Reproduce locally only the failing tests CI names (Workflow → Specs → fast loop), not the suite,
+fix, re-run them, then Workflow → Verify on the changed files.
 
 ## Phase 5: Commit and push
 
