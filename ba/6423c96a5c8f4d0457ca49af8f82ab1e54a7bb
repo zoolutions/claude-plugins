@@ -1,0 +1,34 @@
+plugins/flow/skills/follow-through/load.rb
+  s_d348732f161a35::t_6e51a693baa121 47-54
+plugins/flow/skills/finish-prs/SKILL.md
+  s_d348732f161a35::t_5c356142e93b00 182-184
+test/effort_test.rb
+  s_d348732f161a35::t_ba96cbfe17c49d 390-393,400
+test/load_test.rb
+  s_d348732f161a35::t_6e51a693baa121 82
+  s_d348732f161a35::t_289e1aed1b41d8 75-81,83-85
+plugins/flow/skills/effort/effort.rb
+  s_d348732f161a35::t_f40ad730d541fa 49-51
+plugins/flow/skills/effort/SKILL.md
+  s_d348732f161a35::t_289e1aed1b41d8 57-58
+plugins/flow/skills/follow-through/SKILL.md
+  s_d348732f161a35::t_5c356142e93b00 111-112,158-160
+plugins/flow/skills/lfg/SKILL.md
+  s_d348732f161a35::t_5c356142e93b00 84-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ba6423c96a5c8f4d0457ca49af8f82ab1e54a7bb",
+  "prompts": {},
+  "sessions": {
+    "s_d348732f161a35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cdf99f04-044b-4dd9-b850-d8c2dd2db8c3",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
