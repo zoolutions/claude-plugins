@@ -36,6 +36,8 @@ still holds.
 - Classes: `class_names("base", "variant" => condition)` or Phlex `mix`; never `.join(" ")` or a
   ternary inside a class array. Keep class strings literal (`"btn-primary"`, not `"btn-#{kind}"`):
   the CSS build scans the source and drops classes it cannot see.
+- A component's look (a new modifier, default, hover/open state, a part's classes) is declared with
+  `variants`, not hand-built class strings: /rails-app:daisyui.
 
 ## Phlex traps (silent, no error)
 
