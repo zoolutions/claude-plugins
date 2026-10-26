@@ -37,7 +37,8 @@ process's ancestors, PID 1's system daemons, anything another user owns.
 { "govern_patterns": ["rspec", "bin/rails test", "pytest", "jest", "vitest", "playwright", "chrome-headless-shell", "go test", "cargo test", "mix test"] }
 ```
 
-`govern` remembers what it demoted in `~/.cache/machine/governed.json` (pid and start time; a reused
+A pattern matches a process that runs it (`rspec`, `bundle exec rspec`, `python -m pytest`), not one
+that names it in an argument (`tail -f log/rspec.log`). `govern` remembers what it demoted in `~/.cache/machine/governed.json` (pid and start time; a reused
 pid is demoted again). A suite that runs too slowly in the background to pass its own timeouts goes
 back with `taskpolicy -B -p <pid>`, or leave its pattern out of the config.
 

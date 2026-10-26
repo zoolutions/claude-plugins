@@ -29,10 +29,12 @@ class MachineTest < Minitest::Test
     103   1   103   501    03:00:00   ?? puma 6.4 (tcp://0.0.0.0:3000)
     104   1   104   502 05-00:00:00   ?? ruby someone_elses.rb
     105   1   105   501    02:00:00   ?? node node_modules/.bin/vite
+    106   1   106   501 05-00:00:00   ?? /opt/homebrew/bin/tmux new -s work
     200  46   200   501 01-00:00:00   ?? #{format(SNAP, 'until gh pr checks 5 | grep -q pass; do sleep 15; done')}
     201 200   200   501       00:05   ?? sleep 15
     202  46   202   501 01-00:00:00   ?? #{format(SNAP, 'bundle exec rspec spec/models')}
     203  46   203   501    02:00:00   ?? #{format(SNAP, 'while true; do sleep 60; done')}
+    204 403   204   501 01-00:00:00   ?? #{format(SNAP, 'until curl -sf localhost:3000/up; do sleep 30; done')}
     300 202   202   501 01-00:00:00   ?? ruby bin/rspec spec/models
     400   1   400   501 02-00:00:00   ?? /Users/me/.local/bin/claude -p summarize
     410   1   410   501 02-00:00:00   ?? /Applications/Claude.app/Contents/MacOS/Claude
@@ -40,6 +42,8 @@ class MachineTest < Minitest::Test
     402 700   402   501 03-00:00:00 16/3 /Users/me/.local/bin/claude --resume
     403 700   403   501 01-00:00:00 16/4 /Users/me/.local/bin/claude
     500 403   500   501    00:10:00   ?? /Users/me/.cache/ms-playwright/chromium_headless_shell-1/chrome-headless-shell --headless
+    405 700   405   501    03:00:00 16/5 tail -f log/rspec.log
+    406 600   406   501    03:00:00   ?? /Users/me/.local/bin/claude -p fix the rspec failures
     501   1   501   502    00:10:00   ?? python -m pytest
     600   1   600   501 03-00:00:00   ?? /Applications/Ghostty.app/Contents/MacOS/ghostty
     700 600   700   501 03-00:00:00 16/2 -/opt/homebrew/bin/fish
@@ -50,7 +54,7 @@ class MachineTest < Minitest::Test
 
   CWDS = {
     100 => SCRATCH, 101 => SCRATCH, 60 => "/", 102 => SCRATCH, 103 => "/Users/me/app", 104 => SCRATCH,
-    105 => WORKTREE, 300 => GONE, 400 => "/Users/me/app", 500 => "/Users/me/app", 501 => SCRATCH
+    105 => WORKTREE, 106 => WORKTREE, 300 => GONE, 405 => GONE, 406 => GONE, 400 => "/Users/me/app", 500 => "/Users/me/app", 501 => SCRATCH
   }.freeze
 
   NOW = Time.utc(2026, 10, 26, 12, 0, 0)
@@ -123,7 +127,7 @@ class MachineTest < Minitest::Test
 
   def test_every_row_gets_its_class
     assert_equal [
-      [101, "orphan"], [105, "orphan"], [200, "stale-wait"], [300, "gone-worktree"],
+      [101, "orphan"], [105, "orphan"], [200, "stale-wait"], [204, "stale-wait"], [300, "gone-worktree"],
       [400, "headless-claude"], [402, "idle-session"]
     ], classes(findings)
   end
@@ -245,6 +249,45 @@ class MachineTest < Minitest::Test
     assert_equal [101, 105, 200], selected.map { |f| f.row.pid }.sort
   end
 
+  # A wait loop whose session is still alive is reported, never killed unattended.
+  def test_a_stale_wait_under_a_live_claude_session_is_not_auto
+    wait = findings.find { |f| f.row.pid == 204 }
+    assert_equal "stale-wait", wait.klass
+    refute wait.auto?
+    assert findings.find { |f| f.row.pid == 200 }.auto?
+  end
+
+  def test_a_session_manager_started_from_a_worktree_is_not_an_orphan
+    refute_includes findings(older_than: 0).map { |f| f.row.pid }, 106
+  end
+
+  # Runner patterns match the command being run, not words in its arguments.
+  def test_a_runner_word_in_an_argument_is_not_a_runner
+    pids = findings(older_than: 0).map { |f| f.row.pid }
+    refute_includes pids, 405
+    refute_includes pids, 406
+    runner = Machine.matcher(Machine::RUNNER_PATTERNS)
+    [
+      "bundle exec rspec spec/models", "ruby /Users/me/.gem/bin/rspec", "env RAILS_ENV=test bin/rails test",
+      "python3 -m pytest -q", "node --max-old-space-size=4096 node_modules/.bin/jest", "npx playwright test",
+      "go test ./...", "/x/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --headless",
+      "puma 6.4 (tcp://0.0.0.0:3000)", "sh -c 'bundle exec rspec'"
+    ].each { |cmd| assert runner.match?(cmd), cmd }
+    ["tail -f log/rspec.log", "claude -p fix the rspec failures", "vim spec/rspec_helper.rb", "grep -r jest .",
+     "#{format(SNAP, 'bundle exec rspec')}"].each { |cmd| refute runner.match?(cmd), cmd }
+  end
+
+  def test_a_headless_claude_under_a_shell_in_a_code_directory_is_still_reported
+    text = <<~PS
+      1     0     1     0 12-00:00:00   ?? /sbin/launchd
+      740   1   740   501 05-00:00:00   ?? /bin/zsh /Users/me/Code
+      741 740   741   501 05-00:00:00   ?? /Users/me/.local/bin/claude -p x
+      750   1   750   501 05-00:00:00   ?? /usr/share/code/code --type=renderer
+      751 750   751   501 05-00:00:00   ?? /Users/me/.local/bin/claude -p y
+    PS
+    assert_equal [[741, "headless-claude"]], classes(classifier(text: text).findings({}))
+  end
+
   def test_kill_selects_the_named_classes
     selected = Machine::Reaper.select(findings, classes: %w[idle-session gone-worktree])
     assert_equal [300, 402], selected.map { |f| f.row.pid }.sort
@@ -294,7 +337,7 @@ class MachineTest < Minitest::Test
       state = File.join(dir, "machine", "governed.json")
       calls = []
       governor(platform: :macos, state: state, calls: calls).govern
-      assert_equal [202, 300, 500].map { |pid| ["taskpolicy", "-b", "-p", pid.to_s] }, calls
+      assert_equal [300, 500].map { |pid| ["taskpolicy", "-b", "-p", pid.to_s] }, calls
       calls.clear
       governor(platform: :macos, state: state, calls: calls, now: NOW + 60).govern
       assert_empty calls
@@ -305,8 +348,22 @@ class MachineTest < Minitest::Test
     Dir.mktmpdir do |dir|
       calls = []
       governor(platform: :linux, state: File.join(dir, "g.json"), calls: calls).govern
-      assert_equal [%w[renice -n 10 -p 202], %w[ionice -c3 -p 202]], calls.first(2)
-      assert_equal 6, calls.size
+      assert_equal [%w[renice -n 10 -p 300], %w[ionice -c3 -p 300]], calls.first(2)
+      assert_equal 4, calls.size
+    end
+  end
+
+  # Without ionice (a container) renice still counts: it never runs twice.
+  def test_govern_on_linux_records_a_pid_when_only_ionice_fails
+    Dir.mktmpdir do |dir|
+      state = File.join(dir, "g.json")
+      calls = []
+      runner = ->(*argv) { calls << argv && (argv.first == "ionice" ? nil : "") }
+      2.times do
+        Machine::Governor.new(rows: rows, uid: UID, self_pid: SELF, patterns: Machine::GOVERN_PATTERNS,
+                              platform: :linux, runner: runner, state_path: state, now: NOW, out: StringIO.new).govern
+      end
+      assert_equal 2, calls.count { |argv| argv.first == "renice" }
     end
   end
 
@@ -332,7 +389,7 @@ class MachineTest < Minitest::Test
                             state_path: state, now: NOW, out: out).govern(dry_run: true)
       assert_empty calls
       refute File.exist?(state)
-      assert_equal 3, out.string.lines.grep(/\Awould demote /).size
+      assert_equal 2, out.string.lines.grep(/\Awould demote /).size
     end
   end
 
@@ -349,6 +406,25 @@ class MachineTest < Minitest::Test
     refute_includes pids, "501"
   end
 
+  # lsof exits 1 when one of the pids it was given has exited, and still
+  # prints the others.
+  def test_capture_keeps_the_output_of_a_command_that_fails
+    assert_equal "p1\n", Machine.capture("sh", "-c", "echo p1; exit 1")
+    assert_equal "", Machine.capture("/nonexistent/command")
+  end
+
+  def test_a_zombie_is_not_alive
+    stat = { %w[ps -o stat= -p 123] => "Z+\n", %w[ps -o stat= -p 124] => "S\n",
+             %w[ps -axo pgid=,stat=] => "  50 Z\n  51 S\n  50 Z+\n" }
+    signals = Machine::Signals.new(probe: ->(_target) { 1 }, runner: ->(*argv) { stat.fetch(argv) })
+    refute signals.alive?(123)
+    assert signals.alive?(124)
+    refute signals.alive?(-50)
+    assert signals.alive?(-51)
+    gone = Machine::Signals.new(probe: ->(_target) { raise Errno::ESRCH }, runner: ->(*_argv) { raise "unused" })
+    refute gone.alive?(123)
+  end
+
   # --- status ---------------------------------------------------------------
 
   def test_status_is_silent_when_clean
@@ -356,7 +432,7 @@ class MachineTest < Minitest::Test
   end
 
   def test_status_is_one_line_otherwise
-    assert_equal "load 28/12 · 3 auto-reapable, 3 to review · /machine:reap",
+    assert_equal "load 28/12 · 3 auto-reapable, 4 to review · /machine:reap",
                  Machine.status_line(findings, load: 28.4, cores: 12)
     auto_only = findings.select(&:auto?)
     assert_equal "load 3/12 · 3 auto-reapable · /machine:reap", Machine.status_line(auto_only, load: 2.6, cores: 12)
@@ -367,7 +443,7 @@ class MachineTest < Minitest::Test
   def cli(*argv, clean: false)
     out = StringIO.new
     signals = FakeSignals.new([])
-    text = clean ? PS.lines.reject { |l| l =~ /\A(101|102|105|200|203|300|400|402|403) / }.join : PS
+    text = clean ? PS.lines.reject { |l| l =~ /\A(101|102|105|200|203|204|300|400|402|403) / }.join : PS
     table = Struct.new(:rows, :cwd_map) do
       def cwds(pids)
         cwd_map.select { |pid, _| pids.include?(pid) }
@@ -386,7 +462,7 @@ class MachineTest < Minitest::Test
   def test_report_prints_one_line_per_finding
     out, code, = cli("report")
     assert_equal 0, code
-    assert_equal 6, out.lines.size
+    assert_equal 7, out.lines.size
     assert_match(/\Aorphan\s+101\s+5d\s+#{Regexp.escape(SCRATCH)}\s+ruby busy_loop\.rb$/, out.lines.first)
   end
 
@@ -430,7 +506,7 @@ class MachineTest < Minitest::Test
   end
 
   def test_status_from_the_command_line
-    assert_equal "load 28/12 · 3 auto-reapable, 3 to review · /machine:reap\n", cli("status")[0]
+    assert_equal "load 28/12 · 3 auto-reapable, 4 to review · /machine:reap\n", cli("status")[0]
     assert_equal ["", 0], cli("status", clean: true).first(2)
   end
 

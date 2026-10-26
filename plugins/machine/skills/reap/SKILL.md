@@ -18,7 +18,7 @@ touches this session's own ancestors, PID 1's system daemons, or anything anothe
 | Command | Does |
 |---|---|
 | `report [--json] [--older-than AGE]` | One line per finding: class, pid, age, working directory, command |
-| `reap --auto [--dry-run]` | Kills the auto classes only (`orphan`, `stale-wait`) |
+| `reap --auto [--dry-run]` | Kills the auto findings only: `orphan`, and `stale-wait` whose session is gone |
 | `reap --kill <class>… [--dry-run]` | Kills the named classes |
 | `govern [--dry-run]` | Moves running test processes to background QoS, once each |
 | `status` | One line when there is something (`load 28/12 · 2 auto-reapable, 3 to review · /machine:reap`), nothing otherwise; always exits 0 |
@@ -32,18 +32,22 @@ selects a live session's wait loop that started a minute ago. Never pair it with
 
 | Class | Rule | Auto |
 |---|---|---|
-| `orphan` | parent is PID 1 (or a Linux session's `systemd --user`), older than 1 h, working directory in a Claude scratchpad (`/tmp/claude-<uid>/` or `$TMPDIR/claude-<uid>/`) or an agent worktree (`/.claude/worktrees/`) | yes |
-| `stale-wait` | a Claude Bash wrapper (`shell-snapshots/snapshot-`) whose command runs `until `, `while ` or `sleep `, older than 6 h | yes |
+| `orphan` | parent is PID 1 (or a Linux session's `systemd --user`), older than 1 h, working directory in a Claude scratchpad (`/tmp/claude-<uid>/` or `$TMPDIR/claude-<uid>/`) or an agent worktree (`/.claude/worktrees/`); never a session manager, agent or data store (tmux, screen, ssh-agent, redis-server, postgres, …) | yes |
+| `stale-wait` | a Claude Bash wrapper (`shell-snapshots/snapshot-`) whose command runs `until `, `while ` or `sleep `, older than 6 h | yes, once its session is gone; under a live `claude` it is reported only |
 | `gone-worktree` | a test runner, browser or dev server whose working directory no longer exists | report |
 | `headless-claude` | a `claude` CLI with no terminal, older than 1 h, not under a live app or IDE | report |
-| `idle-session` | a `claude` CLI with a terminal, older than 2 days | report |
+| `idle-session` | a `claude` CLI with a terminal, older than 2 days — age only, it may be in use | report |
+
+A runner is a process that runs the pattern (`rspec`, `bundle exec rspec`, `python -m pytest`,
+`node …/.bin/jest`), never one that merely names it in an argument (`tail -f log/rspec.log`,
+`claude -p "fix the rspec failures"`).
 
 ## The pass
 
 1. `report`. Nothing → say so and stop.
 2. Explain each group in a line: what it is, why it is (or is not) safe to kill — an orphan's script
    has no session left to read its output; a stale wait polls for a state that has already passed;
-   an `idle-session` may be a session the user means to come back to, a `headless-claude` may be a
+   an `idle-session` is judged by age alone and may be a session in use or one the user means to come back to, a `headless-claude` may be a
    scheduled or remote-control run.
 3. `reap --auto --dry-run`, then `reap --auto`: the auto classes need no confirmation.
 4. A report-only class is killed only after the user confirms it, group by group or pid by pid

@@ -44,8 +44,18 @@ module Machine
   # An interpreter is judged by its script, wherever it is installed (macOS's
   # python3 runs from inside Xcode's bundles).
   INTERPRETER = /\A(?:python[\d.]*|Python|ruby|node|perl|sh|bash|zsh|fish)\z/.freeze
-  # A live app or IDE: a headless claude under one is its child, not a leftover.
-  APP = %r{\.app/Contents/|(?:\A|/)(?:code|cursor|zed|idea|webstorm|rubymine)(?:\s|\z)}i.freeze
+  # Started from a worktree shell, still not an agent's leftover: session
+  # managers, agents and data stores (by executable name).
+  KEEP = /\A(?:tmux|screen|zellij|mosh-server|ssh-agent|gpg-agent|redis-server|valkey-server|memcached|postgres|
+             mysqld|mongod)\z/x.freeze
+  # A live IDE (by executable name; a macOS app is any .app bundle): a
+  # headless claude under one is its child, not a leftover.
+  IDE = /\A(?:code|cursor|zed|idea|webstorm|rubymine)\z/.freeze
+  # What may stand before a runner on its command line: `bundle exec rspec`,
+  # `python -m pytest`, `env RAILS_ENV=test bin/rails test`.
+  LAUNCHER = /\A(?:env|time|nice|nohup|exec|bundle|be|ruby|node|python[\d.]*|Python|npx|pnpm|pnpx|yarn|npm|run|bun|
+                 bunx|deno|uv|poetry|pipenv|xvfb-run|sh|bash|zsh)\z/x.freeze
+  LEAD_WORDS = 8
   CLAUDE = %r{\A(?:\S*/)?claude(?:\s|\z)|\A.*/claude-code/[^/]+/claude(?:\s|\z)|\A\S*node\S*\s+\S*claude-code/cli\.m?js}.freeze
   SNAPSHOT = "shell-snapshots/snapshot-"
   WAIT = /(?:\A|[\s;&|(])(?:until|while|sleep)\s/.freeze
@@ -62,9 +72,11 @@ module Machine
     end
   end
 
-  Finding = Struct.new(:klass, :row, :cwd) do
+  # auto: killed by `reap --auto` (an auto class, and not a wait loop whose
+  # session is still alive).
+  Finding = Struct.new(:klass, :row, :cwd, :auto) do
     def auto?
-      AUTO.include?(klass)
+      auto ? true : false
     end
   end
 
@@ -103,6 +115,19 @@ module Machine
     roots.uniq
   end
 
+  # A command's output whatever its exit status: `lsof -p a,b` exits 1 when
+  # one pid has exited since `ps` ran, and still prints the others.
+  def capture(*argv)
+    out, _status = Open3.capture2(*argv, err: File::NULL)
+    out
+  rescue SystemCallError
+    ""
+  end
+
+  def executable_name(command)
+    File.basename(command.split(" ").first.to_s).chomp(":")
+  end
+
   def run(*argv)
     out, status = Open3.capture2(*argv, err: File::NULL)
     status.success? ? out : nil
@@ -112,7 +137,7 @@ module Machine
 
   # Every process, and the working directory of the ones asked for.
   class ProcessTable
-    def initialize(platform:, runner: Machine.method(:run), readlink: ->(pid) { File.readlink("/proc/#{pid}/cwd") })
+    def initialize(platform:, runner: Machine.method(:capture), readlink: ->(pid) { File.readlink("/proc/#{pid}/cwd") })
       @platform = platform
       @runner = runner
       @readlink = readlink
@@ -151,12 +176,49 @@ module Machine
 
   # --- classifying ----------------------------------------------------------
 
-  def pattern(text)
-    /(?:\A|[\s\/'"])#{Regexp.escape(text)}(?:\z|[\s\/'";])/
+  # A pattern matches where the command runs it: as the executable, or after
+  # launchers, flags and VAR=value words — never as a word in an argument
+  # (`tail -f log/rspec.log`, `claude -p "fix the rspec failures"`).
+  class Patterns
+    def initialize(patterns)
+      @names = patterns
+      @patterns = patterns.map(&:split)
+    end
+
+    def match?(command)
+      return true if bundled?(command)
+
+      words = command.split(" ").first(LEAD_WORDS).map { |w| w.delete(%q('")) }
+      words.each_index do |i|
+        return true if @patterns.any? { |pattern| at?(words, i, pattern) }
+        return false unless lead?(words[i], i)
+      end
+      false
+    end
+
+    private
+
+    # A macOS app's executable may have spaces in its name
+    # (`…/MacOS/Google Chrome for Testing`).
+    def bundled?(command)
+      executable = command.split(" -", 2).first.strip
+      executable.include?(".app/Contents/MacOS/") && @names.any? { |name| executable.end_with?("/MacOS/#{name}") }
+    end
+
+    def at?(words, index, pattern)
+      first = words[index]
+      return false unless first == pattern[0] || first.end_with?("/#{pattern[0]}")
+
+      pattern.drop(1).each_with_index.all? { |word, i| words[index + 1 + i] == word }
+    end
+
+    def lead?(word, index)
+      File.basename(word).match?(LAUNCHER) || (index.positive? && (word.start_with?("-") || word.include?("=")))
+    end
   end
 
   def matcher(patterns)
-    Regexp.union(patterns.map { |p| pattern(p) })
+    Patterns.new(patterns)
   end
 
   # The pids a process must never be, and the pid → row index.
@@ -198,14 +260,14 @@ module Machine
     end
 
     def cwd_pids
-      @rows.select { |r| orphan_candidate?(r) || r.command.match?(@runner) }.map(&:pid)
+      @rows.select { |r| orphan_candidate?(r) || @runner.match?(r.command) }.map(&:pid)
     end
 
     def findings(cwds)
       @rows.map do |row|
         cwd = cwds[row.pid]
         klass = CLASSES.keys.find { |k| old?(row, k) && send(:"#{k.tr('-', '_')}?", row, cwd) }
-        Finding.new(klass, row, cwd) if klass
+        Finding.new(klass, row, cwd, auto?(klass, row)) if klass
       end.compact
     end
 
@@ -214,7 +276,8 @@ module Machine
     # A runner or a claude CLI is never a daemon, wherever it is installed.
     def daemon?(row)
       return false unless reparented?(row)
-      return false if row.command.match?(CLAUDE) || row.command.match?(@runner)
+      return false if row.command.match?(CLAUDE) || @runner.match?(row.command)
+      return true if Machine.executable_name(row.command).match?(KEEP)
 
       executable = row.command.split(" -", 2).first
       return false if executable[%r{[^/]*\z}].split(" ").first.to_s.match?(INTERPRETER)
@@ -224,6 +287,17 @@ module Machine
 
     def reparented?(row)
       row.ppid == 1 || @by_pid[row.ppid]&.command&.match?(SUBREAPER) || false
+    end
+
+    def auto?(klass, row)
+      return false unless AUTO.include?(klass)
+
+      klass != "stale-wait" || !@by_pid[row.ppid]&.command&.match?(CLAUDE)
+    end
+
+    def app?(row)
+      row.command.split(" -", 2).first.include?(".app/Contents/MacOS/") ||
+        Machine.executable_name(row.command).match?(IDE)
     end
 
     def old?(row, klass)
@@ -243,13 +317,13 @@ module Machine
     end
 
     def gone_worktree?(row, cwd)
-      cwd && row.command.match?(@runner) && !@dir_exists.call(cwd)
+      cwd && @runner.match?(row.command) && !@dir_exists.call(cwd)
     end
 
     def headless_claude?(row, _cwd)
       return false if row.tty? || !row.command.match?(CLAUDE)
 
-      lineage(@by_pid, row) { |parent| return false if parent.command.match?(APP) }
+      lineage(@by_pid, row) { |parent| return false if app?(parent) }
       true
     end
 
@@ -261,18 +335,38 @@ module Machine
   # --- reaping --------------------------------------------------------------
 
   # The real signals: TERM/KILL, and whether a pid still runs.
+  # A zombie answers `kill 0` but is dead: `ps` decides.
   class Signals
+    def initialize(probe: ->(target) { Process.kill(0, target) }, runner: Machine.method(:capture))
+      @probe = probe
+      @runner = runner
+    end
+
     def kill(signal, target)
       Process.kill(signal, target)
     end
 
     def alive?(target)
-      Process.kill(0, target)
-      true
+      @probe.call(target)
+      target.positive? ? running?(@runner.call("ps", "-o", "stat=", "-p", target.to_s)) : group_running?(-target)
     rescue Errno::ESRCH
       false
     rescue Errno::EPERM
       true
+    end
+
+    private
+
+    def running?(stat)
+      stat = stat.to_s.strip
+      !stat.empty? && !stat.start_with?("Z")
+    end
+
+    def group_running?(pgid)
+      @runner.call("ps", "-axo", "pgid=,stat=").to_s.each_line.any? do |line|
+        group, stat = line.split
+        group.to_i == pgid && running?(stat)
+      end
     end
   end
 
@@ -281,8 +375,9 @@ module Machine
     include Guard
 
     def self.select(findings, auto: false, classes: [])
-      wanted = auto ? AUTO : classes
-      findings.select { |f| wanted.include?(f.klass) }
+      return findings.select(&:auto?) if auto
+
+      findings.select { |f| classes.include?(f.klass) }
     end
 
     def initialize(rows:, self_pid:, uid:, signals:, out:, clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) },
@@ -376,7 +471,7 @@ module Machine
       by_pid = rows.map { |r| [r.pid, r] }.to_h
       protected = ancestors(by_pid, self_pid)
       match = Machine.matcher(patterns)
-      @rows = rows.select { |r| r.pid > 1 && r.uid == uid && !protected.include?(r.pid) && r.command.match?(match) }
+      @rows = rows.select { |r| r.pid > 1 && r.uid == uid && !protected.include?(r.pid) && match.match?(r.command) }
       @all = rows
       @platform = platform
       @runner = runner
@@ -393,7 +488,9 @@ module Machine
 
         if dry_run
           @out.puts("would demote #{row.pid} #{Machine.truncate(row.command)}")
-        elsif commands(row.pid).all? { |argv| @runner.call(*argv) }
+        # Recorded once the first command (taskpolicy, renice) succeeded:
+        # renice never runs twice for one process, with or without ionice.
+        elsif commands(row.pid).map { |argv| @runner.call(*argv) }.first
           state[row.pid.to_s] = started
           @out.puts("demoted #{row.pid} #{Machine.truncate(row.command)}")
         end
