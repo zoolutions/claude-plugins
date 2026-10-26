@@ -41,6 +41,9 @@ module Machine
   # never an agent's (matched against the executable, not its arguments).
   SYSTEM_DAEMON = %r{\A(?:/System/|/usr/libexec/|/usr/sbin/|/sbin/|/Library/|/Applications/|/usr/lib/systemd/|
                        /lib/systemd/|[^ ]*/Library/)|\.app/Contents/|\.xpc/|\.framework/}x.freeze
+  # An interpreter is judged by its script, wherever it is installed (macOS's
+  # python3 runs from inside Xcode's bundles).
+  INTERPRETER = /\A(?:python[\d.]*|Python|ruby|node|perl|sh|bash|zsh|fish)\z/.freeze
   # A live app or IDE: a headless claude under one is its child, not a leftover.
   APP = %r{\.app/Contents/|(?:\A|/)(?:code|cursor|zed|idea|webstorm|rubymine)(?:\s|\z)}i.freeze
   CLAUDE = %r{\A(?:\S*/)?claude(?:\s|\z)|\A.*/claude-code/[^/]+/claude(?:\s|\z)|\A\S*node\S*\s+\S*claude-code/cli\.m?js}.freeze
@@ -87,11 +90,16 @@ module Machine
     end.compact
   end
 
-  # Where Claude's scratchpads live: <root>/claude-<uid>/.
-  def tmp_roots(tmpdir = ENV["TMPDIR"])
+  # Where Claude's scratchpads live: <root>/claude-<uid>/. Without TMPDIR (a
+  # launchd job) the system's per-user temp dir stands in.
+  def tmp_roots(tmpdir = ENV["TMPDIR"], systmp = Etc.systmpdir)
     roots = ["/tmp", "/private/tmp"]
-    dir = tmpdir.to_s.chomp("/")
-    roots += [dir, dir.start_with?("/private/") ? dir.sub("/private", "") : "/private#{dir}"] unless dir.empty?
+    [tmpdir, systmp].each do |path|
+      dir = path.to_s.chomp("/")
+      next if dir.empty?
+
+      roots += [dir, dir.start_with?("/private/") ? dir.sub("/private", "") : "/private#{dir}"]
+    end
     roots.uniq
   end
 
@@ -208,7 +216,10 @@ module Machine
       return false unless reparented?(row)
       return false if row.command.match?(CLAUDE) || row.command.match?(@runner)
 
-      row.command.split(" -", 2).first.match?(SYSTEM_DAEMON)
+      executable = row.command.split(" -", 2).first
+      return false if executable[%r{[^/]*\z}].split(" ").first.to_s.match?(INTERPRETER)
+
+      executable.match?(SYSTEM_DAEMON)
     end
 
     def reparented?(row)

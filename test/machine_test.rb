@@ -188,6 +188,25 @@ class MachineTest < Minitest::Test
     assert_equal [[710, "orphan"], [711, "orphan"], [712, "headless-claude"], [713, "orphan"]], found
   end
 
+  # macOS's own python3 runs from inside Xcode's bundles: an interpreter is
+  # judged by its script's working directory, not by where it is installed.
+  def test_an_interpreter_inside_a_bundle_is_not_a_system_daemon
+    py = "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/Resources/" \
+         "Python.app/Contents/MacOS/Python script.py"
+    text = "1 0 1 0 12-00:00:00 ?? /sbin/launchd\n730 1 730 501 05-00:00:00 ?? #{py}\n" \
+           "731 1 731 501 05-00:00:00 ?? /usr/libexec/ruby-helper\n"
+    c = classifier(text: text)
+    assert_equal [730], c.cwd_pids
+    assert_equal [[730, "orphan"]], classes(c.findings(730 => SCRATCH))
+  end
+
+  # A launchd job may run without TMPDIR: the system's per-user temp dir stands in.
+  def test_tmp_roots_without_tmpdir_use_the_system_temp_dir
+    assert_equal ["/tmp", "/private/tmp", "/var/folders/x/T", "/private/var/folders/x/T"],
+                 Machine.tmp_roots(nil, "/var/folders/x/T/")
+    assert_equal ["/tmp", "/private/tmp"], Machine.tmp_roots(nil, "/tmp")
+  end
+
   def test_a_checkout_named_like_a_scratchpad_is_not_one
     text = "1 0 1 0 12-00:00:00 ?? /sbin/launchd\n720 1 720 501 05-00:00:00 ?? ruby x.rb\n"
     c = classifier(text: text)
