@@ -1,0 +1,25 @@
+test/effort_test.rb
+  s_d348732f161a35::t_d6e698941dee12 393-395,402
+plugins/flow/skills/follow-through/SKILL.md
+  s_d348732f161a35::t_fe7f89d42eb7bc 113
+plugins/flow/skills/finish-prs/SKILL.md
+  s_d348732f161a35::t_fe7f89d42eb7bc 184-185
+plugins/flow/skills/effort/effort.rb
+  s_d348732f161a35::t_fe7f89d42eb7bc 51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "911a8e1e26b98f42de2376ed7b0ce689a078dc11",
+  "prompts": {},
+  "sessions": {
+    "s_d348732f161a35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cdf99f04-044b-4dd9-b850-d8c2dd2db8c3",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
