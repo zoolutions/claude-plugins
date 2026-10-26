@@ -16,7 +16,10 @@ Enabled per machine: keep the `"machine@zoolutions": true` that `install --scope
 |---|---|
 | `/machine:reap [--kill]` | Report what was left behind, explain each group, reap the auto classes, kill a report-only class only on confirmation; `govern` running suites |
 
-The script, `skills/reap/machine.rb` (stdlib Ruby ≥ 2.6, so macOS's `/usr/bin/ruby` will do):
+The script, `skills/reap/machine.rb` (stdlib Ruby ≥ 2.6, so macOS's `/usr/bin/ruby` will do). Every
+scheduled or hooked call passes `--disable-gems`: the script needs no gem, and without the flag a
+`GEM_HOME` left by a version manager can make `/usr/bin/ruby` load a newer Ruby's `json` gem and fail
+to parse it:
 
 | Command | Does |
 |---|---|
@@ -86,7 +89,7 @@ at the marketplace clone's stable path — never the `cache/<hash>` path, which 
   <key>ProgramArguments</key>
   <array>
     <string>/bin/sh</string><string>-c</string>
-    <string>exec /usr/bin/ruby "$HOME/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb" govern</string>
+    <string>exec /usr/bin/ruby --disable-gems "$HOME/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb" govern</string>
   </array>
   <key>StartInterval</key><integer>60</integer>
   <key>ProcessType</key><string>Background</string>
@@ -107,7 +110,7 @@ it killed something or something is left to review:
   <key>ProgramArguments</key>
   <array>
     <string>/bin/sh</string><string>-c</string>
-    <string>m="$HOME/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb"; killed=$(/usr/bin/ruby "$m" reap --auto | grep -c '^killed'); left=$(/usr/bin/ruby "$m" status); [ "$killed" -gt 0 ] || [ -n "$left" ] || exit 0; /usr/bin/osascript -e "display notification \"killed $killed · ${left:-nothing left}\" with title \"machine:reap\""</string>
+    <string>m="$HOME/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb"; killed=$(/usr/bin/ruby --disable-gems "$m" reap --auto | grep -c '^killed'); left=$(/usr/bin/ruby --disable-gems "$m" status); [ "$killed" -gt 0 ] || [ -n "$left" ] || exit 0; /usr/bin/osascript -e "display notification \"killed $killed · ${left:-nothing left}\" with title \"machine:reap\""</string>
   </array>
   <key>StartInterval</key><integer>1800</integer>
   <key>ProcessType</key><string>Background</string>
@@ -129,7 +132,7 @@ Description=machine: test processes to background priority
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'exec ruby %h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb govern'
+ExecStart=/bin/sh -c 'exec ruby --disable-gems %h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb govern'
 ```
 
 ```ini
@@ -150,7 +153,7 @@ Description=machine: reap leftover agent processes
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'm=%h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb; killed=$$(ruby $$m reap --auto | grep -c "^killed"); left=$$(ruby $$m status); [ "$$killed" -gt 0 ] || [ -n "$$left" ] || exit 0; notify-send machine:reap "killed $$killed · $${left:-nothing left}"'
+ExecStart=/bin/sh -c 'm=%h/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb; killed=$$(ruby --disable-gems $$m reap --auto | grep -c "^killed"); left=$$(ruby --disable-gems $$m status); [ "$$killed" -gt 0 ] || [ -n "$$left" ] || exit 0; notify-send machine:reap "killed $$killed · $${left:-nothing left}"'
 ```
 
 ```ini
