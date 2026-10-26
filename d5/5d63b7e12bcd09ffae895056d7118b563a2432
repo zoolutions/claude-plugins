@@ -1,0 +1,19 @@
+plugins/flow/skills/tdd/SKILL.md
+  s_d348732f161a35::t_f4b2df7196de7a 73-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d55d63b7e12bcd09ffae895056d7118b563a2432",
+  "prompts": {},
+  "sessions": {
+    "s_d348732f161a35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cdf99f04-044b-4dd9-b850-d8c2dd2db8c3",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
