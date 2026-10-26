@@ -171,6 +171,31 @@ class MachineTest < Minitest::Test
     assert_equal [[710, "orphan"]], classes(c.findings(710 => "/tmp/claude-501/x", 720 => "/tmp/claude-501/x"))
   end
 
+  # Bundles and ~/Library are system or app locations only for the executable
+  # itself, and never for a runner or a claude CLI.
+  def test_a_runner_or_claude_under_library_or_in_a_bundle_is_not_a_system_daemon
+    text = <<~PS
+      1     0     1     0 12-00:00:00   ?? /sbin/launchd
+      710   1   710   501 05-00:00:00   ?? /Users/me/Library/Caches/ms-playwright/chromium_headless_shell-1/chrome-mac/headless_shell --headless
+      711   1   711   501 05-00:00:00   ?? /Users/me/Library/Caches/ms-playwright/chromium-1/Chromium.app/Contents/MacOS/Chromium --headless
+      712   1   712   501 05-00:00:00   ?? /Users/me/Library/Application Support/Claude/claude-code/2.1.0/claude -p x
+      713   1   713   501 05-00:00:00   ?? ruby x.rb --browser /Applications/X.app/Contents/MacOS/X
+      714   1   714   501 05-00:00:00   ?? /Users/me/Library/Helpers/sync-agent
+    PS
+    c = classifier(text: text)
+    assert_equal [710, 711, 712, 713], c.cwd_pids
+    found = classes(c.findings(710 => GONE, 711 => SCRATCH, 712 => "/Users/me", 713 => SCRATCH, 714 => SCRATCH))
+    assert_equal [[710, "orphan"], [711, "orphan"], [712, "headless-claude"], [713, "orphan"]], found
+  end
+
+  def test_a_checkout_named_like_a_scratchpad_is_not_one
+    text = "1 0 1 0 12-00:00:00 ?? /sbin/launchd\n720 1 720 501 05-00:00:00 ?? ruby x.rb\n"
+    c = classifier(text: text)
+    assert_empty c.findings(720 => "/Users/me/Code/claude-501/app")
+    assert_empty c.findings(720 => "/private/tmp/claude-502/x")
+    refute_empty c.findings(720 => "/tmp/claude-501/x")
+  end
+
   # --- reaping --------------------------------------------------------------
 
   class FakeSignals
@@ -207,12 +232,13 @@ class MachineTest < Minitest::Test
   end
 
   def test_term_goes_to_the_group_when_the_group_is_all_targets_and_kill_follows_for_survivors
-    signals = FakeSignals.new([101])
+    signals = FakeSignals.new([101, -200])
     out = StringIO.new
     reaper(signals, out).reap(Machine::Reaper.select(findings, auto: true))
     # 101 shares group 50 with an unrelated live process: only the pid. 105
-    # leads a group of its own; 200's group holds only its own child.
-    assert_equal [["TERM", 101], ["TERM", -105], ["TERM", -200], ["KILL", 101]], signals.sent
+    # leads a group of its own; 200's group holds only its own child, and a
+    # member of a group that outlives TERM gets KILL too.
+    assert_equal [["TERM", 101], ["TERM", -105], ["TERM", -200], ["KILL", 101], ["KILL", -200]], signals.sent
     assert_match(/killed orphan 101 .*KILL/, out.string)
     assert_match(/killed stale-wait 200 /, out.string)
   end
@@ -374,6 +400,14 @@ class MachineTest < Minitest::Test
     assert_equal 2, code
     assert_empty sent
     assert_equal 2, cli("reap")[1]
+    assert_equal 2, cli("reap", "--auto", "--kill", "orphan")[1]
+    assert_empty cli("reap", "--auto", "--kill", "orphan")[2]
+  end
+
+  def test_a_command_refuses_the_flags_it_does_not_take
+    assert_equal 2, cli("govern", "--json")[1]
+    assert_equal 2, cli("report", "--dry-run")[1]
+    assert_equal 2, cli("report", "--auto")[1]
   end
 
   def test_status_from_the_command_line

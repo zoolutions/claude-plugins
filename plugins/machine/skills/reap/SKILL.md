@@ -32,7 +32,7 @@ selects a live session's wait loop that started a minute ago. Never pair it with
 
 | Class | Rule | Auto |
 |---|---|---|
-| `orphan` | parent is PID 1 (or a Linux session's `systemd --user`), older than 1 h, working directory in a Claude scratchpad (`…/claude-<uid>/…`) or an agent worktree (`/.claude/worktrees/`) | yes |
+| `orphan` | parent is PID 1 (or a Linux session's `systemd --user`), older than 1 h, working directory in a Claude scratchpad (`/tmp/claude-<uid>/` or `$TMPDIR/claude-<uid>/`) or an agent worktree (`/.claude/worktrees/`) | yes |
 | `stale-wait` | a Claude Bash wrapper (`shell-snapshots/snapshot-`) whose command runs `until `, `while ` or `sleep `, older than 6 h | yes |
 | `gone-worktree` | a test runner, browser or dev server whose working directory no longer exists | report |
 | `headless-claude` | a `claude` CLI with no terminal, older than 1 h, not under a live app or IDE | report |

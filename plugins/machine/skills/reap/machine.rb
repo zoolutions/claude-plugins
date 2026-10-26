@@ -33,10 +33,12 @@ module Machine
   GOVERN_PATTERNS = ["rspec", "bin/rails test", "pytest", "jest", "vitest", "playwright", "chrome-headless-shell",
                      "go test", "cargo test", "mix test"].freeze
   # Whose working directory decides `gone-worktree`: test runners, browsers, dev servers.
-  RUNNER_PATTERNS = (GOVERN_PATTERNS + ["chrome", "chromium", "firefox", "puma", "rails server", "rails s",
+  RUNNER_PATTERNS = (GOVERN_PATTERNS + ["chrome", "chromium", "Chromium", "Google Chrome for Testing", "headless_shell",
+                                        "firefox", "puma", "rails server", "rails s",
                                         "bin/dev", "foreman", "overmind", "vite", "webpack", "esbuild",
                                         "next dev"]).freeze
-  # PID 1's children that live here are the system's or an app's, never an agent's.
+  # PID 1's children whose executable lives here are the system's or an app's,
+  # never an agent's (matched against the executable, not its arguments).
   SYSTEM_DAEMON = %r{\A(?:/System/|/usr/libexec/|/usr/sbin/|/sbin/|/Library/|/Applications/|/usr/lib/systemd/|
                        /lib/systemd/|[^ ]*/Library/)|\.app/Contents/|\.xpc/|\.framework/}x.freeze
   # A live app or IDE: a headless claude under one is its child, not a leftover.
@@ -44,7 +46,6 @@ module Machine
   CLAUDE = %r{\A(?:\S*/)?claude(?:\s|\z)|\A.*/claude-code/[^/]+/claude(?:\s|\z)|\A\S*node\S*\s+\S*claude-code/cli\.m?js}.freeze
   SNAPSHOT = "shell-snapshots/snapshot-"
   WAIT = /(?:\A|[\s;&|(])(?:until|while|sleep)\s/.freeze
-  SCRATCHPAD = %r{(?:\A|/)claude-\d+(?:/|\z)}.freeze
   WORKTREE = "/.claude/worktrees/"
   NO_TTY = ["", "?", "??", "-"].freeze
   # Where an orphan is reparented: PID 1, or a Linux session's subreaper.
@@ -84,6 +85,14 @@ module Machine
 
       Row.new(pid.to_i, ppid.to_i, pgid.to_i, uid.to_i, parse_etime(etime), tty, command)
     end.compact
+  end
+
+  # Where Claude's scratchpads live: <root>/claude-<uid>/.
+  def tmp_roots(tmpdir = ENV["TMPDIR"])
+    roots = ["/tmp", "/private/tmp"]
+    dir = tmpdir.to_s.chomp("/")
+    roots += [dir, dir.start_with?("/private/") ? dir.sub("/private", "") : "/private#{dir}"] unless dir.empty?
+    roots.uniq
   end
 
   def run(*argv)
@@ -169,13 +178,15 @@ module Machine
   class Classifier
     include Guard
 
-    def initialize(rows, uid:, self_pid:, older_than: nil, dir_exists: ->(path) { File.directory?(path) })
+    def initialize(rows, uid:, self_pid:, older_than: nil, dir_exists: ->(path) { File.directory?(path) },
+                   tmp_roots: Machine.tmp_roots)
       @by_pid = rows.map { |r| [r.pid, r] }.to_h
+      @scratchpad = %r{\A(?:#{tmp_roots.map { |root| Regexp.escape(root) }.join('|')})/claude-#{uid}(?:/|\z)}
       @older_than = older_than
       @dir_exists = dir_exists
+      @runner = Machine.matcher(RUNNER_PATTERNS)
       protected = ancestors(@by_pid, self_pid)
       @rows = rows.reject { |r| r.pid <= 1 || r.uid != uid || protected.include?(r.pid) || daemon?(r) }
-      @runner = Machine.matcher(RUNNER_PATTERNS)
     end
 
     def cwd_pids
@@ -192,8 +203,12 @@ module Machine
 
     private
 
+    # A runner or a claude CLI is never a daemon, wherever it is installed.
     def daemon?(row)
-      reparented?(row) && row.command.match?(SYSTEM_DAEMON)
+      return false unless reparented?(row)
+      return false if row.command.match?(CLAUDE) || row.command.match?(@runner)
+
+      row.command.split(" -", 2).first.match?(SYSTEM_DAEMON)
     end
 
     def reparented?(row)
@@ -209,7 +224,7 @@ module Machine
     end
 
     def orphan?(row, cwd)
-      reparented?(row) && cwd && (cwd.match?(SCRATCHPAD) || cwd.include?(WORKTREE))
+      reparented?(row) && cwd && (cwd.match?(@scratchpad) || cwd.include?(WORKTREE))
     end
 
     def stale_wait?(row, _cwd)
@@ -240,8 +255,8 @@ module Machine
       Process.kill(signal, target)
     end
 
-    def alive?(pid)
-      Process.kill(0, pid)
+    def alive?(target)
+      Process.kill(0, target)
       true
     rescue Errno::ESRCH
       false
@@ -276,10 +291,14 @@ module Machine
       return targets.each { |f| @out.puts("would kill #{line(f)}") } if dry_run
 
       pids = targets.map { |f| f.row.pid }
-      sent = targets.map { |f| [f, signal("TERM", f, target(f.row, pids))] }
-      survivors = await(sent.select { |_, result| result == :sent }.map { |f, _| f.row.pid })
-      sent.each do |f, result|
-        result = signal("KILL", f, target(f.row, pids)) == :sent ? :killed : :gone if survivors.include?(f.row.pid)
+      sent = targets.map do |f|
+        to = target(f.row, pids)
+        [f, to, signal("TERM", to)]
+      end
+      # A group target survives while any member does: `kill 0` to -pgid.
+      survivors = await(sent.select { |_, _, result| result == :sent }.map { |_, to, _| to })
+      sent.each do |f, to, result|
+        result = signal("KILL", to) == :sent ? :killed : :gone if survivors.include?(to)
         @out.puts(report(f, result))
       end
     end
@@ -301,7 +320,7 @@ module Machine
       false
     end
 
-    def signal(name, _finding, target)
+    def signal(name, target)
       @signals.kill(name, target)
       :sent
     rescue Errno::ESRCH
@@ -310,11 +329,11 @@ module Machine
       :denied
     end
 
-    def await(pids)
+    def await(targets)
       deadline = @clock.call + GRACE
       loop do
-        pids = pids.select { |pid| @signals.alive?(pid) }
-        return pids if pids.empty? || @clock.call >= deadline
+        targets = targets.select { |to| @signals.alive?(to) }
+        return targets if targets.empty? || @clock.call >= deadline
 
         @sleeper.call(0.2)
       end
@@ -451,6 +470,8 @@ module Machine
   USAGE = "usage: machine.rb report [--json] [--older-than AGE] | reap (--auto | --kill CLASS...) [--dry-run] " \
           "[--older-than AGE] | govern [--dry-run] | status"
 
+  FLAGS = { "report" => %i[json older_than], "reap" => %i[auto kill dry_run older_than], "govern" => %i[dry_run] }.freeze
+
   def default_context
     platform = RUBY_PLATFORM.include?("darwin") ? :macos : :linux
     home = Dir.home
@@ -488,6 +509,10 @@ module Machine
 
     opts = options(args)
     raise OptionParser::InvalidArgument, opts[:rest].join(" ") if opts[:rest].any?
+
+    extra = opts.keys - [:rest, :classes] - FLAGS.fetch(command, [])
+    extra << :kill if opts[:classes].any? && !FLAGS.fetch(command, []).include?(:kill)
+    raise ArgumentError, "#{command} takes no --#{extra.first.to_s.tr('_', '-')}" if extra.any?
 
     case command
     when "report" then report(ctx, opts)
@@ -530,6 +555,7 @@ module Machine
     unknown = opts[:classes] - CLASSES.keys
     raise ArgumentError, "unknown class: #{unknown.join(', ')} (classes: #{CLASSES.keys.join(', ')})" if unknown.any?
     raise ArgumentError, "reap needs --auto or --kill CLASS" unless opts[:auto] || opts[:classes].any?
+    raise ArgumentError, "reap takes --auto or --kill CLASS, not both" if opts[:auto] && opts[:classes].any?
 
     rows = ctx.table.rows
     targets = Reaper.select(findings_of(ctx, rows, opts[:older_than]), auto: opts[:auto], classes: opts[:classes])
