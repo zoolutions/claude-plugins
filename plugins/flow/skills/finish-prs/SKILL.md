@@ -181,7 +181,8 @@ Leave the PR and its worktree. Next PR.
 - A foreground wait carries a Bash timeout (at most 600000) and is re-run; never a background
   polling loop. Claude Code refuses a bare `sleep` of a minute or more, so a poll is a counted
   loop (no `timeout` needed, which stock macOS lacks):
-  `for i in 1 2 3 4 5 6 7 8 9; do <terminal-state check> && break; sleep 60; done`.
+  `for i in 1 2 3 4 5 6 7 8 9; do <check> && break; sleep 60; done; <check>` — the trailing
+  `<check>` gives the exit status (the loop alone exits 0 when it runs out of tries).
 - Its exit condition covers every terminal state: merged, closed, the check or review finished
   either way. Never one exact value that can stop being reachable (a head SHA, a review newer than
   a timestamp): a squash merge or a force-push makes it unreachable forever.
