@@ -1,0 +1,24 @@
+plugins/machine/skills/reap/machine.rb
+  s_d348732f161a35::t_2783a80bab372a 75,209-211,294-295,340,343,367,588
+plugins/machine/skills/reap/SKILL.md
+  s_d348732f161a35::t_cad92f4fc2ccab 21,36
+test/machine_test.rb
+  s_d348732f161a35::t_516566e1ea9550 249,252-255,273-275,277,420,425-427,439,442,513
+  s_d348732f161a35::t_cad92f4fc2ccab 304,314,489
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b45058b8c720496f765e81b7777147efc4cfedf1",
+  "prompts": {},
+  "sessions": {
+    "s_d348732f161a35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cdf99f04-044b-4dd9-b850-d8c2dd2db8c3",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
