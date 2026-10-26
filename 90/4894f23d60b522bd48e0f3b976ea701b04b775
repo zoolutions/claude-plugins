@@ -1,0 +1,37 @@
+plugins/machine/.claude-plugin/plugin.json
+  s_d348732f161a35::t_82237dc3a6f3ea 1-11
+test/machine_test.rb
+  s_d348732f161a35::t_f6a0530cb5932b 335-336
+  s_d348732f161a35::t_1c66baed8c69ef 1-100,102-161,174-240,243-334,337-409
+  s_d348732f161a35::t_ea0666ff681abb 101,241-242
+  s_d348732f161a35::t_0b2588622fe9a8 162-173
+plugins/machine/README.md
+  s_d348732f161a35::t_ef449590953366 131,152,164
+  s_d348732f161a35::t_90c89b59d26d5f 1-130,132-151,153-163,165
+README.md
+  s_d348732f161a35::t_060d83e3fa3d3e 12,46,53,62-65,73
+  s_d348732f161a35::t_fd846218ac89ac 57-58
+.claude-plugin/marketplace.json
+  s_d348732f161a35::t_060d83e3fa3d3e 29-35
+plugins/machine/skills/reap/SKILL.md
+  s_d348732f161a35::t_82237dc3a6f3ea 1-34,36-57
+plugins/machine/skills/reap/machine.rb
+  s_d348732f161a35::t_597b3d9027d791 1-49,52-195,197-198,203-207,209-211,213-549
+  s_d348732f161a35::t_0b2588622fe9a8 50-51,196,199-202,208,212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "904894f23d60b522bd48e0f3b976ea701b04b775",
+  "prompts": {},
+  "sessions": {
+    "s_d348732f161a35": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cdf99f04-044b-4dd9-b850-d8c2dd2db8c3",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
