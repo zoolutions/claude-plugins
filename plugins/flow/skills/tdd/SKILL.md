@@ -70,9 +70,10 @@ boundary), every error path, every branch the change adds.
    run the tests for the diff: Workflow → Specs → changed; without it, the fast loop on every
    changed test file and on the test file each changed source file maps to by the repository's
    layout — a changed file that maps to none (a shared helper, factory, migration, config) means
-   the full suite. Otherwise the full suite is CI's. Otherwise (no CI line, or CI does not run the full suite), run
-   the full suite (Workflow → Specs). Either way judged by its exit status — a load error can print
-   "0 failures" while running nothing. Read the skip count: a skipped test did not run.
+   the full suite. Else the full suite is CI's. Otherwise (no CI line, or CI does not run the full
+   suite), run the full suite (Workflow → Specs). Either way judged by its exit status — a load
+   error can print "0 failures" while running nothing. Read the skip count: a skipped test did not
+   run.
 2. Workflow → Verify, all of it.
 3. Coverage: the bar `AGENTS.md` states; with none, every branch the change adds is exercised.
 
