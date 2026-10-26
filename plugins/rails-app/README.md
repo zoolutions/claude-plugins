@@ -18,6 +18,7 @@ claude plugin install rails-app@zoolutions
 | `/rails-app:database` | N+1s, indexes, EXPLAIN, batching, bulk writes; `diff` audits the branch for N+1 patterns |
 | `/rails-app:controllers` | Endpoints, routes, strong params, responses; tenant scoping and authorization on every action |
 | `/rails-app:views` | Pages and components (Phlex by default), UI-kit wrappers, forms, streamable components, native variants, Phlex traps |
+| `/rails-app:daisyui` | A component's look with the daisyui gem: modifier, `variants` (defaults, compounds, hover/open states, slots), Tailwind sources, schema and MCP introspection |
 | `/rails-app:stimulus` | Interactivity: phlex-reactive first, the operator-confirmed Stimulus/Turbo Stream exception, maintaining existing controllers |
 | `/rails-app:services` | Service objects, transactions, result shape, external API clients and webhooks intake |
 | `/rails-app:jobs` | Idempotent tenant-aware jobs, bounded retries, recurring schedules, removing a job class safely |

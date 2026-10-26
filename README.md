@@ -7,7 +7,7 @@ costs nothing until one of its skills is invoked.
 | Plugin | For | What it does |
 |---|---|---|
 | [`flow`](plugins/flow) | every repository | `/flow:lfg` (issue → merge-ready PR, never merges), `/flow:follow-through` (epic → merged, unattended: dependency waves, one agent per issue, upstream fixes carried to a release), `/flow:finish-prs` (review rounds until green; `automerge` merges or queues), `/flow:plan` (incl. `upstream`, with an effort estimate), `/flow:effort` (each PR's time and tokens against the estimate), `/flow:github-review-pr` / `-failures` / `-comments`, `/flow:tdd`, `/flow:review-pr`, `/flow:debug-flaky`, the `flow:fable-validator` agent |
-| [`rails-app`](plugins/rails-app) | Rails applications | the layer specialists, AppSignal debugging and triage |
+| [`rails-app`](plugins/rails-app) | Rails applications | the layer specialists (incl. daisyui looks), AppSignal debugging and triage |
 | [`ruby-gem`](plugins/ruby-gem) | Ruby libraries | an unattended release, branch-versus-main benchmarks |
 | [`machine`](plugins/machine) | every machine agents run on | `/machine:reap`: reports and reaps the processes agent sessions leave behind, keeps test runs at background priority; schedule and SessionStart line wired per machine |
 
