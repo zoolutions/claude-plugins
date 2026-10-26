@@ -56,7 +56,7 @@ Tile(:loud, :wide)  # btn font-medium btn-primary btn-wide uppercase
 | `compound(**match, class:, set: {})` | Classes (and members for empty groups) when `match` holds. |
 | `state :name, "variant"` | Names `hover`, `focus-visible`, `[.dropdown[open]>&]`, … |
 | `on(states, **match, class:)` | Like `compound`, written once per state. |
-| `slot :name, "…"` | A part. In the component: `slot_classes(:menu, options)` returns its classes (given `class:` last); `slot_options(:menu, options)` returns `options` carrying them. |
+| `slot :name, "…"` | A part. In the component: `slot_classes(:menu, options)` returns its classes (given `class:` last) and removes `class:` from `options`, so call it once per part; `slot_options(:menu, options)` returns `options` carrying them. |
 
 A `match` value holds when:
 
