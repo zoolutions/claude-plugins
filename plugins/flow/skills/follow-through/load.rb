@@ -44,8 +44,14 @@ module FlowLoad
 
   def max_from(argv)
     i = argv.index("--max")
-    value = i && Float(argv[i + 1].to_s, exception: false)
-    value && value.positive? ? value : DEFAULT_MAX
+    raw = i ? argv[i + 1] : argv.map { |a| a[/\A--max=(.*)\z/, 1] }.compact.first
+    return DEFAULT_MAX unless i || raw
+
+    value = Float(raw.to_s, exception: false)
+    return value if value && value.finite? && value.positive?
+
+    warn "load.rb: ignoring --max #{raw.inspect} (want a positive number); using #{DEFAULT_MAX}"
+    DEFAULT_MAX
   end
 
   def main(argv)

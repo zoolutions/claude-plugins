@@ -108,8 +108,8 @@ spawned yet has no worktree: a resumed run counts it `todo` (0.4).
 **Load check**: `ruby ${CLAUDE_PLUGIN_ROOT}/skills/follow-through/load.rb`, plus `--max <x>` when
 Workflow → Agents sets `max load <x>× cores` (default 1.5). Exit 0 (`ok`, `unknown`) → spawn.
 Exit 3 (`busy`: load more than that many times the cores) → spawn nothing; wait for this run's next
-notification; none alive → re-check every minute in a foreground loop under `timeout 540` that
-ends when the check exits 0 (Bash timeout 600000), re-run up to 30 min, then spawn **one** anyway (it holds a slot; the next spawn checks afresh) and report the
+notification; none alive → re-check every minute in a foreground counted loop (at most 9 tries,
+breaking when the check exits 0; Bash timeout 600000), re-run up to 30 min, then spawn **one** anyway (it holds a slot; the next spawn checks afresh) and report the
 busy machine (Phase 2).
 
 ### 1.1 Worktree
@@ -155,9 +155,9 @@ what isolates your worktree (databases, ports, a dev server); respect it.
 3. Phase 8 is /flow:finish-prs <PR> automerge; you have no ScheduleWakeup. Every wait ends on its
    own: foreground, Bash timeout at most 600000, re-run; never a background polling loop. It
    exits on every terminal state (merged, closed, the check or review done either way), never on
-   one exact value that can become unreachable (a head SHA). A poll is a loop under `timeout`
-   (a bare `sleep` of a minute or more is refused); anything backgrounded runs under `timeout`
-   (≤ 2 h).
+   one exact value that can become unreachable (a head SHA). A poll is a counted loop, as its
+   Phase 3 shows (a bare `sleep` of a minute or more is refused); anything backgrounded runs
+   under `timeout` or `gtimeout` (≤ 2 h).
 4. A library limitation goes through /flow:plan upstream <owner/repo> <limitation> --unattended:
    it files the upstream issue and the adoption issue and returns their numbers. Keep the workaround,
    link both in the PR, and add them to your final JSON. Do not implement the library fix yourself.

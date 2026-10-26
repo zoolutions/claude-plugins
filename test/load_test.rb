@@ -72,8 +72,16 @@ class LoadTest < Minitest::Test
 
   def test_max_option
     assert_in_delta 2.0, FlowLoad.max_from(["--max", "2"])
-    assert_in_delta FlowLoad::DEFAULT_MAX, FlowLoad.max_from([])
-    assert_in_delta FlowLoad::DEFAULT_MAX, FlowLoad.max_from(["--max", "nope"])
-    assert_in_delta FlowLoad::DEFAULT_MAX, FlowLoad.max_from(["--max", "0"])
+    assert_in_delta 2.5, FlowLoad.max_from(["--max=2.5"])
+    assert_output("", "") { assert_in_delta FlowLoad::DEFAULT_MAX, FlowLoad.max_from([]) }
+  end
+
+  def test_a_bad_max_warns_and_uses_the_default
+    ["nope", "0", "-1", "Infinity", nil].each do |bad|
+      argv = ["--max", bad].compact
+      assert_output("", /\Aload\.rb: ignoring --max .*; using 1\.5\n\z/) do
+        assert_in_delta FlowLoad::DEFAULT_MAX, FlowLoad.max_from(argv)
+      end
+    end
   end
 end

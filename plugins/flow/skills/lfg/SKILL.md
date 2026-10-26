@@ -81,9 +81,10 @@ that hides the cause.
 
 ## Phase 6: Verify
 
-All of Workflow → Verify, and the tests for what changed (Workflow → Specs → changed); the full
-suite only when `/flow:tdd` → Done says it runs locally. Then re-read the request: would the
-requester call it done; is it the root cause; do the tests prove it?
+All of Workflow → Verify, and the local gate of `/flow:tdd` → Done: the tests for what changed
+(Workflow → Specs → changed, else each changed file's tests) when CI runs the full suite, else the
+full suite. Then re-read the request: would the requester call it done; is it the root cause; do
+the tests prove it?
 
 ## Phase 6.5: Fable validation
 

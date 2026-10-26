@@ -387,14 +387,17 @@ class EffortTest < Minitest::Test
   def test_marks_the_calls_that_wait
     dir = "#{FlowEffort.slug(REPO)}--claude-worktrees-issue-42"
     calls = [["ScheduleWakeup", {}], ["Bash", { "command" => "gh pr checks 12 --watch --fail-fast" }],
-             ["Bash", { "command" => "gh run watch 99 --exit-status" }], ["Bash", { "command" => "bundle exec rspec" }]]
+             ["Bash", { "command" => "gh run watch 99 --exit-status" }], ["Bash", { "command" => "bundle exec rspec" }],
+             ["Bash", { "command" => "for i in 1 2 3; do gh pr view 7 --json state && break; sleep 60; done" }],
+             ["Bash", { "command" => "timeout 540 sh -c 'until ruby load.rb; do sleep 60; done'" }],
+             ["Bash", { "command" => "for f in a b; do ruby test/$f.rb; done" }]]
     rows = calls.each_with_index.map do |(name, input), i|
       assistant(i, "msg_w#{i}", input: 1, read: 0, output: 1,
                                 content: [{ "type" => "tool_use", "id" => "toolu_w#{i}", "name" => name, "input" => input }])
     end
     transcript = FlowEffort::Transcript.new(write(dir, "w1.jsonl", rows), BRANCH)
 
-    assert_equal [true, true, true, false], transcript.rows.map(&:waits)
+    assert_equal [true, true, true, false, true, true, false], transcript.rows.map(&:waits)
   end
 
   def test_counts_compactions

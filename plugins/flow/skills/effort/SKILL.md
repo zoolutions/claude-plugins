@@ -54,8 +54,8 @@ never rewrites it. A PR without an estimate gets the sentences only when somethi
   `prefix`). A merged or closed PR stops at its merge.
 - **Time.** Wall clock from the first counted entry to the last. Active: per transcript, the gaps
   between entries, leaving out any gap over 10 min and the wait after `ScheduleWakeup`,
-  `gh pr checks --watch` or `gh run watch`; then the union over transcripts, so an agent working while
-  the session waits counts once. Split at the PR's creation.
+  `gh pr checks --watch`, `gh run watch` or a poll loop (`sleep` of 10 s or more); then the union
+  over transcripts, so an agent working while the session waits counts once. Split at the PR's creation.
 - **Tokens.** Per message, from its last line (an agent's transcript streams). Input is fresh + cache
   writes + cache reads. The advisor's tokens are their own iterations: they add to the caller's, never
   repeat them, and are booked to whoever consulted it.
