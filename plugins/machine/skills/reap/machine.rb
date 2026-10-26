@@ -206,9 +206,10 @@ module Machine
 
     def at?(words, index, pattern)
       first = words[index]
-      # A script under the runner's package, after a launcher:
-      # `node …/node_modules/@playwright/test/cli.js`, `node …/jest/bin/jest.js`.
-      return true if index.positive? && pattern.size == 1 && first.match?(%r{/@?#{Regexp.escape(pattern[0])}/})
+      # A script in the runner's own package, after a launcher:
+      # `node …/node_modules/jest/bin/jest.js`, `node …/node_modules/@playwright/test/cli.js`.
+      name = Regexp.escape(pattern[0])
+      return true if index.positive? && pattern.size == 1 && first.match?(%r{/node_modules/(?:#{name}|@#{name}/test)/})
       return false unless first == pattern[0] || first.end_with?("/#{pattern[0]}")
 
       pattern.drop(1).each_with_index.all? { |word, i| words[index + 1 + i] == word }

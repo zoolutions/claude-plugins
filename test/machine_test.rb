@@ -274,7 +274,8 @@ class MachineTest < Minitest::Test
       "node /r/node_modules/playwright/lib/common/process.js", "node /r/node_modules/@playwright/test/cli.js test",
       "node /r/node_modules/jest/bin/jest.js", "node /r/node_modules/vite/bin/vite.js"
     ].each { |cmd| assert runner.match?(cmd), cmd }
-    ["tail -f log/rspec.log", "/Users/me/rspec/tool --x", "claude -p fix the rspec failures", "vim spec/rspec_helper.rb", "grep -r jest .",
+    ["tail -f log/rspec.log", "/Users/me/rspec/tool --x", "node /r/node_modules/@playwright/mcp/cli.js",
+     "ruby /Users/me/Code/jest/script.rb", "claude -p fix the rspec failures", "vim spec/rspec_helper.rb", "grep -r jest .",
      "#{format(SNAP, 'bundle exec rspec')}"].each { |cmd| refute runner.match?(cmd), cmd }
   end
 
