@@ -93,12 +93,25 @@ Wave 1: #538 → Wave 2: #540, #543 → Wave 3: #541
 ```
 
 then `#<N> <title> — <status>` per leaf in wave order (`done` last), then `main: green` or
-`main: red since <sha> (#N) — PRs will park merge-ready` when it applies.
+`main: red since <sha> (#N) — PRs will park merge-ready` when it applies, then
+`Agents: <n> at once; <the load check's line>` (Phase 1; a dry run runs it too).
 **`--dry-run` stops here** (no fetch, worktree, task or agent). Otherwise one task per leaf.
 
 ## Phase 1: Run a wave
 
-Prepare every runnable issue of the wave, then spawn all its agents **in one message**.
+**A pool**: at most n of this run's agents alive (Workflow → Agents → `at most <n> at once`;
+missing: 3). Fill free slots with the wave's runnable issues in order: a load check before each
+spawn, prepare (1.1), spawn (1.2); those that fit go in one message. Each completion notification
+frees a slot: book it (1.3), fill it. The next wave starts once this one is booked. An issue not
+spawned yet has no worktree: a resumed run counts it `todo` (0.4).
+
+**Load check**: `ruby ${CLAUDE_PLUGIN_ROOT}/skills/follow-through/load.rb`, plus `--max <x>` when
+Workflow → Agents sets `max load <x>× cores` (default 1.5). Exit 3 (`busy`: load more than that
+many times the cores) → spawn nothing; re-check every minute in a foreground counted loop
+(`/flow:finish-prs` Phase 3, its check "load.rb's exit is not 3"; Bash timeout 600000), re-run,
+booking any notification that arrives in between; after 30 min busy, spawn **one** into the free slot anyway (never above n; the next
+spawn checks afresh) and report the busy machine (Phase 2). Any other exit (`ok`, `unknown`, no
+`ruby`, a crash) → spawn.
 
 ### 1.1 Worktree
 
@@ -140,8 +153,12 @@ what isolates your worktree (databases, ports, a dev server); respect it.
    Start = finish-prs: go to step 3.
 2. As soon as the PR is open, post /flow:lfg's Phase 9 close-out on it (gh pr comment <PR>
    --body-file <file>): nobody reads this session before the merge.
-3. Phase 8 is /flow:finish-prs <PR> automerge. You have no ScheduleWakeup: wait with
-   gh pr checks <PR> --watch --fail-fast (and gh run watch for a merge queue), per its Phase 3.
+3. Phase 8 is /flow:finish-prs <PR> automerge; you have no ScheduleWakeup. Every wait ends on its
+   own: foreground, Bash timeout at most 600000, re-run; never a background polling loop. It
+   exits on every terminal state (merged, closed, the check or review done either way), never on
+   one exact value that can become unreachable (a head SHA). A poll is a counted loop, as its
+   Phase 3 shows (a bare `sleep` of a minute or more is refused); anything backgrounded runs
+   under `timeout` or `gtimeout` (≤ 2 h).
 4. A library limitation goes through /flow:plan upstream <owner/repo> <limitation> --unattended:
    it files the upstream issue and the adoption issue and returns their numbers. Keep the workaround,
    link both in the PR, and add them to your final JSON. Do not implement the library fix yourself.
@@ -158,7 +175,7 @@ what isolates your worktree (databases, ports, a dev server); respect it.
     "upstream": [{"repo": "<owner/repo>", "issue": <n>, "adoption": <n>}]}
 ```
 
-Wait for completion notifications; never poll.
+Wait for completion notifications; never poll an agent or GitHub.
 
 ### 1.3 Book each result
 
@@ -176,7 +193,7 @@ Not the JSON, or a `merged` the PR does not confirm → `needs-user` with that r
   or transitively, is `blocked by parked #<N>` and never starts.
 - **upstream** entries: Phase 1.4.
 
-Then the next wave, until nothing is runnable.
+Then fill the freed slot (Phase 1), until nothing is runnable.
 
 ### 1.4 Upstream fixes
 
@@ -212,7 +229,8 @@ issue stays open and is listed in the report.
    | #541 | — | blocked ⛔ by #540 | — |
    | lib#77 | lib#80 | released ✅ v1.4.2 → adoption #612 merged | S → S, 1.2 h |
 
-3. Per parked issue: what the user must do (from its PR comment), then the resume command:
+3. A spawn the busy machine delayed 30 min (Phase 1): its load line.
+4. Per parked issue: what the user must do (from its PR comment), then the resume command:
    `/flow:follow-through <same arguments>` — Phase 0.4 picks up every PR and worktree where it was left.
 
 ## Never

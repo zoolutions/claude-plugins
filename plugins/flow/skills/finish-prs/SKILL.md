@@ -176,9 +176,25 @@ Leave the PR and its worktree. Next PR.
 
 ## Phase 3: Waiting
 
+**Every wait ends on its own.**
+
+- A foreground wait carries a Bash timeout (at most 600000) and is re-run; never a background
+  polling loop. Claude Code refuses a bare `sleep` of a minute or more, so a poll is a counted
+  loop (no `timeout` needed, which stock macOS lacks):
+  `for i in 1 2 3 4 5 6 7 8; do <check> && break; sleep 60; done; <check>` — 8 min, headroom for
+  the checks under the Bash timeout; the trailing `<check>` gives the exit status (the loop alone
+  exits 0 when it runs out of tries).
+- Its exit condition covers every terminal state: merged, closed, the check or review finished
+  either way. Never one exact value that can stop being reachable (a head SHA, a review newer than
+  a timestamp): a squash merge or a force-push makes it unreachable forever.
+- Never an `until …; do sleep …; done` with `run_in_background`. A background command that waits
+  runs under `timeout <seconds>` (or `gtimeout`), at most 2 h.
+
 **CI and the review bot.** With `ScheduleWakeup` (an interactive session): wake after 300 s, re-check
 2d — never a busy sleep. Without it (a spawned agent): `gh pr checks <PR> --watch --fail-fast` in the
-foreground, Bash timeout 600000, re-run on timeout or when a fresh head has no checks yet.
+foreground, re-run on timeout or when a fresh head has no checks yet. No checks to watch (no CI, a
+bot that posts none): that loop, its check true once the PR is merged or closed or the bot's
+review of the head (gate 4) has posted, either way.
 
 **A merge queue** (Workflow → Merge = queue):
 
@@ -190,7 +206,7 @@ Note the time you queued it (`date -u +%FT%TZ`).
 
 - Waiting: wake after 300 s; without `ScheduleWakeup`, find the queue's run —
   `gh run list --event merge_group --limit 20 --json databaseId,headBranch --jq '.[] | select(.headBranch | startswith("gh-readonly-queue/main/pr-<PR>-")) | .databaseId'`
-  (none yet: still batching, ask again) — and `gh run watch <id> --exit-status`.
+  (none yet: still batching, ask again) — and `gh run watch <id> --exit-status` in the foreground.
 - `MERGED` with a `mergeCommit` → merged.
 - `OPEN`, not `isInMergeQueue`, `autoMergeRequest` set → never entered: gh armed auto-merge because a
   required check had not passed. `gh pr merge <PR> --disable-auto`, back to 2d.

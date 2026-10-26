@@ -30,7 +30,8 @@ label means "none". Keep it true of the tree; keep it short.
 ## Workflow
 
 - **Verify:** <commands run before every commit>
-- **Specs:** fast loop `<cmd> <file>`; full suite `<cmd>`; two worktrees at once: <yes | how>
+- **Specs:** fast loop `<cmd> <file>`; full suite `<cmd>`; changed `<cmd running the tests for the diff against base>`; two worktrees at once: <yes | how>
+- **Agents:** at most <n> at once (missing: 3); max load <x>× cores (missing: 1.5)
 - **CI:** required `<check>`; jobs `<names>`; full suite on <the PR | the merge queue>; failure report <marker | none>
 - **Review bot:** cubic | coderabbit | none
 - **Merge:** queue — `gh pr merge <PR> --match-head-commit <sha>` | squash — `gh pr merge <PR> --squash --delete-branch`; optional fallback after the gate: `--admin` for <the protection the gate covers>
@@ -43,3 +44,8 @@ label means "none". Keep it true of the tree; keep it short.
 - **Bench:** <benchmark command for /ruby-gem:perf | none>
 - **Base:** <default branch, when it is not `main`>
 ```
+
+`changed` is the local gate when CI runs the full suite (on the PR or in the merge queue); without
+that CI fact the full suite runs locally. `Agents` caps how many agents `/flow:follow-through` keeps
+alive; before each spawn, and before `/flow:lfg`'s heavy steps, `load.rb` checks the machine's load
+against `max load`: busy slows a run down, never stops it.

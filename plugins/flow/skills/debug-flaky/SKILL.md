@@ -114,7 +114,8 @@ secret): report it as a blocker, with the evidence.
 2. If the test fences a regression, reintroduce the original bug for a moment: it must go red.
 3. The loop: 10 consecutive green runs with fresh seeds (3 when each run costs network, containers
    or a browser), by exit status, plus the original seed and cell.
-4. The full suite (Workflow → Specs) and Workflow → Verify.
+4. The local gate of `/flow:tdd` → Done (the `changed` tests when CI runs the full suite, else the
+   full suite) and Workflow → Verify.
 
 The commit message and PR body carry the mechanism sentence, the class, the forcing proof (fails
 old, passes new), the stress count, the siblings fixed and `Closes #N` for an existing issue.
