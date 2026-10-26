@@ -7,9 +7,14 @@
 # Stdlib only, Ruby >= 2.6.
 #
 #   machine.rb report [--json] [--older-than AGE]
-#   machine.rb reap (--auto | --kill CLASS...) [--dry-run] [--older-than AGE]
+#   machine.rb reap (--auto | --kill CLASS...) [--dry-run] [--older-than AGE] [--notify]
 #   machine.rb govern [--dry-run]
 #   machine.rb status
+#
+# `reap --notify` ends with a desktop notification (osascript on macOS,
+# notify-send on Linux, silent without either) when it killed something or
+# something is left to review: the scheduled job's form. The process is named
+# `machine <command>` in `ps`, so a schedule is told from a leftover.
 #
 # Never touched: this process's ancestors, PID 1's system daemons, anything
 # another user owns.
@@ -395,8 +400,12 @@ module Machine
       @sleeper = sleeper
     end
 
+    # The pids it killed.
     def reap(targets, dry_run: false)
-      return targets.each { |f| @out.puts("would kill #{line(f)}") } if dry_run
+      if dry_run
+        targets.each { |f| @out.puts("would kill #{line(f)}") }
+        return []
+      end
 
       pids = targets.map { |f| f.row.pid }
       sent = targets.map do |f|
@@ -405,10 +414,11 @@ module Machine
       end
       # A group target survives while any member does: `kill 0` to -pgid.
       survivors = await(sent.select { |_, _, result| result == :sent }.map { |_, to, _| to })
-      sent.each do |f, to, result|
+      sent.select do |f, to, result|
         result = signal("KILL", to) == :sent ? :killed : :gone if survivors.include?(to)
         @out.puts(report(f, result))
-      end
+        %i[sent killed].include?(result)
+      end.map { |f, _, _| f.row.pid }
     end
 
     private
@@ -540,6 +550,23 @@ module Machine
     "load #{load.round}/#{cores} · #{counts.join(', ')} · /machine:reap"
   end
 
+  # What the scheduled reap tells the desktop; nil when it killed nothing and
+  # nothing is left.
+  def notification(killed, left)
+    return nil if killed.zero? && left.nil?
+
+    "killed #{killed} · #{left || 'nothing left'}"
+  end
+
+  def notify(ctx, message)
+    if ctx.platform == :macos
+      text = message.gsub(/["\\]/) { |c| "\\#{c}" }
+      ctx.runner.call("osascript", "-e", "display notification \"#{text}\" with title \"machine:reap\"")
+    else
+      ctx.runner.call("notify-send", "machine:reap", message)
+    end
+  end
+
   def load_average(platform, runner)
     text = platform == :macos ? runner.call("sysctl", "-n", "vm.loadavg") : File.read("/proc/loadavg")
     text.to_s[/\d+(?:\.\d+)?/].to_f
@@ -578,9 +605,10 @@ module Machine
   # --- the command line -----------------------------------------------------
 
   USAGE = "usage: machine.rb report [--json] [--older-than AGE] | reap (--auto | --kill CLASS...) [--dry-run] " \
-          "[--older-than AGE] | govern [--dry-run] | status"
+          "[--older-than AGE] [--notify] | govern [--dry-run] | status"
 
-  FLAGS = { "report" => %i[json older_than], "reap" => %i[auto kill dry_run older_than], "govern" => %i[dry_run] }.freeze
+  FLAGS = { "report" => %i[json older_than], "reap" => %i[auto kill dry_run older_than notify],
+            "govern" => %i[dry_run] }.freeze
 
   def default_context
     platform = RUBY_PLATFORM.include?("darwin") ? :macos : :linux
@@ -601,6 +629,7 @@ module Machine
       o.on("--kill CLASS", Array) { |v| opts[:classes].concat(v) }
       o.on("--dry-run") { opts[:dry_run] = true }
       o.on("--older-than AGE") { |v| opts[:older_than] = duration(v) }
+      o.on("--notify") { opts[:notify] = true }
     end.parse(argv)
     opts[:classes].concat(rest) if opts[:classes].any?
     opts[:rest] = opts[:classes].any? ? [] : rest
@@ -635,11 +664,20 @@ module Machine
     2
   end
 
+  # The status line, nil when clean or when the table cannot be read (said on
+  # stderr: the SessionStart hook drops it, a scheduled job logs it). `except`:
+  # pids just killed, which `ps` may still list for a moment.
+  def current_status(ctx, except: [])
+    found = findings_of(ctx, ctx.table.rows, nil).reject { |f| except.include?(f.row.pid) }
+    status_line(found, load: ctx.load.call, cores: ctx.cores)
+  rescue StandardError => e
+    warn "machine: status: #{e.message}"
+    nil
+  end
+
   def status(ctx)
-    line = status_line(findings_of(ctx, ctx.table.rows, nil), load: ctx.load.call, cores: ctx.cores)
+    line = current_status(ctx)
     ctx.out.puts(line) if line
-    0
-  rescue StandardError
     0
   end
 
@@ -669,8 +707,12 @@ module Machine
 
     rows = ctx.table.rows
     targets = Reaper.select(findings_of(ctx, rows, opts[:older_than]), auto: opts[:auto], classes: opts[:classes])
-    Reaper.new(rows: rows, self_pid: ctx.self_pid, uid: ctx.uid, signals: ctx.signals, out: ctx.out)
-          .reap(targets, dry_run: opts[:dry_run])
+    killed = Reaper.new(rows: rows, self_pid: ctx.self_pid, uid: ctx.uid, signals: ctx.signals, out: ctx.out)
+                   .reap(targets, dry_run: opts[:dry_run])
+    if opts[:notify] && !opts[:dry_run]
+      message = notification(killed.size, current_status(ctx, except: killed))
+      notify(ctx, message) if message
+    end
     0
   end
 
@@ -682,4 +724,7 @@ module Machine
   end
 end
 
-exit(Machine.main(ARGV)) if $PROGRAM_NAME == __FILE__
+if $PROGRAM_NAME == __FILE__
+  Process.setproctitle("machine #{ARGV.first}")
+  exit(Machine.main(ARGV))
+end

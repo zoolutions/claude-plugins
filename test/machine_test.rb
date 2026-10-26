@@ -445,8 +445,9 @@ class MachineTest < Minitest::Test
 
   # --- the command line -----------------------------------------------------
 
-  def cli(*argv, clean: false)
+  def cli(*argv, clean: false, platform: :macos)
     out = StringIO.new
+    calls = []
     signals = FakeSignals.new([])
     text = clean ? PS.lines.reject { |l| l =~ /\A(101|102|105|200|203|204|300|400|402|403) / }.join : PS
     table = Struct.new(:rows, :cwd_map) do
@@ -455,12 +456,12 @@ class MachineTest < Minitest::Test
       end
     end.new(Machine.parse_ps(text), CWDS)
     Dir.mktmpdir do |dir|
-      ctx = Machine::Context.new(table: table, uid: UID, self_pid: SELF, platform: :macos, signals: signals,
-                                 runner: ->(*_argv) { "" }, state_dir: dir, config_dir: dir, now: NOW, out: out,
-                                 load: -> { 28.4 }, cores: 12, dir_exists: ->(path) { path != GONE })
+      ctx = Machine::Context.new(table: table, uid: UID, self_pid: SELF, platform: platform, signals: signals,
+                                 runner: ->(*call) { calls << call && "" }, state_dir: dir, config_dir: dir, now: NOW,
+                                 out: out, load: -> { 28.4 }, cores: 12, dir_exists: ->(path) { path != GONE })
       code = nil
       capture_io { code = Machine.main(argv, ctx) }
-      [out.string, code, signals.sent]
+      [out.string, code, signals.sent, calls]
     end
   end
 
@@ -504,10 +505,45 @@ class MachineTest < Minitest::Test
     assert_empty cli("reap", "--auto", "--kill", "orphan")[2]
   end
 
+  # What is left after the four auto targets are killed: the fixture table is
+  # static, so the killed pids are left out by pid rather than gone from `ps`.
+  LEFT = "load 28/12 · 3 to review · /machine:reap"
+
+  def test_reap_notify_sends_the_kill_count_and_what_is_left_once
+    out, code, _sent, calls = cli("reap", "--auto", "--notify")
+    assert_equal 0, code
+    assert_equal 4, out.lines.grep(/\Akilled /).size
+    assert_equal [["osascript", "-e", "display notification \"killed 4 · #{LEFT}\" with title \"machine:reap\""]], calls
+  end
+
+  def test_reap_notify_on_linux_uses_notify_send
+    assert_equal [["notify-send", "machine:reap", "killed 4 · #{LEFT}"]],
+                 cli("reap", "--auto", "--notify", platform: :linux)[3]
+  end
+
+  def test_the_mac_notification_escapes_the_applescript_string
+    calls = []
+    ctx = Machine::Context.new(platform: :macos, runner: ->(*call) { calls << call && "" })
+    Machine.notify(ctx, %q(a "quoted" \ path))
+    assert_equal [["osascript", "-e", %q(display notification "a \"quoted\" \\\\ path" with title "machine:reap")]], calls
+  end
+
+  def test_reap_notify_is_silent_when_clean_and_in_a_dry_run
+    assert_empty cli("reap", "--auto", "--notify", clean: true)[3]
+    assert_empty cli("reap", "--auto", "--notify", "--dry-run")[3]
+  end
+
+  def test_the_notification_says_nothing_left_when_status_is_clean
+    assert_equal "killed 2 · nothing left", Machine.notification(2, nil)
+    assert_equal "killed 0 · #{LEFT}", Machine.notification(0, LEFT)
+    assert_nil Machine.notification(0, nil)
+  end
+
   def test_a_command_refuses_the_flags_it_does_not_take
     assert_equal 2, cli("govern", "--json")[1]
     assert_equal 2, cli("report", "--dry-run")[1]
     assert_equal 2, cli("report", "--auto")[1]
+    assert_equal 2, cli("govern", "--notify")[1]
   end
 
   def test_status_from_the_command_line
@@ -519,8 +555,9 @@ class MachineTest < Minitest::Test
     ctx = Machine::Context.new(table: nil, uid: UID, self_pid: SELF, platform: :macos, signals: nil, runner: nil,
                                state_dir: "/nonexistent", config_dir: "/nonexistent", now: NOW, out: StringIO.new,
                                load: -> { raise "boom" }, cores: 12, dir_exists: ->(_) { true })
-    assert_equal 0, Machine.main(["status"], ctx)
+    _out, err = capture_io { assert_equal 0, Machine.main(["status"], ctx) }
     assert_equal "", ctx.out.string
+    assert_match(/\Amachine: status: /, err)
   end
 
   def test_older_than_accepts_units
