@@ -48,7 +48,7 @@ module FlowEffort
   # A call that waits on something outside (CI, a review bot): the time until
   # the next action is waiting, however short: a watch, or a poll loop (one
   # line or several) that sleeps 10 s or more inside its do … done.
-  WAIT_COMMAND = /\bgh\s+(pr\s+checks\b.*--watch|run\s+watch)\b|\b(for|until|while)\b[^\n]*?(?:;|\n)\s*do\b(?:(?!\bdone\b).)*?\bsleep\s+\d{2,}s?\b/m.freeze
+  WAIT_COMMAND = /\bgh\s+(pr\s+checks\b.*--watch|run\s+watch)\b|\b(for|until|while)\b[^\n]*?(?:;|\n)\s*do\b(?:(?!\bdone\b).)*?\bsleep\s+(?:\d{2,}s?|\d+[mh])\b/m.freeze
   # A commit: the agent making one does the branch's work (a push may be of
   # another ref, so it says nothing).
   COMMIT_COMMAND = /\bgit\s+(-C\s+\S+\s+)?commit\b/.freeze
