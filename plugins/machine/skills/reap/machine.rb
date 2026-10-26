@@ -72,8 +72,7 @@ module Machine
     end
   end
 
-  # auto: killed by `reap --auto` (an auto class, and not a wait loop whose
-  # session is still alive).
+  # auto: killed by `reap --auto`.
   Finding = Struct.new(:klass, :row, :cwd, :auto) do
     def auto?
       auto ? true : false
@@ -207,6 +206,9 @@ module Machine
 
     def at?(words, index, pattern)
       first = words[index]
+      # A script under the runner's package, after a launcher:
+      # `node …/node_modules/@playwright/test/cli.js`, `node …/jest/bin/jest.js`.
+      return true if index.positive? && pattern.size == 1 && first.match?(%r{/@?#{Regexp.escape(pattern[0])}/})
       return false unless first == pattern[0] || first.end_with?("/#{pattern[0]}")
 
       pattern.drop(1).each_with_index.all? { |word, i| words[index + 1 + i] == word }
@@ -289,10 +291,8 @@ module Machine
       row.ppid == 1 || @by_pid[row.ppid]&.command&.match?(SUBREAPER) || false
     end
 
-    def auto?(klass, row)
-      return false unless AUTO.include?(klass)
-
-      klass != "stale-wait" || !@by_pid[row.ppid]&.command&.match?(CLAUDE)
+    def auto?(klass, _row)
+      AUTO.include?(klass)
     end
 
     def app?(row)
@@ -337,9 +337,10 @@ module Machine
   # The real signals: TERM/KILL, and whether a pid still runs.
   # A zombie answers `kill 0` but is dead: `ps` decides.
   class Signals
-    def initialize(probe: ->(target) { Process.kill(0, target) }, runner: Machine.method(:capture))
+    def initialize(probe: ->(target) { Process.kill(0, target) }, runner: Machine.method(:capture), platform: :macos)
       @probe = probe
       @runner = runner
+      @every = platform == :macos ? ["-axo"] : ["-e", "-o"]
     end
 
     def kill(signal, target)
@@ -363,7 +364,7 @@ module Machine
     end
 
     def group_running?(pgid)
-      @runner.call("ps", "-axo", "pgid=,stat=").to_s.each_line.any? do |line|
+      @runner.call("ps", *@every, "pgid=,stat=").to_s.each_line.any? do |line|
         group, stat = line.split
         group.to_i == pgid && running?(stat)
       end
@@ -584,7 +585,7 @@ module Machine
     platform = RUBY_PLATFORM.include?("darwin") ? :macos : :linux
     home = Dir.home
     Context.new(table: ProcessTable.new(platform: platform), uid: Process.uid, self_pid: Process.pid,
-                platform: platform, signals: Signals.new, runner: method(:run),
+                platform: platform, signals: Signals.new(platform: platform), runner: method(:run),
                 state_dir: File.join(ENV.fetch("XDG_CACHE_HOME", File.join(home, ".cache")), "machine"),
                 config_dir: ENV.fetch("XDG_CONFIG_HOME", File.join(home, ".config")), now: Time.now, out: $stdout,
                 load: -> { load_average(platform, method(:run)) }, cores: Etc.nprocessors,

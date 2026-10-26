@@ -246,14 +246,13 @@ class MachineTest < Minitest::Test
 
   def test_auto_kills_only_orphans_and_stale_waits
     selected = Machine::Reaper.select(findings, auto: true)
-    assert_equal [101, 105, 200], selected.map { |f| f.row.pid }.sort
+    assert_equal [101, 105, 200, 204], selected.map { |f| f.row.pid }.sort
   end
 
-  # A wait loop whose session is still alive is reported, never killed unattended.
-  def test_a_stale_wait_under_a_live_claude_session_is_not_auto
-    wait = findings.find { |f| f.row.pid == 204 }
-    assert_equal "stale-wait", wait.klass
-    refute wait.auto?
+  # The issue settled stale-wait as auto: a six-hour wait loop under a live
+  # (often idle) session is exactly the case it was written for.
+  def test_a_stale_wait_is_auto_whether_or_not_its_session_is_alive
+    assert findings.find { |f| f.row.pid == 204 }.auto?
     assert findings.find { |f| f.row.pid == 200 }.auto?
   end
 
@@ -271,9 +270,11 @@ class MachineTest < Minitest::Test
       "bundle exec rspec spec/models", "ruby /Users/me/.gem/bin/rspec", "env RAILS_ENV=test bin/rails test",
       "python3 -m pytest -q", "node --max-old-space-size=4096 node_modules/.bin/jest", "npx playwright test",
       "go test ./...", "/x/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing --headless",
-      "puma 6.4 (tcp://0.0.0.0:3000)", "sh -c 'bundle exec rspec'"
+      "puma 6.4 (tcp://0.0.0.0:3000)", "sh -c 'bundle exec rspec'",
+      "node /r/node_modules/playwright/lib/common/process.js", "node /r/node_modules/@playwright/test/cli.js test",
+      "node /r/node_modules/jest/bin/jest.js", "node /r/node_modules/vite/bin/vite.js"
     ].each { |cmd| assert runner.match?(cmd), cmd }
-    ["tail -f log/rspec.log", "claude -p fix the rspec failures", "vim spec/rspec_helper.rb", "grep -r jest .",
+    ["tail -f log/rspec.log", "/Users/me/rspec/tool --x", "claude -p fix the rspec failures", "vim spec/rspec_helper.rb", "grep -r jest .",
      "#{format(SNAP, 'bundle exec rspec')}"].each { |cmd| refute runner.match?(cmd), cmd }
   end
 
@@ -300,7 +301,7 @@ class MachineTest < Minitest::Test
     # 101 shares group 50 with an unrelated live process: only the pid. 105
     # leads a group of its own; 200's group holds only its own child, and a
     # member of a group that outlives TERM gets KILL too.
-    assert_equal [["TERM", 101], ["TERM", -105], ["TERM", -200], ["KILL", 101], ["KILL", -200]], signals.sent
+    assert_equal [["TERM", 101], ["TERM", -105], ["TERM", -200], ["TERM", -204], ["KILL", 101], ["KILL", -200]], signals.sent
     assert_match(/killed orphan 101 .*KILL/, out.string)
     assert_match(/killed stale-wait 200 /, out.string)
   end
@@ -310,7 +311,7 @@ class MachineTest < Minitest::Test
     out = StringIO.new
     reaper(signals, out).reap(Machine::Reaper.select(findings, auto: true), dry_run: true)
     assert_empty signals.sent
-    assert_equal 3, out.string.lines.grep(/\Awould kill /).size
+    assert_equal 4, out.string.lines.grep(/\Awould kill /).size
   end
 
   def test_an_already_gone_target_is_not_an_error
@@ -416,11 +417,14 @@ class MachineTest < Minitest::Test
   def test_a_zombie_is_not_alive
     stat = { %w[ps -o stat= -p 123] => "Z+\n", %w[ps -o stat= -p 124] => "S\n",
              %w[ps -axo pgid=,stat=] => "  50 Z\n  51 S\n  50 Z+\n" }
-    signals = Machine::Signals.new(probe: ->(_target) { 1 }, runner: ->(*argv) { stat.fetch(argv) })
+    signals = Machine::Signals.new(probe: ->(_target) { 1 }, runner: ->(*argv) { stat.fetch(argv) }, platform: :macos)
     refute signals.alive?(123)
     assert signals.alive?(124)
     refute signals.alive?(-50)
     assert signals.alive?(-51)
+    linux = Machine::Signals.new(probe: ->(_target) { 1 }, platform: :linux,
+                                 runner: ->(*argv) { argv == %w[ps -e -o pgid=,stat=] ? "51 S\n" : "" })
+    assert linux.alive?(-51)
     gone = Machine::Signals.new(probe: ->(_target) { raise Errno::ESRCH }, runner: ->(*_argv) { raise "unused" })
     refute gone.alive?(123)
   end
@@ -432,10 +436,10 @@ class MachineTest < Minitest::Test
   end
 
   def test_status_is_one_line_otherwise
-    assert_equal "load 28/12 · 3 auto-reapable, 4 to review · /machine:reap",
+    assert_equal "load 28/12 · 4 auto-reapable, 3 to review · /machine:reap",
                  Machine.status_line(findings, load: 28.4, cores: 12)
     auto_only = findings.select(&:auto?)
-    assert_equal "load 3/12 · 3 auto-reapable · /machine:reap", Machine.status_line(auto_only, load: 2.6, cores: 12)
+    assert_equal "load 3/12 · 4 auto-reapable · /machine:reap", Machine.status_line(auto_only, load: 2.6, cores: 12)
   end
 
   # --- the command line -----------------------------------------------------
@@ -482,7 +486,7 @@ class MachineTest < Minitest::Test
     out, code, sent = cli("reap", "--auto", "--dry-run")
     assert_equal 0, code
     assert_empty sent
-    assert_equal %w[101 105 200], out.lines.map { |l| l.split[3] }.sort
+    assert_equal %w[101 105 200 204], out.lines.map { |l| l.split[3] }.sort
   end
 
   def test_reap_kill_takes_class_names
@@ -506,7 +510,7 @@ class MachineTest < Minitest::Test
   end
 
   def test_status_from_the_command_line
-    assert_equal "load 28/12 · 3 auto-reapable, 4 to review · /machine:reap\n", cli("status")[0]
+    assert_equal "load 28/12 · 4 auto-reapable, 3 to review · /machine:reap\n", cli("status")[0]
     assert_equal ["", 0], cli("status", clean: true).first(2)
   end
 

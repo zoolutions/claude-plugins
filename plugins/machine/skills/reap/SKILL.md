@@ -18,7 +18,7 @@ touches this session's own ancestors, PID 1's system daemons, or anything anothe
 | Command | Does |
 |---|---|
 | `report [--json] [--older-than AGE]` | One line per finding: class, pid, age, working directory, command |
-| `reap --auto [--dry-run]` | Kills the auto findings only: `orphan`, and `stale-wait` whose session is gone |
+| `reap --auto [--dry-run]` | Kills the auto classes only (`orphan`, `stale-wait`) |
 | `reap --kill <class>… [--dry-run]` | Kills the named classes |
 | `govern [--dry-run]` | Moves running test processes to background QoS, once each |
 | `status` | One line when there is something (`load 28/12 · 2 auto-reapable, 3 to review · /machine:reap`), nothing otherwise; always exits 0 |
@@ -33,7 +33,7 @@ selects a live session's wait loop that started a minute ago. Never pair it with
 | Class | Rule | Auto |
 |---|---|---|
 | `orphan` | parent is PID 1 (or a Linux session's `systemd --user`), older than 1 h, working directory in a Claude scratchpad (`/tmp/claude-<uid>/` or `$TMPDIR/claude-<uid>/`) or an agent worktree (`/.claude/worktrees/`); never a session manager, agent or data store (tmux, screen, ssh-agent, redis-server, postgres, …) | yes |
-| `stale-wait` | a Claude Bash wrapper (`shell-snapshots/snapshot-`) whose command runs `until `, `while ` or `sleep `, older than 6 h | yes, once its session is gone; under a live `claude` it is reported only |
+| `stale-wait` | a Claude Bash wrapper (`shell-snapshots/snapshot-`) whose command runs `until `, `while ` or `sleep `, older than 6 h | yes |
 | `gone-worktree` | a test runner, browser or dev server whose working directory no longer exists | report |
 | `headless-claude` | a `claude` CLI with no terminal, older than 1 h, not under a live app or IDE | report |
 | `idle-session` | a `claude` CLI with a terminal, older than 2 days — age only, it may be in use | report |
