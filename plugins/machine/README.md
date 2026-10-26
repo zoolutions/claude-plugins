@@ -84,7 +84,7 @@ Linux, silent without either) when it killed something or something is left to r
 ### macOS: launchd
 
 `~/Library/LaunchAgents/world.zoolutions.machine.govern.plist`, every 60 s. launchd expands neither
-`$HOME` nor `~` in `ProgramArguments`: write the home directory out.
+`$HOME` nor `~` in `ProgramArguments`: write the home directory out (`YOU` below is your user name).
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -95,7 +95,7 @@ Linux, silent without either) when it killed something or something is left to r
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/ruby</string><string>--disable-gems</string>
-    <string>/Users/<you>/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb</string>
+    <string>/Users/YOU/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb</string>
     <string>govern</string>
   </array>
   <key>StartInterval</key><integer>60</integer>
@@ -117,7 +117,7 @@ it killed something or something is left to review:
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/ruby</string><string>--disable-gems</string>
-    <string>/Users/<you>/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb</string>
+    <string>/Users/YOU/.claude/plugins/marketplaces/zoolutions/plugins/machine/skills/reap/machine.rb</string>
     <string>reap</string><string>--auto</string><string>--notify</string>
   </array>
   <key>StartInterval</key><integer>1800</integer>

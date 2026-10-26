@@ -400,11 +400,11 @@ module Machine
       @sleeper = sleeper
     end
 
-    # How many it killed.
+    # The pids it killed.
     def reap(targets, dry_run: false)
       if dry_run
         targets.each { |f| @out.puts("would kill #{line(f)}") }
-        return 0
+        return []
       end
 
       pids = targets.map { |f| f.row.pid }
@@ -414,11 +414,11 @@ module Machine
       end
       # A group target survives while any member does: `kill 0` to -pgid.
       survivors = await(sent.select { |_, _, result| result == :sent }.map { |_, to, _| to })
-      sent.count do |f, to, result|
+      sent.select do |f, to, result|
         result = signal("KILL", to) == :sent ? :killed : :gone if survivors.include?(to)
         @out.puts(report(f, result))
         %i[sent killed].include?(result)
-      end
+      end.map { |f, _, _| f.row.pid }
     end
 
     private
@@ -560,7 +560,8 @@ module Machine
 
   def notify(ctx, message)
     if ctx.platform == :macos
-      ctx.runner.call("osascript", "-e", "display notification \"#{message}\" with title \"machine:reap\"")
+      text = message.gsub(/["\\]/) { |c| "\\#{c}" }
+      ctx.runner.call("osascript", "-e", "display notification \"#{text}\" with title \"machine:reap\"")
     else
       ctx.runner.call("notify-send", "machine:reap", message)
     end
@@ -663,10 +664,14 @@ module Machine
     2
   end
 
-  # The status line, nil when clean or when the table cannot be read.
-  def current_status(ctx)
-    status_line(findings_of(ctx, ctx.table.rows, nil), load: ctx.load.call, cores: ctx.cores)
-  rescue StandardError
+  # The status line, nil when clean or when the table cannot be read (said on
+  # stderr: the SessionStart hook drops it, a scheduled job logs it). `except`:
+  # pids just killed, which `ps` may still list for a moment.
+  def current_status(ctx, except: [])
+    found = findings_of(ctx, ctx.table.rows, nil).reject { |f| except.include?(f.row.pid) }
+    status_line(found, load: ctx.load.call, cores: ctx.cores)
+  rescue StandardError => e
+    warn "machine: status: #{e.message}"
     nil
   end
 
@@ -705,7 +710,7 @@ module Machine
     killed = Reaper.new(rows: rows, self_pid: ctx.self_pid, uid: ctx.uid, signals: ctx.signals, out: ctx.out)
                    .reap(targets, dry_run: opts[:dry_run])
     if opts[:notify] && !opts[:dry_run]
-      message = notification(killed, current_status(ctx))
+      message = notification(killed.size, current_status(ctx, except: killed))
       notify(ctx, message) if message
     end
     0

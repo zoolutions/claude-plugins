@@ -505,7 +505,9 @@ class MachineTest < Minitest::Test
     assert_empty cli("reap", "--auto", "--kill", "orphan")[2]
   end
 
-  LEFT = "load 28/12 · 4 auto-reapable, 3 to review · /machine:reap"
+  # What is left after the four auto targets are killed: the fixture table is
+  # static, so the killed pids are left out by pid rather than gone from `ps`.
+  LEFT = "load 28/12 · 3 to review · /machine:reap"
 
   def test_reap_notify_sends_the_kill_count_and_what_is_left_once
     out, code, _sent, calls = cli("reap", "--auto", "--notify")
@@ -517,6 +519,13 @@ class MachineTest < Minitest::Test
   def test_reap_notify_on_linux_uses_notify_send
     assert_equal [["notify-send", "machine:reap", "killed 4 · #{LEFT}"]],
                  cli("reap", "--auto", "--notify", platform: :linux)[3]
+  end
+
+  def test_the_mac_notification_escapes_the_applescript_string
+    calls = []
+    ctx = Machine::Context.new(platform: :macos, runner: ->(*call) { calls << call && "" })
+    Machine.notify(ctx, %q(a "quoted" \ path))
+    assert_equal [["osascript", "-e", %q(display notification "a \"quoted\" \\\\ path" with title "machine:reap")]], calls
   end
 
   def test_reap_notify_is_silent_when_clean_and_in_a_dry_run
@@ -546,8 +555,9 @@ class MachineTest < Minitest::Test
     ctx = Machine::Context.new(table: nil, uid: UID, self_pid: SELF, platform: :macos, signals: nil, runner: nil,
                                state_dir: "/nonexistent", config_dir: "/nonexistent", now: NOW, out: StringIO.new,
                                load: -> { raise "boom" }, cores: 12, dir_exists: ->(_) { true })
-    assert_equal 0, Machine.main(["status"], ctx)
+    _out, err = capture_io { assert_equal 0, Machine.main(["status"], ctx) }
     assert_equal "", ctx.out.string
+    assert_match(/\Amachine: status: /, err)
   end
 
   def test_older_than_accepts_units
