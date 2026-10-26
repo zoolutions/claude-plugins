@@ -27,7 +27,8 @@ below means that line; a missing line means none. AGENTS.md's never-do rules bin
    Workflow → Agents sets `max load <x>× cores`), now and before each heavy step: the full suite
    run locally, a system or browser test run, `flow:fable-validator`. `busy` (load more than that
    many times the cores) → say so once, run tests one file at a time, never two test commands at
-   once, and go on: load slows this run down, never stops it.
+   once, and go on: load slows this run down, never stops it. Any exit but 3 (no `ruby`, a crash)
+   counts as ok.
 
 ## Phase 1: Understand
 

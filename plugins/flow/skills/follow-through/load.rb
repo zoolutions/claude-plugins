@@ -19,8 +19,8 @@ module FlowLoad
   module_function
 
   def parse(text)
-    number = text.to_s[/\A[\s{]*(\d+(?:\.\d+)?)/, 1]
-    number && Float(number)
+    number = text.to_s.b[/\A[\s{]*(\d+(?:[.,]\d+)?)/, 1]
+    number && Float(number.tr(",", "."))
   end
 
   def read_load(platform: RUBY_PLATFORM, proc_path: "/proc/loadavg")
@@ -30,8 +30,18 @@ module FlowLoad
     elsif platform.include?("linux")
       parse(File.read(proc_path))
     end
-  rescue SystemCallError
+  rescue StandardError
     nil
+  end
+
+  # A cgroup v2 CPU quota (a container) caps the cores this machine can use.
+  def cores(nprocessors: Etc.nprocessors, cpu_max_path: "/sys/fs/cgroup/cpu.max")
+    quota, period = File.read(cpu_max_path).split.map { |field| Integer(field, exception: false) }
+    return nprocessors unless quota && period && quota.positive? && period.positive?
+
+    [nprocessors, (quota.to_f / period).ceil].min
+  rescue StandardError
+    nprocessors
   end
 
   def check(load:, cores:, max:)
@@ -55,7 +65,7 @@ module FlowLoad
   end
 
   def main(argv)
-    line, code = check(load: read_load, cores: Etc.nprocessors, max: max_from(argv))
+    line, code = check(load: read_load, cores: cores, max: max_from(argv))
     puts line
     exit code
   end

@@ -392,14 +392,17 @@ class EffortTest < Minitest::Test
              ["Bash", { "command" => "timeout 540 sh -c 'until ruby load.rb; do sleep 60; done'" }],
              ["Bash", { "command" => "for f in a b; do ruby test/$f.rb; done" }],
              ["Bash", { "command" => "until gh pr view 7 --json state; do sleep 60s; done" }],
-             ["Bash", { "command" => "git commit -m \"fix: wait for CI\n\nthe poll; sleep 60 between checks\"" }]]
+             ["Bash", { "command" => "git commit -m \"fix: wait for CI\n\nthe poll; sleep 60 between checks\"" }],
+             ["Bash", { "command" => "until gh pr view 7 --json state\ndo\n  sleep 60\ndone" }],
+             ["Bash", { "command" => "bash <<'SH'\nfor i in 1 2 3; do\n  ruby load.rb && break\n  sleep 60\ndone\nSH" }],
+             ["Bash", { "command" => "for f in a b; do ruby $f.rb; done\nsleep 30" }]]
     rows = calls.each_with_index.map do |(name, input), i|
       assistant(i, "msg_w#{i}", input: 1, read: 0, output: 1,
                                 content: [{ "type" => "tool_use", "id" => "toolu_w#{i}", "name" => name, "input" => input }])
     end
     transcript = FlowEffort::Transcript.new(write(dir, "w1.jsonl", rows), BRANCH)
 
-    assert_equal [true, true, true, false, true, true, false, true, false], transcript.rows.map(&:waits)
+    assert_equal [true, true, true, false, true, true, false, true, false, true, true, false], transcript.rows.map(&:waits)
   end
 
   def test_counts_compactions

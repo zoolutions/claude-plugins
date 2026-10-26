@@ -106,11 +106,12 @@ frees a slot: book it (1.3), fill it. The next wave starts once this one is book
 spawned yet has no worktree: a resumed run counts it `todo` (0.4).
 
 **Load check**: `ruby ${CLAUDE_PLUGIN_ROOT}/skills/follow-through/load.rb`, plus `--max <x>` when
-Workflow → Agents sets `max load <x>× cores` (default 1.5). Exit 0 (`ok`, `unknown`) → spawn.
-Exit 3 (`busy`: load more than that many times the cores) → spawn nothing; wait for this run's next
-notification; none alive → re-check every minute in a foreground counted loop (`/flow:finish-prs`
-Phase 3; Bash timeout 600000), re-run up to 30 min, then spawn **one** anyway (it holds a slot;
-the next spawn checks afresh) and report the busy machine (Phase 2).
+Workflow → Agents sets `max load <x>× cores` (default 1.5). Exit 3 (`busy`: load more than that
+many times the cores) → spawn nothing; re-check every minute in a foreground counted loop
+(`/flow:finish-prs` Phase 3; Bash timeout 600000), re-run, booking any notification that arrives
+in between; after 30 min busy, spawn **one** into the free slot anyway (never above n; the next
+spawn checks afresh) and report the busy machine (Phase 2). Any other exit (`ok`, `unknown`, no
+`ruby`, a crash) → spawn.
 
 ### 1.1 Worktree
 

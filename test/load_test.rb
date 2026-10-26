@@ -48,6 +48,44 @@ class LoadTest < Minitest::Test
     assert_in_delta 0.52, FlowLoad.parse("0.52 0.58 0.59 1/389 12345\n")
   end
 
+  def test_parses_a_comma_decimal
+    assert_in_delta 2.44, FlowLoad.parse("{ 2,44 9,86 15,56 }")
+  end
+
+  def test_odd_bytes_parse_to_nil
+    assert_nil FlowLoad.parse("\xff\xfe load".dup.force_encoding("UTF-8"))
+  end
+
+  def test_odd_bytes_in_proc_loadavg_read_nil
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "loadavg")
+      File.binwrite(path, "\xff\xfe\n")
+      assert_nil FlowLoad.read_load(platform: "x86_64-linux", proc_path: path)
+    end
+  end
+
+  def cpu_max(dir, text)
+    path = File.join(dir, "cpu.max")
+    File.write(path, text)
+    path
+  end
+
+  def test_a_cgroup_cpu_quota_lowers_the_core_count
+    Dir.mktmpdir do |dir|
+      assert_equal 2, FlowLoad.cores(nprocessors: 64, cpu_max_path: cpu_max(dir, "200000 100000\n"))
+      assert_equal 2, FlowLoad.cores(nprocessors: 64, cpu_max_path: cpu_max(dir, "150000 100000\n"))
+      assert_equal 4, FlowLoad.cores(nprocessors: 4, cpu_max_path: cpu_max(dir, "800000 100000\n"))
+    end
+  end
+
+  def test_no_cgroup_quota_keeps_the_core_count
+    Dir.mktmpdir do |dir|
+      assert_equal 12, FlowLoad.cores(nprocessors: 12, cpu_max_path: cpu_max(dir, "max 100000\n"))
+      assert_equal 12, FlowLoad.cores(nprocessors: 12, cpu_max_path: cpu_max(dir, "garbage"))
+      assert_equal 12, FlowLoad.cores(nprocessors: 12, cpu_max_path: File.join(dir, "missing"))
+    end
+  end
+
   def test_garbage_parses_to_nil
     assert_nil FlowLoad.parse("")
     assert_nil FlowLoad.parse(nil)
