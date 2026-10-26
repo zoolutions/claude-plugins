@@ -1,0 +1,11 @@
+{
+  "name": "machine",
+  "description": "Care for the machine agents run on: /machine:reap reports and reaps the processes agent sessions leave behind (orphaned scripts, stale wait loops, runners in removed worktrees, headless or long-idle claude sessions) and keeps test runs at background priority. Its script is stdlib Ruby; the schedule and the SessionStart line are wired per machine from the README. No hooks.",
+  "author": {
+    "name": "Zoolutions"
+  },
+  "homepage": "https://github.com/zoolutions/claude-plugins",
+  "repository": "https://github.com/zoolutions/claude-plugins",
+  "license": "MIT",
+  "keywords": ["processes", "reap", "orphans", "load", "taskpolicy", "machine"]
+}

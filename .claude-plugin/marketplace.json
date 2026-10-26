@@ -26,6 +26,13 @@
       "description": "Ruby libraries: an unattended release (version, changelog, frozen lockfiles), branch-versus-main benchmarks.",
       "category": "development",
       "keywords": ["ruby", "gem", "release", "changelog", "benchmark"]
+    },
+    {
+      "name": "machine",
+      "source": "./plugins/machine",
+      "description": "Every machine agents run on: /machine:reap reports and reaps leftover agent processes (orphans, stale wait loops, runners in removed worktrees, headless or idle claude sessions) and keeps test runs at background priority. Enabled per machine at user scope; its schedule and SessionStart line are wired from its README.",
+      "category": "productivity",
+      "keywords": ["processes", "reap", "orphans", "load", "taskpolicy", "machine"]
     }
   ]
 }
