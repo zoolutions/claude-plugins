@@ -275,6 +275,53 @@ class RigorTest < Minitest::Test
     assert_equal "critical", classify.tier
   end
 
+  def test_a_signal_in_a_tracked_path_with_a_space_raises
+    write("lib/sp ace.rb", "x\n")
+    commit("space")
+    configure(CONFIG.sub("default: standard", "default: light"))
+    write("lib/sp ace.rb", "x\nwith_lock { }\n")
+    assert_equal "critical", classify.tier
+  end
+
+  def test_a_signal_in_a_tracked_path_with_a_quote_raises
+    write("lib/qu\"ote.rb", "x\n")
+    commit("quote")
+    configure(CONFIG.sub("default: standard", "default: light"))
+    write("lib/qu\"ote.rb", "x\nwith_lock { }\n")
+    assert_equal "critical", classify.tier
+  end
+
+  def test_an_added_line_that_looks_like_a_diff_header_keeps_its_file
+    write("docs/notes.md", "start\n")
+    commit("notes")
+    configure
+    write("docs/notes.md", "start\n++ b/lib/other.rb\nwith_lock { }\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert(result.reasons.any? { |r| r[:kind] == "signal" && r[:file] == "docs/notes.md" })
+  end
+
+  def test_latin1_content_is_read_not_a_fallback
+    File.binwrite(File.join(@dir, "docs/latin.md"), "caf\xE9\n".b)
+    commit("latin")
+    configure
+    File.binwrite(File.join(@dir, "docs/latin.md"), "caf\xE9 au lait\n".b)
+    result = classify
+    assert_equal "light", result.tier
+    assert_empty result.warnings
+  end
+
+  def test_a_path_that_is_not_utf8_is_critical
+    configure
+    name = "docs/bad\xFF.md".b
+    begin
+      File.binwrite(File.join(@dir.b, name), "x\n")
+    rescue SystemCallError
+      skip "this filesystem refuses non-UTF-8 names"
+    end
+    assert_equal "critical", classify.tier
+  end
+
   def test_a_label_raises
     configure
     write("docs/guide.md", "changed\n")
@@ -353,7 +400,7 @@ class RigorTest < Minitest::Test
     assert_match(/usage/i, err)
   end
 
-  def test_a_crash_still_prints_critical_and_exits_zero
+  def test_outside_a_repository_prints_critical_and_exits_zero
     out, _, status = Open3.capture3("ruby", script, "--base", "origin/main", chdir: Dir.tmpdir)
     assert status.success?
     assert_equal "critical\n", out

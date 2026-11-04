@@ -130,8 +130,10 @@ checks, so its review of the head has posted; a new comment from it is an open t
    queue it (the queue proves it). Otherwise park (2f) with `main red since <short sha> (#N)`; fixing
    main is its own PR. With a direct squash, a red main shows up in this PR's own checks and is fixed
    in 2c like any failure.
-6. **Validated by rigor** (2e): light needs no validator. Standard and critical need a
-   `Validator:` line in the PR body with no code change since its sha.
+6. **Validated by rigor** (2e). Light needs no validator. Standard and critical need all of these:
+   - the PR body's `Validator:` line says `PASS` or `PASS WITH NOTES`, never `BLOCK`;
+   - on critical, every note was rebutted, as `/flow:lfg` 6.5 ends the loop;
+   - no code change since the line's sha.
 
 ### 2d′. Cubic quiet (`automerge`)
 
@@ -151,7 +153,8 @@ keeps its lower tier only while the new tier is no higher than the one it was lo
 **Code changed** means either of these:
 - `git log --first-parent --no-merges --format=%H <sha on the Validator: line>..HEAD -- . ':!*.md'`
   prints a commit. A merge of main is not code this PR wrote, so it never counts.
-- There is no `Validator:` line yet, because the tier rose from light.
+- There is no `Validator:` line, for any reason: the tier rose from light, the PR predates tiers,
+  or someone opened it by hand.
 
 **What runs.** Run `flow:fable-validator` on `git diff origin/main...HEAD`, with the PR's linked
 issue, the acceptance criteria from the PR body and the tier, as follows:
@@ -163,6 +166,11 @@ issue, the acceptance criteria from the PR body and the tier, as follows:
 | **critical** | Whenever code changed. | BLOCK or PASS WITH NOTES → fix every blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line rebuttal in the PR body. |
 
 After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
+
+A re-run after a BLOCK is always due, on standard too. The once-per-invocation limit counts only the
+runs that code changes trigger. After three answers that each made you change code (`/flow:lfg` 6.5),
+stop: report needs-user in default mode, or park in `automerge` mode (2f) with
+`validator still blocks <short sha>`.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
 `## Effort & cost`. Its **Where it went** line is the account of the session that did the work: if

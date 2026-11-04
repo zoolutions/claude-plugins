@@ -120,7 +120,13 @@ own notes costs as much and rarely finds anything new, so only critical changes 
 - Spawn `flow:fable-validator` with the issue, the acceptance criteria, the base branch and the
   tier.
 - On either tier, BLOCK → fix every blocker (failing test first) and run it again.
-- After three answers that are still not PASS, stop: ask (interactive) or park (orchestrator).
+- The loop ends on PASS. It also ends on a PASS WITH NOTES whose notes you rebutted without changing
+  code, which on critical means every note was rebutted.
+- Stop after three answers that each made you change code:
+  - on standard, that means three BLOCKs;
+  - on critical, any mix of BLOCKs and PASS WITH NOTES whose notes you fixed.
+
+  Then ask (interactive) or park (orchestrator).
 - No PR before PASS or PASS WITH NOTES. On critical, every note must also be fixed or rebutted.
 
 **The PR body** carries:

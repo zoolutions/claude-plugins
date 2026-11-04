@@ -11,7 +11,7 @@ claude plugin install flow@zoolutions
 |---|---|
 | `/flow:lfg <issue>` | Issue → merge-ready PR: understand, plan, TDD, verify, `flow:fable-validator` by rigor tier, PR, then `/flow:finish-prs` until CI is green and every thread is answered. Never merges |
 | `/flow:follow-through <epic \| issues>` | Epic → merged, unattended: dependency waves, one Opus agent per issue in its own worktree, `/flow:finish-prs automerge`, upstream library fixes carried to a release and an adoption issue. `--dry-run` prints the waves |
-| `/flow:finish-prs [prs] [automerge]` | Ordered PRs → merge-ready in review rounds; `automerge` merges (or queues) once mergeable, green, thread-free, review-bot-approved and validator PASS; a queue also needs main green |
+| `/flow:finish-prs [prs] [automerge]` | Ordered PRs → merge-ready in review rounds; `automerge` merges (or queues) once mergeable, green, thread-free, review-bot-approved and validated per its rigor tier; a queue also needs main green |
 | `/flow:plan [issue\|md\|upstream <owner/repo>] …` | A self-contained plan as an issue or markdown, with an effort estimate; `upstream` plans a public library issue and, for a library we own, carries the fix through |
 | `/flow:effort <pr> [--write]` | The PR body's `## Effort & cost`: time, tokens per role and model, validation passes, review rounds, diff, against the estimate. `/flow:lfg` writes it when the PR opens, `/flow:finish-prs` refreshes it before the hand-off |
 | `/flow:github-review-pr <pr>` | One pass: conflicts → CI failures → review threads |

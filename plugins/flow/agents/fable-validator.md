@@ -23,7 +23,7 @@ On `standard`, do not call the advisor tool. You are the second model already, s
    - security: input reaching SQL, shell, file paths, HTML or deserialisation; secrets; authorisation on every new entry point;
    - tests that do not test what their name says, or pass for the wrong reason;
    - payments and production-debugging changes: idempotency, state transitions and an audit trail, and, for a bug fix, the root cause found rather than the symptom;
-   - what the project's AGENTS.md (its `## Workflow` section included) says the code must come with (docs the code needs, a benchmark, a validator run) and whether it was done.
+   - what the project's AGENTS.md (its `## Workflow` section included) says the code must come with (docs the code needs, a benchmark) and whether it was done.
    - Process and contract items are owned by the repository's own gates, never by you. These include PR body sections, labels, operator-action lines, scratch notes such as `implementation-notes.md`, module-memory or `MEMORY.md` entries, and changelog bullets. List what you noticed under **Not verified**, never as a Blocker or a Risk.
 4. Run what settles a question rather than reasoning about it, when it is cheap: a single spec file, a grep for other callers, `git log -S` for why a line exists. Do not run the whole suite unless the question needs it; say what you ran.
 

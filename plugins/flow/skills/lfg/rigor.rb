@@ -55,7 +55,7 @@ module FlowRigor
   class GitError < StandardError; end
 
   Change = Struct.new(:path, :old_path, :added)
-  Signal = Struct.new(:source, :regexp, :scope)
+  SignalRule = Struct.new(:source, :regexp, :scope)
   Result = Struct.new(:tier, :default, :config, :reasons, :warnings)
 
   module_function
@@ -162,32 +162,51 @@ module FlowRigor
       end
     raise ConfigError, "#{path}: #{tier}.signals entries are a regexp string or {pattern:, paths:}" unless pattern.is_a?(String) && !pattern.empty?
 
-    Signal.new(pattern, Regexp.new(pattern), scope)
+    SignalRule.new(pattern, Regexp.new(pattern), scope)
   rescue RegexpError => e
     raise ConfigError, "#{path}: bad signal #{pattern.inspect}: #{e.message}"
   end
 
   # --- the change ------------------------------------------------------------
 
+  # Output is read as UTF-8 with invalid bytes replaced, so a Latin-1 file is
+  # read, not a crash. Paths are pathspec literals: no glob or magic in a name.
   def git(root, *args)
-    out, err, status = Open3.capture3("git", "-C", root, "-c", "core.quotePath=false", *args)
+    out, err, status = Open3.capture3("git", "-C", root, "--literal-pathspecs", "-c", "core.quotePath=false", *args)
     raise GitError, "git #{args.join(' ')}: #{err.strip}" unless status.success?
+
+    out.force_encoding(Encoding::UTF_8).scrub
+  end
+
+  # Committed, staged, unstaged and untracked work against the merge base:
+  # `git diff <merge-base>` compares the commit with the working tree. Added
+  # lines come from one diff per path, never from parsing a combined patch's
+  # headers, which git quotes or pads for some names and which an added line
+  # can imitate.
+  def collect_changes(root, base)
+    merge_base = git(root, "merge-base", base, "HEAD").strip
+    changes = name_status(git_paths(root, "diff", "-M", "--name-status", "-z", merge_base)).map do |path, old_path|
+      Change.new(path, old_path, added_lines(git(root, "diff", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", path)))
+    end
+    name_list(git_paths(root, "ls-files", "--others", "--exclude-standard", "-z")).each do |path|
+      changes << Change.new(path, nil, untracked_lines(File.join(root, path)))
+    end
+    changes.sort_by(&:path)
+  end
+
+  # A path that is not UTF-8 cannot be matched or diffed reliably: critical.
+  def git_paths(root, *args)
+    out, err, status = Open3.capture3("git", "-C", root, *args)
+    raise GitError, "git #{args.join(' ')}: #{err.strip}" unless status.success?
+
+    out.force_encoding(Encoding::UTF_8)
+    raise GitError, "a changed path is not UTF-8" unless out.valid_encoding?
 
     out
   end
 
-  # Committed, staged, unstaged and untracked work against the merge base:
-  # `git diff <merge-base>` compares the commit with the working tree.
-  def collect_changes(root, base)
-    merge_base = git(root, "merge-base", base, "HEAD").strip
-    added = added_lines(git(root, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", merge_base))
-    changes = name_status(git(root, "diff", "-M", "--name-status", "-z", merge_base)).map do |path, old_path|
-      Change.new(path, old_path, added.fetch(path, []))
-    end
-    git(root, "ls-files", "--others", "--exclude-standard", "-z").split("\0").each do |path|
-      changes << Change.new(path, nil, untracked_lines(File.join(root, path)))
-    end
-    changes.sort_by(&:path)
+  def name_list(raw)
+    raw.split("\0").reject(&:empty?)
   end
 
   def name_status(raw)
@@ -205,25 +224,26 @@ module FlowRigor
     entries
   end
 
+  # Everything before the first hunk is header; after it, a `+` line is added
+  # content, even one that reads `+++ b/other`.
   def added_lines(diff)
-    lines = Hash.new { |hash, key| hash[key] = [] }
-    current = nil
-    diff.each_line do |line|
-      if line.start_with?("+++ ")
-        target = line.chomp[4..-1]
-        current = target == "/dev/null" ? nil : target.sub(%r{\Ab/}, "")
-      elsif current && line.start_with?("+")
-        lines[current] << line[1..-1].chomp
+    in_hunk = false
+    diff.each_line.each_with_object([]) do |line, added|
+      if line.start_with?("@@")
+        in_hunk = true
+      elsif in_hunk && line.start_with?("+")
+        added << line[1..-1].chomp
       end
     end
-    lines
   end
 
+  # Only the first MAX_UNTRACKED_BYTES of a new file are searched for signals:
+  # a generated blob that size is not where a lock or an amount is added.
   def untracked_lines(full)
-    return [] unless File.file?(full) && File.size(full) <= MAX_UNTRACKED_BYTES
+    return [] unless File.file?(full)
 
-    text = File.binread(full)
-    return [] if text.include?("\0")
+    text = File.binread(full, MAX_UNTRACKED_BYTES)
+    return [] if text.nil? || text.include?("\0")
 
     text.force_encoding(Encoding::UTF_8).scrub.lines.map(&:chomp)
   end
@@ -338,13 +358,24 @@ module FlowRigor
       rescue StandardError => e
         fallback(e.message)
       end
+    output =
+      begin
+        render(result, options[:format])
+      rescue StandardError => e
+        result = fallback("cannot print the result: #{e.message}")
+        render(result, options[:format])
+      end
     result.warnings.each { |line| warn "rigor.rb: #{line}" }
-    case options[:format]
-    when :json then puts to_json(result)
-    when :summary then puts summary(result)
-    else puts result.tier
-    end
+    puts output
     exit 0
+  end
+
+  def render(result, format)
+    case format
+    when :json then to_json(result)
+    when :summary then summary(result)
+    else result.tier
+    end
   end
 end
 
