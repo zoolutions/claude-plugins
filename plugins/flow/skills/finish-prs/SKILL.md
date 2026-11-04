@@ -183,7 +183,8 @@ without a code change. The once-per-invocation limit counts only
 runs that new work triggers, never the run that checks a BLOCK fix. After three answers that each
 made you change code, or after three BLOCKs in a row, whichever comes first (`/flow:lfg` 6.5),
 stop: report needs-user in default mode, or park in `automerge` mode (2f) with
-`validator still blocks <short sha>`.
+`validator still blocks <short sha>` when its last answer was a BLOCK, or
+`validator did not converge <short sha>` when it was a PASS WITH NOTES.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
 `## Effort & cost`. Its **Where it went** line is the account of the session that did the work: if
