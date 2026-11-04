@@ -1,0 +1,26 @@
+plugins/flow/skills/lfg/rigor.rb
+  s_6cb43d5374992e::t_10bde290c419a9 361-366
+  s_6cb43d5374992e::t_0936b42471f318 186-188,190-194,196-197
+  s_6cb43d5374992e::t_a833fa0faccdcc 232-236,240-242
+plugins/flow/skills/finish-prs/SKILL.md
+  s_6cb43d5374992e::t_01e87beb39c114 165
+test/rigor_test.rb
+  s_6cb43d5374992e::t_c7185caaa409d9 325-353
+  s_6cb43d5374992e::t_b1dd8002ad2c80 426-432
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "eb1e7541154000a2150caa19ddfc4bfe3d80aba4",
+  "prompts": {},
+  "sessions": {
+    "s_6cb43d5374992e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0bd9917-372c-4724-ae9e-5fefced10f62",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
