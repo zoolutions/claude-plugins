@@ -130,7 +130,10 @@ checks, so its review of the head has posted; a new comment from it is an open t
    queue it (the queue proves it). Otherwise park (2f) with `main red since <short sha> (#N)`; fixing
    main is its own PR. With a direct squash, a red main shows up in this PR's own checks and is fixed
    in 2c like any failure.
-6. **`fable-validator` PASS** on the final diff (2e).
+6. **Validated by rigor** (2e). Light needs no validator. Standard and critical need all of these:
+   - the PR body's `Validator:` line says `PASS` or `PASS WITH NOTES`, never `BLOCK`;
+   - every note was fixed or rebutted, as `/flow:lfg` 6.5 requires;
+   - no code change since the line's last sha (`notes addressed at` when present, 2e).
 
 ### 2d′. Cubic quiet (`automerge`)
 
@@ -140,11 +143,41 @@ Still not `APPROVED` → park: `cubic did not approve <short sha>`. One trigger 
 
 ### 2e. Hand off
 
-Run the `fable-validator` agent (`flow:fable-validator`) on `git diff origin/main...HEAD` with the
-PR's linked issue and the acceptance criteria from the PR body. Skip it only if it already passed on
-this exact head SHA (`/flow:lfg` Phase 6.5, no commit since). BLOCK or PASS WITH NOTES → fix every
-blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line
-rebuttal in the PR body.
+**The tier.** Classify again:
+`ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --base origin/main --summary --labels <the PR's labels, comma-separated>`.
+
+The tier only rises within a PR. Take the higher of this tier and the one on the PR body's `Rigor:`
+line, and rewrite the line when the tier rose. A line that says `lowered from <tier>: <reason>`
+keeps its lower tier only while the new tier is no higher than the one it was lowered from.
+
+**Code changed** means either of these:
+- `ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --since <the line's last sha>` prints `standard`
+  or `critical`. The script diffs each of the PR's own first-parent, non-merge commits since that sha
+  against its parent. It reads both paths of a rename and checks signals on added lines, and it
+  prints `light` when there are no such commits.
+  - A merge of main is not this PR's work, so it never counts.
+  - A change the repository calls light, such as its docs, never triggers a run.
+  - A signal added inside a light path still counts.
+  - A skill or config file in Markdown counts unless the rigor file lists it as light. Without a
+    rigor file, everything counts.
+- There is no `Validator:` line, for any reason: the tier rose from light, the PR predates tiers,
+  or someone opened it by hand.
+
+**What runs.** Run `flow:fable-validator` on `git diff origin/main...HEAD`, with the PR's linked
+issue, the acceptance criteria from the PR body and the tier, as follows:
+
+| Tier | When the validator runs | On its answer |
+|---|---|---|
+| **light** | Never. | — |
+| **standard** | When code changed, at most once per `/flow:finish-prs` invocation; a re-run after a BLOCK is not counted (below). | BLOCK → fix every blocker (failing test first) and back to 2c. PASS WITH NOTES → fix or rebut each note; after fixing, append `, notes addressed at <short sha>` to the `Validator:` line. **No re-run.** |
+| **critical** | Whenever code changed. | BLOCK or PASS WITH NOTES → fix every blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line rebuttal in the PR body. |
+
+After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
+
+A re-run after a BLOCK is always due, on standard too. The once-per-invocation limit counts only
+runs that new work triggers, never the run that checks a BLOCK fix. After three answers that each made you change code (`/flow:lfg` 6.5),
+stop: report needs-user in default mode, or park in `automerge` mode (2f) with
+`validator still blocks <short sha>`.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
 `## Effort & cost`. Its **Where it went** line is the account of the session that did the work: if

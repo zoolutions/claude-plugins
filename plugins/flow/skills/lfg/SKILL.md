@@ -1,7 +1,7 @@
 ---
 name: lfg
-description: The full engineering workflow for one issue or description, from a fresh branch to a merge-ready PR — understand, explore, plan, TDD, verify, Fable validation, PR, then /flow:finish-prs until CI is green and every review thread is answered. Never merges. Use for any non-trivial feature or fix.
-argument-hint: "GitHub issue number/URL, a plan file, or a description"
+description: The full engineering workflow for one issue or description, from a fresh branch to a merge-ready PR — understand, explore, plan, TDD, verify, Fable validation by rigor tier, PR, then /flow:finish-prs until CI is green and every review thread is answered. Never merges. Use for any non-trivial feature or fix.
+argument-hint: "GitHub issue number/URL, a plan file, or a description; optional --rigor light|standard|critical [--why \"<reason>\"]"
 model: opus
 allowed-tools: Bash(*), Read, Write, Edit, Glob, Grep, Agent, Skill, TaskCreate, TaskUpdate, TaskList, ScheduleWakeup, ToolSearch, mcp__cubic__get_pr_issues, mcp__cubic__update_pr_issue_status, mcp__cubic__trigger_pr_review
 ---
@@ -55,6 +55,12 @@ features are built, the integration points, and the existing tests.
 Files to change and why; new files; migrations; the tests to write first. A library limitation is
 never worked around silently: `/flow:plan upstream <owner/repo> <limitation>`, linked from the PR.
 
+**Rigor.** Classify the planned files:
+`printf '%s\n' <planned paths> | ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --files - --summary`.
+It prints `Rigor: <tier> — <why>` from the rigor file that Workflow → Rigor names, and `critical`
+when there is none. Log the line in `implementation-notes.md`, so a critical change is known before
+the first edit. Phase 6.5 decides on the real diff.
+
 **Estimate.** The plan has an `## Estimate`: that is what this PR is measured against. None (a plan
 written before plans had one, an issue without a plan, a description): write one now, before the
 first edit, at the top of
@@ -87,18 +93,59 @@ All of Workflow → Verify, and the local gate of `/flow:tdd` → Done: the test
 full suite. Then re-read the request: would the requester call it done; is it the root cause; do
 the tests prove it?
 
-## Phase 6.5: Fable validation
+## Phase 6.5: Fable validation by rigor
 
-Spawn `flow:fable-validator` with the issue, the acceptance criteria and the base branch. BLOCK → fix
-every blocker (failing test first) and run it again. PASS WITH NOTES → fix every note the same way
-and run it again; a factually wrong note gets a one-line rebuttal in the PR body. Nothing is accepted
-as a risk or deferred. Put its verdict line and its "Not verified" list in the PR body. No PR before
-PASS, or PASS WITH NOTES with every note fixed or rebutted.
+**The tier.** Run
+`ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --base origin/main --summary --labels <the issue's labels, comma-separated>`.
+It prints `Rigor: <tier> — <why>`. The tier is the highest that any changed path, added-line
+signal or label reaches in the rigor file that Workflow → Rigor names. Every unknown state prints
+`critical`: no Rigor line, a bad rigor file, or a git error.
+
+**Overrides.**
+- `--rigor <tier>` in the arguments raises the tier.
+- A `--rigor` below the computed tier needs `--why "<reason>"`. The PR body then reads
+  `Rigor: <lower> (lowered from <computed>: <reason>)`.
+- Under `/flow:follow-through` the tier is never lowered.
+
+**Why tiers.** The second model's value is its first read of the change. Re-reading a fix of its
+own notes costs as much and rarely finds anything new, so only critical changes pay for it.
+
+| Tier | The validator |
+|---|---|
+| **light** | None. Workflow → Verify and the review bot are the gate. |
+| **standard** | One pass. PASS WITH NOTES → fix each note you agree with (failing test first for code) and rebut the rest in one line each in the PR body. **No re-run.** |
+| **critical** | The full loop. BLOCK or PASS WITH NOTES → fix every blocker and note (failing test first) and run it again. A factually wrong note gets a one-line rebuttal in the PR body. Nothing is accepted as a risk or deferred. |
+
+**Running it, standard and critical.**
+- Spawn `flow:fable-validator` with the issue, the acceptance criteria, the base branch and the
+  tier.
+- On either tier, BLOCK → fix every blocker (failing test first) and run it again.
+- The loop ends on PASS. It also ends on a PASS WITH NOTES whose notes you rebutted without changing
+  code, which on critical means every note was rebutted.
+- Stop after three answers that each made you change code:
+  - on standard, that means three BLOCKs;
+  - on critical, any mix of BLOCKs and PASS WITH NOTES whose notes you fixed.
+
+  Then ask (interactive) or park (orchestrator).
+- On standard and critical, no PR before PASS or PASS WITH NOTES with every note fixed or rebutted.
+  Light opens its PR after Workflow → Verify, with no validator.
+
+**The PR body** carries:
+- the `Rigor:` line;
+- on standard and critical, `Validator: <verdict> at <short head sha>` and the validator's
+  "Not verified" list.
+
+On standard, fixing a PASS WITH NOTES note changes code after the validated sha. Commit the fixes,
+then append `, notes addressed at <short sha of that commit>` to the line. That later sha is the one
+`/flow:finish-prs` measures code changes from.
+
+`/flow:finish-prs` reads both lines.
 
 ## Phase 7: Commit and PR
 
 Conventional commit (`feat(scope): …`), body says why. Push with `-u`. `gh pr create` with the labels
-from Phase 1 and every section Workflow → PR contract requires, in its order. The issue this run
+from Phase 1 and every section Workflow → PR contract requires, in its order, plus Phase 6.5's
+`Rigor:` and `Validator:` lines. The issue this run
 implements closes with the PR: `Closes #<n>` in the body (one PR per issue, Phase 1); `Refs #N` only
 for other issues it touches. The body ends with
 `## Deviations & judgment calls`, copied from `implementation-notes.md`'s log, not its estimate

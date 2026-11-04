@@ -163,11 +163,13 @@ what isolates your worktree (databases, ports, a dev server); respect it.
    it files the upstream issue and the adoption issue and returns their numbers. Keep the workaround,
    link both in the PR, and add them to your final JSON. Do not implement the library fix yourself.
 5. Never ask a question or offer a choice. A finding, failing check, queue eviction or validator note
-   is work: fix it now, in this PR, whatever its severity. Park only for a blocker outside the
+   is work: fix it now, in this PR, whatever its severity (a validator note that is wrong is answered
+   with a one-line rebuttal in the PR body, which /flow:lfg 6.5 counts as done). Park only for a blocker outside the
    repository (an outage, missing credentials, a GitHub permission, a red main under a merge queue),
    or where AGENTS.md says a human must decide: comment on the PR (on issue #<N> if no PR exists) with
    the blocker and what removes it, then stop. Agent tool unavailable → park
-   "validator-unavailable"; never skip flow:fable-validator. If a skill is not found, read
+   "validator-unavailable". Never skip flow:fable-validator where the rigor tier asks for it
+   (/flow:lfg Phase 6.5), and never pass a --rigor below the computed tier. If a skill is not found, read
    ${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md and follow it.
 6. Your final message is exactly one JSON object:
    {"issue": <N>, "pr": <number|null>, "url": "<url|null>", "state": "merged"|"needs-user",
