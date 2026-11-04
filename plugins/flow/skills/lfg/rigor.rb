@@ -54,7 +54,7 @@ module FlowRigor
   class ConfigError < StandardError; end
   class GitError < StandardError; end
 
-  Change = Struct.new(:path, :old_path, :added)
+  Change = Struct.new(:path, :old_path, :added, :unscanned)
   SignalRule = Struct.new(:source, :regexp, :scope)
   Result = Struct.new(:tier, :default, :config, :reasons, :warnings)
 
@@ -194,7 +194,8 @@ module FlowRigor
       Change.new(path, old_path, added_lines(git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", *paths)))
     end
     name_list(git_paths(top, "ls-files", "--others", "--exclude-standard", "-z")).each do |path|
-      changes << Change.new(path, nil, untracked_lines(File.join(top, path)))
+      lines, unscanned = untracked_lines(File.join(top, path))
+      changes << Change.new(path, nil, lines, unscanned)
     end
     changes.sort_by(&:path)
   end
@@ -247,15 +248,18 @@ module FlowRigor
     end
   end
 
-  # Only the first MAX_UNTRACKED_BYTES of a new file are searched for signals:
-  # a generated blob that size is not where a lock or an amount is added.
+  # A new text file is searched up to MAX_UNTRACKED_BYTES. A larger one is not
+  # searched at all and makes the change critical: an unread signal must never
+  # lower the tier. A binary file (a NUL in its first bytes) has no lines.
+  # Returns [lines, unscanned].
   def untracked_lines(full)
-    return [] unless File.file?(full)
+    return [[], false] unless File.file?(full)
 
-    text = File.binread(full, MAX_UNTRACKED_BYTES)
-    return [] if text.nil? || text.include?("\0")
+    text = File.binread(full, MAX_UNTRACKED_BYTES + 1)
+    return [[], false] if text.nil? || text.include?("\0")
+    return [[], true] if text.bytesize > MAX_UNTRACKED_BYTES
 
-    text.force_encoding(Encoding::UTF_8).scrub.lines.map(&:chomp)
+    [text.force_encoding(Encoding::UTF_8).scrub.lines.map(&:chomp), false]
   end
 
   # --- classification --------------------------------------------------------
@@ -274,6 +278,9 @@ module FlowRigor
     reasons = []
     changes.each do |change|
       reasons << path_reason(rules, change)
+      if change.unscanned
+        reasons << { tier: FALLBACK, kind: "unscanned", match: "over #{MAX_UNTRACKED_BYTES} bytes, signals not searched", file: change.path }
+      end
       rules_by_tier(rules).each do |tier, rule|
         rule[:signals].each do |signal|
           next unless signal.scope.empty? || signal.scope.any? { |glob| glob_match?(glob, change.path) }
@@ -368,7 +375,7 @@ module FlowRigor
 
     result =
       begin
-        files = options[:files] ? $stdin.read.split("\n").map(&:strip).reject(&:empty?) : nil
+        files = options[:files] ? $stdin.each_line.map(&:chomp).reject(&:empty?) : nil
         classify(root: options[:root] || repo_root, base: options[:base], files: files,
                  labels: options[:labels], config: options[:config])
       rescue StandardError => e

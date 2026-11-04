@@ -127,12 +127,17 @@ own notes costs as much and rarely finds anything new, so only critical changes 
   - on critical, any mix of BLOCKs and PASS WITH NOTES whose notes you fixed.
 
   Then ask (interactive) or park (orchestrator).
-- No PR before PASS or PASS WITH NOTES. On critical, every note must also be fixed or rebutted.
+- On standard and critical, no PR before PASS or PASS WITH NOTES with every note fixed or rebutted.
+  Light opens its PR after Workflow → Verify, with no validator.
 
 **The PR body** carries:
 - the `Rigor:` line;
 - on standard and critical, `Validator: <verdict> at <short head sha>` and the validator's
   "Not verified" list.
+
+On standard, fixing a PASS WITH NOTES note changes code after the validated sha. Commit the fixes,
+then append `, notes addressed at <short sha of that commit>` to the line. That later sha is the one
+`/flow:finish-prs` measures code changes from.
 
 `/flow:finish-prs` reads both lines.
 

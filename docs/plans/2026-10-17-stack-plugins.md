@@ -77,7 +77,7 @@ Built from the two most recent copies: one written for a merge queue, one for di
   (Workflow → Worktree setup), `finish-prs automerge`.
 - `finish-prs automerge` gate: mergeable · checks green · zero open threads · review bot approved the
   head (cubic: latest review APPROVED on `headRefOid`; coderabbit: its check green and no open thread;
-  none: skipped) · main green · validated per its rigor tier (`fable-validator` PASS on standard and critical; none on light). Then Workflow → Merge (queue or squash).
+  none: skipped) · main green · validated per its rigor tier (`fable-validator` PASS or PASS WITH NOTES on standard and critical; none on light). Then Workflow → Merge (queue or squash).
 - Every finding is fixed or answered in its round; nothing deferred, nothing left to the user as a
   choice. Unattended runs park only on blockers outside the repository.
 - `plan upstream <owner/repo>` for a `zoolutions/*` library: file the issue (scrubbed, as today), then

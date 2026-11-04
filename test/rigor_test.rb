@@ -351,6 +351,20 @@ class RigorTest < Minitest::Test
     assert(result.reasons.any? { |r| r[:kind] == "signal" && r[:file] == "docs/new.md" })
   end
 
+  def test_an_untracked_text_file_too_large_to_search_is_critical
+    configure
+    write("docs/huge.md", "x\n" * (FlowRigor::MAX_UNTRACKED_BYTES / 2 + 1))
+    result = classify
+    assert_equal "critical", result.tier
+    assert(result.reasons.any? { |r| r[:kind] == "unscanned" && r[:file] == "docs/huge.md" })
+  end
+
+  def test_a_large_untracked_binary_is_not_searched_and_not_raised
+    configure
+    File.binwrite(File.join(@dir, "docs/image.png"), "\x89PNG\0".b + ("x" * (FlowRigor::MAX_UNTRACKED_BYTES + 10)))
+    assert_equal "light", classify.tier
+  end
+
   def test_a_label_raises
     configure
     write("docs/guide.md", "changed\n")
@@ -421,6 +435,13 @@ class RigorTest < Minitest::Test
 
     out, = Open3.capture3("ruby", script, "--base", "origin/main", "--summary", chdir: @dir)
     assert_equal "Rigor: light — path docs/** (docs/guide.md)\n", out
+  end
+
+  def test_files_from_stdin_keep_their_spaces
+    configure
+    out, = Open3.capture3("ruby", script, "--files", "-", "--json", chdir: @dir, stdin_data: "docs/a.md \n\n")
+    files = JSON.parse(out)["reasons"].map { |r| r["file"] }
+    assert_equal ["docs/a.md "], files
   end
 
   def test_an_argument_that_is_not_utf8_prints_critical

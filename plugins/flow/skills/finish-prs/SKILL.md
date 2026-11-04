@@ -132,8 +132,8 @@ checks, so its review of the head has posted; a new comment from it is an open t
    in 2c like any failure.
 6. **Validated by rigor** (2e). Light needs no validator. Standard and critical need all of these:
    - the PR body's `Validator:` line says `PASS` or `PASS WITH NOTES`, never `BLOCK`;
-   - on critical, every note was rebutted, as `/flow:lfg` 6.5 ends the loop;
-   - no code change since the line's sha.
+   - every note was fixed or rebutted, as `/flow:lfg` 6.5 requires;
+   - no code change since the line's last sha (`notes addressed at` when present, 2e).
 
 ### 2d′. Cubic quiet (`automerge`)
 
@@ -151,8 +151,14 @@ line, and rewrite the line when the tier rose. A line that says `lowered from <t
 keeps its lower tier only while the new tier is no higher than the one it was lowered from.
 
 **Code changed** means either of these:
-- `git log --first-parent --no-merges --format=%H <sha on the Validator: line>..HEAD -- . ':!*.md'`
-  prints a commit. A merge of main is not code this PR wrote, so it never counts.
+- The PR's own commits since the line's last sha touched files the rigor file does not call light.
+  To test it, run
+  `git log --first-parent --no-merges --format= --name-only <sha>..HEAD | sort -u | ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --files -`.
+  Code changed when the path list is not empty and the script prints `standard` or `critical`.
+  - A merge of main is not this PR's work, so it never counts.
+  - A change the repository calls light, such as its docs, never triggers a run.
+  - A skill or config file in Markdown counts unless the rigor file lists it as light. Without a
+    rigor file, everything counts.
 - There is no `Validator:` line, for any reason: the tier rose from light, the PR predates tiers,
   or someone opened it by hand.
 
@@ -162,7 +168,7 @@ issue, the acceptance criteria from the PR body and the tier, as follows:
 | Tier | When the validator runs | On its answer |
 |---|---|---|
 | **light** | Never. | — |
-| **standard** | When code changed, at most once per `/flow:finish-prs` invocation; a re-run after a BLOCK is not counted (below). | BLOCK → fix every blocker (failing test first) and back to 2c. PASS WITH NOTES → fix or rebut each note in the PR body. **No re-run.** |
+| **standard** | When code changed, at most once per `/flow:finish-prs` invocation; a re-run after a BLOCK is not counted (below). | BLOCK → fix every blocker (failing test first) and back to 2c. PASS WITH NOTES → fix or rebut each note; after fixing, append `, notes addressed at <short sha>` to the `Validator:` line. **No re-run.** |
 | **critical** | Whenever code changed. | BLOCK or PASS WITH NOTES → fix every blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line rebuttal in the PR body. |
 
 After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
