@@ -322,6 +322,35 @@ class RigorTest < Minitest::Test
     assert_equal "critical", classify.tier
   end
 
+  def test_a_root_below_the_toplevel_still_sees_every_signal
+    configure
+    write("app/models/user.rb", "class User\n  def pay = with_lock { }\nend\n")
+    write("db/migrate/20261104_add.rb", "class Add; end\n")
+    result = classify(root: File.join(@dir, "docs"), config: File.join(@dir, ".github/review-rigor.yml"))
+    assert_equal "critical", result.tier
+    assert(result.reasons.any? { |r| r[:kind] == "signal" && r[:file] == "app/models/user.rb" })
+    assert(result.reasons.any? { |r| r[:kind] == "path" && r[:file] == "db/migrate/20261104_add.rb" })
+  end
+
+  def test_a_pure_rename_adds_no_lines
+    write("docs/old.md", "uses with_lock\n")
+    commit("old")
+    configure
+    git("mv", "docs/old.md", "docs/new.md")
+    assert_equal "light", classify.tier
+  end
+
+  def test_a_rename_with_an_edit_adds_only_the_new_line
+    write("docs/old.md", "one\ntwo\nthree\nfour\nfive\n")
+    commit("old")
+    configure
+    git("mv", "docs/old.md", "docs/new.md")
+    write("docs/new.md", "one\ntwo\nthree\nfour\nfive\nwith_lock\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert(result.reasons.any? { |r| r[:kind] == "signal" && r[:file] == "docs/new.md" })
+  end
+
   def test_a_label_raises
     configure
     write("docs/guide.md", "changed\n")
@@ -392,6 +421,13 @@ class RigorTest < Minitest::Test
 
     out, = Open3.capture3("ruby", script, "--base", "origin/main", "--summary", chdir: @dir)
     assert_equal "Rigor: light — path docs/** (docs/guide.md)\n", out
+  end
+
+  def test_an_argument_that_is_not_utf8_prints_critical
+    configure
+    out, _, status = Open3.capture3({ "LC_ALL" => "C" }, "ruby", script, "--base", "origin/\xFF".b, chdir: @dir)
+    assert_equal 0, status.exitstatus
+    assert_equal "critical\n", out
   end
 
   def test_an_unknown_flag_is_a_usage_error

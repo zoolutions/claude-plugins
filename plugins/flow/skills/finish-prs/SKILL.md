@@ -162,13 +162,13 @@ issue, the acceptance criteria from the PR body and the tier, as follows:
 | Tier | When the validator runs | On its answer |
 |---|---|---|
 | **light** | Never. | — |
-| **standard** | Only when code changed, at most once per `/flow:finish-prs` invocation. | BLOCK → fix every blocker (failing test first) and back to 2c. PASS WITH NOTES → fix or rebut each note in the PR body. **No re-run.** |
+| **standard** | When code changed, at most once per `/flow:finish-prs` invocation; a re-run after a BLOCK is not counted (below). | BLOCK → fix every blocker (failing test first) and back to 2c. PASS WITH NOTES → fix or rebut each note in the PR body. **No re-run.** |
 | **critical** | Whenever code changed. | BLOCK or PASS WITH NOTES → fix every blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line rebuttal in the PR body. |
 
 After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
 
-A re-run after a BLOCK is always due, on standard too. The once-per-invocation limit counts only the
-runs that code changes trigger. After three answers that each made you change code (`/flow:lfg` 6.5),
+A re-run after a BLOCK is always due, on standard too. The once-per-invocation limit counts only
+runs that new work triggers, never the run that checks a BLOCK fix. After three answers that each made you change code (`/flow:lfg` 6.5),
 stop: report needs-user in default mode, or park in `automerge` mode (2f) with
 `validator still blocks <short sha>`.
 

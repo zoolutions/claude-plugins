@@ -183,13 +183,18 @@ module FlowRigor
   # lines come from one diff per path, never from parsing a combined patch's
   # headers, which git quotes or pads for some names and which an added line
   # can imitate.
+  # Paths are toplevel-relative, so every git call runs at the toplevel, even
+  # when the caller's root is a subdirectory. A rename is diffed on both paths
+  # with -M, so only the lines it really adds count.
   def collect_changes(root, base)
-    merge_base = git(root, "merge-base", base, "HEAD").strip
-    changes = name_status(git_paths(root, "diff", "-M", "--name-status", "-z", merge_base)).map do |path, old_path|
-      Change.new(path, old_path, added_lines(git(root, "diff", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", path)))
+    top = git(root, "rev-parse", "--show-toplevel").strip
+    merge_base = git(top, "merge-base", base, "HEAD").strip
+    changes = name_status(git_paths(top, "diff", "-M", "--name-status", "-z", merge_base)).map do |path, old_path|
+      paths = [old_path, path].compact
+      Change.new(path, old_path, added_lines(git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", *paths)))
     end
-    name_list(git_paths(root, "ls-files", "--others", "--exclude-standard", "-z")).each do |path|
-      changes << Change.new(path, nil, untracked_lines(File.join(root, path)))
+    name_list(git_paths(top, "ls-files", "--others", "--exclude-standard", "-z")).each do |path|
+      changes << Change.new(path, nil, untracked_lines(File.join(top, path)))
     end
     changes.sort_by(&:path)
   end
@@ -224,12 +229,17 @@ module FlowRigor
     entries
   end
 
-  # Everything before the first hunk is header; after it, a `+` line is added
-  # content, even one that reads `+++ b/other`.
+  # A file section's header runs from `diff --git` to its first hunk; after
+  # that, a `+` line is added content, even one that reads `+++ b/other`. With
+  # -U0 every content line starts with `+` or `-`, so a line that starts with
+  # `diff --git` is always the next section (a rename below the similarity
+  # threshold prints two).
   def added_lines(diff)
     in_hunk = false
     diff.each_line.each_with_object([]) do |line, added|
-      if line.start_with?("@@")
+      if line.start_with?("diff --git ")
+        in_hunk = false
+      elsif line.start_with?("@@")
         in_hunk = true
       elsif in_hunk && line.start_with?("+")
         added << line[1..-1].chomp
@@ -348,6 +358,12 @@ module FlowRigor
       warn "rigor.rb: #{e.message}"
       warn parser.banner
       exit 2
+    rescue StandardError => e
+      # An argument the parser cannot even read (invalid bytes on some Rubies)
+      # is not a usage error the caller can fix: fall back like any failure.
+      warn "rigor.rb: cannot read the arguments: #{e.message} → #{FALLBACK}"
+      puts render(fallback("cannot read the arguments"), options[:format])
+      exit 0
     end
 
     result =
