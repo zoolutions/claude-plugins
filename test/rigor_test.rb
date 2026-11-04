@@ -394,6 +394,97 @@ class RigorTest < Minitest::Test
     assert_match(/signals not checked/, result.warnings.join)
   end
 
+  # --- since a validated sha (finish-prs: did this PR's own code change?) ----
+
+  def validated_sha
+    configure
+    write("spec/user_spec.rb", "describe User do\nend\n")
+    commit("work")
+    git("rev-parse", "HEAD").strip
+  end
+
+  def test_since_with_no_new_commits_is_light
+    sha = validated_sha
+    result = classify(since: sha)
+    assert_equal "light", result.tier
+    assert_equal "none", result.reasons.first[:kind]
+  end
+
+  def test_since_a_docs_commit_is_light
+    sha = validated_sha
+    write("docs/guide.md", "changed\n")
+    commit("docs")
+    assert_equal "light", classify(since: sha).tier
+  end
+
+  def test_since_a_signal_added_in_a_light_path_is_critical
+    sha = validated_sha
+    write("docs/guide.md", "now with_lock\n")
+    commit("docs with a signal")
+    assert_equal "critical", classify(since: sha).tier
+  end
+
+  def test_since_a_rename_out_of_a_critical_path_is_critical
+    sha = validated_sha
+    FileUtils.mkdir_p(File.join(@dir, "lib"))
+    git("mv", "app/services/payments/charge.rb", "lib/charge.rb")
+    commit("move")
+    assert_equal "critical", classify(since: sha).tier
+  end
+
+  def test_since_a_signal_in_a_path_with_a_space_is_critical
+    write("docs/sp ace.md", "x\n")
+    sha = validated_sha
+    write("docs/sp ace.md", "x\nwith_lock\n")
+    commit("space")
+    assert_equal "critical", classify(since: sha).tier
+  end
+
+  def test_since_a_merge_of_main_does_not_count
+    sha = validated_sha
+    git("switch", "-q", "main")
+    write("db/migrate/20261104_main.rb", "class Main; end\n")
+    commit("main moved")
+    git("switch", "-q", "work")
+    git("merge", "-q", "--no-ff", "--no-edit", "main")
+    assert_equal "light", classify(since: sha).tier
+  end
+
+  def test_since_counts_each_own_commit_after_a_merge
+    sha = validated_sha
+    git("switch", "-q", "main")
+    write("README.md", "main\n")
+    commit("main moved")
+    git("switch", "-q", "work")
+    git("merge", "-q", "--no-ff", "--no-edit", "main")
+    write("app/models/account.rb", "class Account\n  def x; end\nend\n")
+    commit("own work")
+    assert_equal "critical", classify(since: sha).tier
+  end
+
+  def test_since_ignores_labels
+    sha = validated_sha
+    assert_equal "light", classify(since: sha, labels: ["risk:high"]).tier
+  end
+
+  def test_since_an_unknown_sha_is_critical
+    validated_sha
+    result = classify(since: "deadbeef")
+    assert_equal "critical", result.tier
+    assert_match(/deadbeef/, result.warnings.join)
+  end
+
+  def test_since_on_the_command_line
+    sha = validated_sha
+    write("app/models/account.rb", "class Account\n  def y; end\nend\n")
+    commit("own")
+    out, = Open3.capture3("ruby", script, "--since", sha, chdir: @dir)
+    assert_equal "critical\n", out
+    _, err, status = Open3.capture3("ruby", script, "--since", sha, "--files", "-", chdir: @dir, stdin_data: "")
+    assert_equal 2, status.exitstatus
+    assert_match(/usage/i, err)
+  end
+
   # --- output ----------------------------------------------------------------
 
   def test_summary_line

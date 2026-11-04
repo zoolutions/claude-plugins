@@ -16,8 +16,14 @@
 # never lowers the bar. Exit 0 always, 2 for a usage error.
 # Stdlib only, Ruby >= 2.6.
 #
-#   rigor.rb [--base <ref>] [--files -] [--labels a,b] [--config <path>]
-#            [--root <dir>] [--json | --summary]
+#   rigor.rb [--base <ref> | --files - | --since <sha>] [--labels a,b]
+#            [--config <path>] [--root <dir>] [--json | --summary]
+#
+# --base   the whole change against the merge base (the default, origin/main)
+# --files  planned paths on stdin, before any diff exists (no signals)
+# --since  only this PR's own first-parent, non-merge commits after <sha>,
+#          each against its parent; none at all prints light. finish-prs uses
+#          it to ask whether code changed since the validator last judged.
 #
 # The rigor file:
 #
@@ -60,7 +66,10 @@ module FlowRigor
 
   module_function
 
-  def classify(root:, base: "origin/main", files: nil, labels: [], config: nil)
+  # `since:` answers a different question: did this PR's own commits since a
+  # validated sha change anything above light? Merges are not its own work and
+  # labels have not changed, so neither counts; no commits at all is light.
+  def classify(root:, base: "origin/main", files: nil, labels: [], config: nil, since: nil)
     warnings = []
     config_path = config || config_path_from_agents(root)
     unless config_path
@@ -72,10 +81,17 @@ module FlowRigor
       if files
         warnings << "signals not checked: planned files have no diff yet"
         files.map { |path| Change.new(path, nil, []) }
+      elsif since
+        collect_commits(root, since)
       else
         collect_changes(root, base)
       end
-    reasons = reasons_for(rules, changes, labels)
+    if since && changes.empty?
+      return Result.new("light", rules[:default], config_path,
+                        [{ tier: "light", kind: "none", match: "no commits of this PR since #{since}", file: nil }], warnings)
+    end
+
+    reasons = reasons_for(rules, changes, since ? [] : labels)
     tier = reasons.map { |reason| TIERS.index(reason[:tier]) }.max
     Result.new(TIERS[tier], rules[:default], config_path, reasons, warnings)
   rescue StandardError => e
@@ -198,6 +214,20 @@ module FlowRigor
       changes << Change.new(path, nil, lines, unscanned)
     end
     changes.sort_by(&:path)
+  end
+
+  # Each first-parent, non-merge commit since `since`, diffed against its own
+  # parent: exactly what the PR wrote, never what a merge of main brought in.
+  def collect_commits(root, since)
+    top = git(root, "rev-parse", "--show-toplevel").strip
+    sha = git(top, "rev-parse", "--verify", "--quiet", "#{since}^{commit}").strip
+    commits = git(top, "rev-list", "--first-parent", "--no-merges", "#{sha}..HEAD").split
+    commits.flat_map do |commit|
+      name_status(git_paths(top, "diff", "-M", "--name-status", "-z", "#{commit}^", commit)).map do |path, old_path|
+        paths = [old_path, path].compact
+        Change.new(path, old_path, added_lines(git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", "#{commit}^", commit, "--", *paths)))
+      end
+    end.sort_by(&:path)
   end
 
   # A path that is not UTF-8 cannot be matched or diffed reliably: critical.
@@ -348,9 +378,10 @@ module FlowRigor
   def main(argv)
     options = { base: "origin/main", labels: [], format: :word }
     parser = OptionParser.new do |opts|
-      opts.banner = "usage: rigor.rb [--base <ref>] [--files -] [--labels a,b] [--config <path>] [--root <dir>] [--json | --summary]"
+      opts.banner = "usage: rigor.rb [--base <ref> | --files - | --since <sha>] [--labels a,b] [--config <path>] [--root <dir>] [--json | --summary]"
       opts.on("--base REF") { |value| options[:base] = value }
       opts.on("--files SOURCE") { |value| options[:files] = value }
+      opts.on("--since SHA") { |value| options[:since] = value }
       opts.on("--labels LIST") { |value| options[:labels] = value.split(",").map(&:strip).reject(&:empty?) }
       opts.on("--config PATH") { |value| options[:config] = value }
       opts.on("--root DIR") { |value| options[:root] = value }
@@ -360,6 +391,7 @@ module FlowRigor
     begin
       parser.parse!(argv)
       raise OptionParser::InvalidArgument, "--files takes - (paths on stdin)" if options[:files] && options[:files] != "-"
+      raise OptionParser::InvalidArgument, "--since and --files exclude each other" if options[:files] && options[:since]
       raise OptionParser::NeedlessArgument, argv.join(" ") unless argv.empty?
     rescue OptionParser::ParseError => e
       warn "rigor.rb: #{e.message}"
@@ -377,7 +409,7 @@ module FlowRigor
       begin
         files = options[:files] ? $stdin.each_line.map(&:chomp).reject(&:empty?) : nil
         classify(root: options[:root] || repo_root, base: options[:base], files: files,
-                 labels: options[:labels], config: options[:config])
+                 labels: options[:labels], config: options[:config], since: options[:since])
       rescue StandardError => e
         fallback(e.message)
       end

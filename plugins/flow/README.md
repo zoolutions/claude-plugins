@@ -90,4 +90,5 @@ The rules:
 ```bash
 ruby skills/lfg/rigor.rb --base origin/main [--summary | --json] [--labels a,b]
 printf '%s\n' <paths> | ruby skills/lfg/rigor.rb --files -     # planned files, no diff yet
+ruby skills/lfg/rigor.rb --since <sha>                          # only this PR's own commits since <sha>
 ```

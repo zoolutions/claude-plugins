@@ -151,12 +151,13 @@ line, and rewrite the line when the tier rose. A line that says `lowered from <t
 keeps its lower tier only while the new tier is no higher than the one it was lowered from.
 
 **Code changed** means either of these:
-- The PR's own commits since the line's last sha touched files the rigor file does not call light.
-  To test it, run
-  `git log --first-parent --no-merges --format= --name-only <sha>..HEAD | sort -u | ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --files -`.
-  Code changed when the path list is not empty and the script prints `standard` or `critical`.
+- `ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --since <the line's last sha>` prints `standard`
+  or `critical`. The script diffs each of the PR's own first-parent, non-merge commits since that sha
+  against its parent. It reads both paths of a rename and checks signals on added lines, and it
+  prints `light` when there are no such commits.
   - A merge of main is not this PR's work, so it never counts.
   - A change the repository calls light, such as its docs, never triggers a run.
+  - A signal added inside a light path still counts.
   - A skill or config file in Markdown counts unless the rigor file lists it as light. Without a
     rigor file, everything counts.
 - There is no `Validator:` line, for any reason: the tier rose from light, the PR predates tiers,
