@@ -130,7 +130,8 @@ checks, so its review of the head has posted; a new comment from it is an open t
    queue it (the queue proves it). Otherwise park (2f) with `main red since <short sha> (#N)`; fixing
    main is its own PR. With a direct squash, a red main shows up in this PR's own checks and is fixed
    in 2c like any failure.
-6. **`fable-validator` PASS** on the final diff (2e).
+6. **Validated by rigor** (2e): light needs no validator. Standard and critical need a
+   `Validator:` line in the PR body with no code change since its sha.
 
 ### 2d′. Cubic quiet (`automerge`)
 
@@ -140,11 +141,28 @@ Still not `APPROVED` → park: `cubic did not approve <short sha>`. One trigger 
 
 ### 2e. Hand off
 
-Run the `fable-validator` agent (`flow:fable-validator`) on `git diff origin/main...HEAD` with the
-PR's linked issue and the acceptance criteria from the PR body. Skip it only if it already passed on
-this exact head SHA (`/flow:lfg` Phase 6.5, no commit since). BLOCK or PASS WITH NOTES → fix every
-blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line
-rebuttal in the PR body.
+**The tier.** Classify again:
+`ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --base origin/main --summary --labels <the PR's labels, comma-separated>`.
+
+The tier only rises within a PR. Take the higher of this tier and the one on the PR body's `Rigor:`
+line, and rewrite the line when the tier rose. A line that says `lowered from <tier>: <reason>`
+keeps its lower tier only while the new tier is no higher than the one it was lowered from.
+
+**Code changed** means either of these:
+- `git log --first-parent --no-merges --format=%H <sha on the Validator: line>..HEAD -- . ':!*.md'`
+  prints a commit. A merge of main is not code this PR wrote, so it never counts.
+- There is no `Validator:` line yet, because the tier rose from light.
+
+**What runs.** Run `flow:fable-validator` on `git diff origin/main...HEAD`, with the PR's linked
+issue, the acceptance criteria from the PR body and the tier, as follows:
+
+| Tier | When the validator runs | On its answer |
+|---|---|---|
+| **light** | Never. | — |
+| **standard** | Only when code changed, at most once per `/flow:finish-prs` invocation. | BLOCK → fix every blocker (failing test first) and back to 2c. PASS WITH NOTES → fix or rebut each note in the PR body. **No re-run.** |
+| **critical** | Whenever code changed. | BLOCK or PASS WITH NOTES → fix every blocker and note (failing test first for code) and back to 2c. A factually wrong note gets a one-line rebuttal in the PR body. |
+
+After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
 `## Effort & cost`. Its **Where it went** line is the account of the session that did the work: if

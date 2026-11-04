@@ -86,7 +86,8 @@ edit, at the top of `implementation-notes.md`. `effort.rb` reads these row label
 - **Size** by active hours: XS < 0.5 · S 0.5–2 · M 2–4 · L 4–8 · XL ≥ 8 (split an XL plan).
 - **Ranges:** `2–4 h`, `1-2`, `1 to 3`, `~6`, `45 min`.
 - **Active time** is agent time as counted above, not a person's day. **Validation passes:**
-  `flow:fable-validator` runs until it passes (a clean change: 1). **Review rounds:** the first review
+  `flow:fable-validator` runs per the rigor tier (`/flow:lfg` Phase 6.5): light 0; standard 1, plus
+  one per BLOCK; critical until it passes (a clean change: 1). **Review rounds:** the first review
   counts. **Files:** the final diff, specs and docs included.
 - **Calibrate** before estimating, from what recent PRs cost against their estimates:
 

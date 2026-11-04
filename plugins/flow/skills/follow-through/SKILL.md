@@ -167,7 +167,8 @@ what isolates your worktree (databases, ports, a dev server); respect it.
    repository (an outage, missing credentials, a GitHub permission, a red main under a merge queue),
    or where AGENTS.md says a human must decide: comment on the PR (on issue #<N> if no PR exists) with
    the blocker and what removes it, then stop. Agent tool unavailable → park
-   "validator-unavailable"; never skip flow:fable-validator. If a skill is not found, read
+   "validator-unavailable". Never skip flow:fable-validator where the rigor tier asks for it
+   (/flow:lfg Phase 6.5), and never pass a --rigor below the computed tier. If a skill is not found, read
    ${CLAUDE_PLUGIN_ROOT}/skills/<name>/SKILL.md and follow it.
 6. Your final message is exactly one JSON object:
    {"issue": <N>, "pr": <number|null>, "url": "<url|null>", "state": "merged"|"needs-user",

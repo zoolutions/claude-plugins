@@ -16,7 +16,9 @@ costs nothing until one of its skills is invoked.
 - `AGENTS.md` with a `## Workflow` section: the facts the `flow` skills act on, one line each —
   Verify, Specs (with `changed`, the tests for the diff), CI, Review bot, Merge, PR contract,
   Conflicts, Worktree setup, Release, Main health, Upstream, Bench, Agents (how many agents run at
-  once; missing: 3), and Base when the default branch is not `main`. Template and rules: [`docs/plans/2026-10-17-stack-plugins.md`](docs/plans/2026-10-17-stack-plugins.md).
+  once; missing: 3), Rigor (the file that sets how hard each change is validated; missing: every
+  change is critical, see [`plugins/flow/README.md`](plugins/flow/README.md)), and Base when the
+  default branch is not `main`. Template and rules: [`docs/plans/2026-10-17-stack-plugins.md`](docs/plans/2026-10-17-stack-plugins.md).
 - `CLAUDE.md` as a one-line `@AGENTS.md` import.
 - `.claude/settings.json` enabling `flow` and its stack plugin.
 - Only the commands that are truly its own.

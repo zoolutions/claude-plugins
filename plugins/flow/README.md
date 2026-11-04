@@ -9,7 +9,7 @@ claude plugin install flow@zoolutions
 
 | Skill | For |
 |---|---|
-| `/flow:lfg <issue>` | Issue → merge-ready PR: understand, plan, TDD, verify, `flow:fable-validator`, PR, then `/flow:finish-prs` until CI is green and every thread is answered. Never merges |
+| `/flow:lfg <issue>` | Issue → merge-ready PR: understand, plan, TDD, verify, `flow:fable-validator` by rigor tier, PR, then `/flow:finish-prs` until CI is green and every thread is answered. Never merges |
 | `/flow:follow-through <epic \| issues>` | Epic → merged, unattended: dependency waves, one Opus agent per issue in its own worktree, `/flow:finish-prs automerge`, upstream library fixes carried to a release and an adoption issue. `--dry-run` prints the waves |
 | `/flow:finish-prs [prs] [automerge]` | Ordered PRs → merge-ready in review rounds; `automerge` merges (or queues) once mergeable, green, thread-free, review-bot-approved and validator PASS; a queue also needs main green |
 | `/flow:plan [issue\|md\|upstream <owner/repo>] …` | A self-contained plan as an issue or markdown, with an effort estimate; `upstream` plans a public library issue and, for a library we own, carries the fix through |
@@ -42,6 +42,7 @@ label means "none". Keep it true of the tree; keep it short.
 - **Main health:** <command printing success/failure for main> (missing: the skills read the CI status of main's head, never assume green)
 - **Upstream:** libraries we own `<owner/*>`; scrub `<denylist command | none>`
 - **Bench:** <benchmark command for /ruby-gem:perf | none>
+- **Rigor:** `<path to the rigor file>` (missing: every change is critical)
 - **Base:** <default branch, when it is not `main`>
 ```
 
@@ -49,3 +50,44 @@ label means "none". Keep it true of the tree; keep it short.
 that CI fact the full suite runs locally. `Agents` caps how many agents `/flow:follow-through` keeps
 alive; before each spawn, and before `/flow:lfg`'s heavy steps, `load.rb` checks the machine's load
 against `max load`: busy slows a run down, never stops it.
+
+## Rigor: how hard a change is validated
+
+`skills/lfg/rigor.rb` classifies a change against the repository's rigor file. `/flow:lfg` Phase 6.5
+and `/flow:finish-prs` 2e then spend validation by tier:
+
+| Tier | `flow:fable-validator` |
+|---|---|
+| light | none: Workflow → Verify and the review bot are the gate |
+| standard | one pass; notes fixed or rebutted, never re-run; the validator does not call the advisor |
+| critical | the full loop: notes fixed and re-validated, up to three rounds |
+
+```yaml
+version: 1
+default: standard                    # a file no rule matches gets this tier
+critical:
+  paths:   ["app/services/payments/", "db/migrate/**"]
+  signals:                           # Ruby regexps on ADDED lines only
+    - "with_lock"                    # any file
+    - { pattern: "_cents\\b", paths: ["app/**"] }   # only added lines in these files
+  labels:  ["risk:high"]
+light:
+  paths:   ["docs/**", "**/*.md"]
+```
+
+The rules:
+- A change takes the highest tier that any of these reaches: a changed path, a signal on an added
+  line, or a PR label.
+- Renames match on both paths, and a deleted file counts too.
+- Signals and labels only ever raise the tier.
+- Globs are `File.fnmatch` with `FNM_PATHNAME | FNM_EXTGLOB | FNM_DOTMATCH`. `dir/` and `dir/**` mean
+  everything under `dir`.
+- Every unknown state prints `critical`: no Rigor line, a missing or invalid file, or a git error.
+  That is how flow validated before tiers existed, so an error never lowers the bar.
+- `/flow:lfg --rigor <tier>` raises the tier. A lower tier needs `--why`, and the reason goes into the
+  PR body. An orchestrator never lowers the tier.
+
+```bash
+ruby skills/lfg/rigor.rb --base origin/main [--summary | --json] [--labels a,b]
+printf '%s\n' <paths> | ruby skills/lfg/rigor.rb --files -     # planned files, no diff yet
+```
