@@ -1,0 +1,44 @@
+plugins/flow/skills/lfg/rigor.rb
+  s_6cb43d5374992e::t_dbd62096e2a930 1-66,68-351
+  s_6cb43d5374992e::t_367d1b359d41e4 67
+plugins/flow/skills/lfg/SKILL.md
+  s_6cb43d5374992e::t_a64a0a69e2b9aa 3-4
+  s_6cb43d5374992e::t_14ec73ecfaeafe 96-129,131
+  s_6cb43d5374992e::t_8b2186cdfd283b 136-137
+  s_6cb43d5374992e::t_8c737df2d549e2 58-63
+plugins/flow/skills/finish-prs/SKILL.md
+  s_6cb43d5374992e::t_628f07d980db83 133-134
+  s_6cb43d5374992e::t_8519c2763e16c0 144-165
+plugins/flow/skills/effort/SKILL.md
+  s_6cb43d5374992e::t_258a2690872b0c 89-90
+plugins/flow/agents/fable-validator.md
+  s_6cb43d5374992e::t_95c02e30f7a271 36
+  s_6cb43d5374992e::t_b545c81a5a7aa3 12-14
+  s_6cb43d5374992e::t_59fc4da48cfc9f 26-27
+README.md
+  s_6cb43d5374992e::t_eea3329c169391 19-21
+test/rigor_test.rb
+  s_6cb43d5374992e::t_b556a6b7e9ed50 1-365
+plugins/flow/README.md
+  s_6cb43d5374992e::t_2c9220d50767a8 12
+  s_6cb43d5374992e::t_ca9cb2e822c915 45
+  s_6cb43d5374992e::t_2c7b1eb21025ce 53-93
+plugins/flow/skills/follow-through/SKILL.md
+  s_6cb43d5374992e::t_87def2c14137d2 170-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2f6345ae5e43102f03640b5af92094d79999e7d7",
+  "prompts": {},
+  "sessions": {
+    "s_6cb43d5374992e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0bd9917-372c-4724-ae9e-5fefced10f62",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
