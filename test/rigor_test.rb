@@ -187,6 +187,14 @@ class RigorTest < Minitest::Test
     assert_equal [{ tier: "critical", kind: "config", match: "rigor file", file: ".github/review-rigor.yml" }], config_reasons(result)
   end
 
+  def test_a_renamed_rigor_file_is_critical
+    configure
+    git("mv", ".github/review-rigor.yml", ".github/rigor.yml")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "rigor file", file: ".github/review-rigor.yml" }], config_reasons(result)
+  end
+
   def test_a_deleted_rigor_file_is_critical
     configure
     git("rm", "-q", ".github/review-rigor.yml")
@@ -640,6 +648,7 @@ class RigorTest < Minitest::Test
     commit("loosen")
     result = classify(since: sha)
     assert_equal "critical", result.tier
+    assert_equal "standard", result.default
     assert_equal [{ tier: "critical", kind: "config", match: "rigor file", file: ".github/review-rigor.yml" }], config_reasons(result)
   end
 

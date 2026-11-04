@@ -122,7 +122,8 @@ own notes costs as much and rarely finds anything new, so only critical changes 
 **Running it, standard and critical.**
 - Spawn `flow:fable-validator` with the issue, the acceptance criteria, the base branch and the
   tier.
-- On either tier, BLOCK → fix every blocker (failing test first) and run it again.
+- On either tier, BLOCK → fix every blocker (failing test first) and run it again. A blocker you
+  dispute gets a one-line rebuttal in the PR body instead of a fix, and the validator runs again.
 - The loop ends on PASS. It also ends on a PASS WITH NOTES whose notes you rebutted without changing
   code, which on critical means every note was rebutted.
 - Stop after three answers that each made you change code, or after three BLOCKs in a row,

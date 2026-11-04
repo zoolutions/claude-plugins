@@ -176,7 +176,8 @@ issue, the acceptance criteria from the PR body and the tier, as follows:
 
 After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
 
-A re-run after a BLOCK is always due, on standard too. The once-per-invocation limit counts only
+A re-run after a BLOCK is always due, on standard too, including after a BLOCK you rebutted
+without a code change. The once-per-invocation limit counts only
 runs that new work triggers, never the run that checks a BLOCK fix. After three answers that each
 made you change code, or after three BLOCKs in a row, whichever comes first (`/flow:lfg` 6.5),
 stop: report needs-user in default mode, or park in `automerge` mode (2f) with
