@@ -125,9 +125,12 @@ own notes costs as much and rarely finds anything new, so only critical changes 
 - On either tier, BLOCK → fix every blocker (failing test first) and run it again.
 - The loop ends on PASS. It also ends on a PASS WITH NOTES whose notes you rebutted without changing
   code, which on critical means every note was rebutted.
-- Stop after three answers that each made you change code:
-  - on standard, that means three BLOCKs;
-  - on critical, any mix of BLOCKs and PASS WITH NOTES whose notes you fixed.
+- Stop after three answers that each made you change code, or after three BLOCKs in a row,
+  whichever comes first:
+  - an answer that made you change code is a BLOCK you fixed or, on critical, a PASS WITH NOTES
+    whose notes you fixed;
+  - a BLOCK answered without a code change, such as a rebuttal, still counts toward three in a row,
+    so a disputed BLOCK cannot loop.
 
   Then ask (interactive) or park (orchestrator).
 - On standard and critical, no PR before PASS or PASS WITH NOTES with every note fixed or rebutted.

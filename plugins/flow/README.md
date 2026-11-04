@@ -59,8 +59,8 @@ and `/flow:finish-prs` 2e then spend validation by tier:
 | Tier | `flow:fable-validator` |
 |---|---|
 | light | none: Workflow → Verify and the review bot are the gate |
-| standard | one pass for a clean verdict. A BLOCK is re-validated. Notes are fixed or rebutted and never re-run. The validator does not call the advisor |
-| critical | the full loop: blockers and code-changing notes are fixed and re-validated. Notes rebutted without a code change end the loop. Stops after three code-changing answers |
+| standard | one pass for a clean verdict. A BLOCK is re-validated. Notes are fixed or rebutted and never re-run. Stops after three BLOCKs. The validator does not call the advisor |
+| critical | the full loop: blockers and code-changing notes are fixed and re-validated. Notes rebutted without a code change end the loop. Stops after three code-changing answers or three BLOCKs in a row, whichever comes first |
 
 ```yaml
 version: 1
