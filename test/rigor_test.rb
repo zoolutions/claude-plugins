@@ -340,7 +340,7 @@ class RigorTest < Minitest::Test
     assert_equal "light", classify.tier
   end
 
-  def test_a_rename_with_an_edit_adds_only_the_new_line
+  def test_a_rename_with_an_edit_sees_the_added_line
     write("docs/old.md", "one\ntwo\nthree\nfour\nfive\n")
     commit("old")
     configure
@@ -425,7 +425,7 @@ class RigorTest < Minitest::Test
 
   def test_an_argument_that_is_not_utf8_prints_critical
     configure
-    out, _, status = Open3.capture3({ "LC_ALL" => "C" }, "ruby", script, "--base", "origin/\xFF".b, chdir: @dir)
+    out, err, status = Open3.capture3({ "LC_ALL" => "en_US.UTF-8", "LANG" => "en_US.UTF-8" }, "ruby", script, "--base", "origin/\xFF".b, chdir: @dir)
     assert_equal 0, status.exitstatus
     assert_equal "critical\n", out
   end

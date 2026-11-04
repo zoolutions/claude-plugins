@@ -359,7 +359,7 @@ module FlowRigor
       warn parser.banner
       exit 2
     rescue StandardError => e
-      # An argument the parser cannot even read (invalid bytes on some Rubies)
+      # An argument the parser cannot even read (invalid bytes under a UTF-8 locale)
       # is not a usage error the caller can fix: fall back like any failure.
       warn "rigor.rb: cannot read the arguments: #{e.message} → #{FALLBACK}"
       puts render(fallback("cannot read the arguments"), options[:format])
