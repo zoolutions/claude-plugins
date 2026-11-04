@@ -49,7 +49,9 @@
 # chooses its own gate. A change that touches that rigor file, adds or removes
 # a `**Rigor:**` line in that AGENTS.md, or leaves a Rigor line under
 # ## Workflow that names another file or none (a heading moved above it), is
-# critical (a `config` reason). When the base has no Rigor line, or lacks the file it names (first
+# critical (a `config` reason). --since compares the line at <sha> with HEAD's,
+# so a Rigor line a merge of main changed counts once the PR adds a commit.
+# When the base has no Rigor line, or lacks the file it names (first
 # adoption), the working tree's configuration is read with a warning and the
 # change is critical too: a fallback never lowers the bar. A Rigor path that is
 # absolute or leaves the repository is critical. --files and an explicit

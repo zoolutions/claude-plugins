@@ -155,7 +155,9 @@ keeps its lower tier only while the new tier is no higher than the one it was lo
   or `critical`. The script diffs each of the PR's own first-parent, non-merge commits since that sha
   against its parent. It reads both paths of a rename and checks signals on added lines, and it
   prints `light` when there are no such commits.
-  - A merge of main is not this PR's work, so it never counts.
+  - A merge of main is not this PR's work, so it never counts. One exception: when the merge
+    changed the Rigor line, the next commit of the PR's own is critical, because the gate changed
+    under the validated sha.
   - A change the repository calls light, such as its docs, never triggers a run.
   - A signal added inside a light path still counts.
   - A skill or config file in Markdown counts unless the rigor file lists it as light. Without a
