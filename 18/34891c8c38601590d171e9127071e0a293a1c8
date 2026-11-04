@@ -1,0 +1,28 @@
+plugins/flow/skills/lfg/rigor.rb
+  s_6cb43d5374992e::t_5108a2fce586ec 219-232
+  s_6cb43d5374992e::t_5625a2c515e228 412
+  s_6cb43d5374992e::t_c45b5c3f7607b0 69-72,84-85,89-94
+  s_6cb43d5374992e::t_125ff977216317 19-26
+  s_6cb43d5374992e::t_5fb5ebbb874b0f 381,384
+  s_6cb43d5374992e::t_34fcfdd7ae4dbd 394
+plugins/flow/skills/finish-prs/SKILL.md
+  s_6cb43d5374992e::t_42720af70ca98c 154-157,160
+test/rigor_test.rb
+  s_6cb43d5374992e::t_4fb84e384d1182 397-487
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1834891c8c38601590d171e9127071e0a293a1c8",
+  "prompts": {},
+  "sessions": {
+    "s_6cb43d5374992e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0bd9917-372c-4724-ae9e-5fefced10f62",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
