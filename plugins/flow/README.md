@@ -86,7 +86,8 @@ The rules:
   AGENTS.md and the rigor file at `git merge-base <base> HEAD`; `--since <sha>` reads them at that
   sha. `--files -` (planning, no diff yet) and an explicit `--config <path>` read the working tree.
 - A change to the gate is critical, with a `config` reason: one that touches the base's rigor file,
-  or adds or removes a `**Rigor:**` line in AGENTS.md.
+  adds or removes a `**Rigor:**` line in AGENTS.md, or leaves a Workflow Rigor line that names
+  another file or none (say, after renaming the heading above it).
 - First adoption: when the base has no Rigor line, or lacks the file it names, the working tree's
   configuration is read with a warning, and the change is critical too. The fallback never lowers
   the tier.

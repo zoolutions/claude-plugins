@@ -35,7 +35,7 @@ Then, most severe first, each with `file:line`, what goes wrong, and the concret
 
 - **Blockers**: must be fixed before the pull request opens or merges. A Blocker names one of two things: a defect a caller can hit (with the input that hits it) or an acceptance criterion that is not met.
 - **Risks**: should be fixed or consciously accepted; say which you would accept.
-- **Not verified**: what you could not check, and how it could be.
+- **Not verified**: what you could not check, and how it could be; and every process or contract item you noticed (step 3), with its fix.
 
 Then the acceptance criteria, each marked met / partly / not met.
 

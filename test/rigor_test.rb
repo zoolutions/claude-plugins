@@ -220,6 +220,32 @@ class RigorTest < Minitest::Test
     assert_equal [{ tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }], config_reasons(result)
   end
 
+  def test_removing_a_rigor_line_outside_workflow_is_critical
+    configure(CONFIG, "#{AGENTS}\n## Notes\n\n- **Rigor:** `.github/old.yml`\n")
+    write("AGENTS.md", AGENTS)
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }], config_reasons(result)
+  end
+
+  def test_moving_the_rigor_line_out_of_workflow_is_critical
+    configure
+    write("AGENTS.md", AGENTS.sub("## Workflow", "## Flow"))
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }], config_reasons(result)
+  end
+
+  def test_since_moving_the_rigor_line_out_of_workflow_is_critical
+    sha = validated_sha
+    write("AGENTS.md", AGENTS.sub("## Workflow", "## Flow"))
+    commit("rename the heading")
+    result = classify(since: sha)
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }], config_reasons(result)
+  end
+
   def test_an_unrelated_agents_md_edit_is_not_a_config_change
     configure
     write("AGENTS.md", "#{AGENTS}- **Base:** main\n")

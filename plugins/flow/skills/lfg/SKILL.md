@@ -99,8 +99,9 @@ the tests prove it?
 `ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --base origin/main --summary --labels <the issue's labels, comma-separated>`.
 It prints `Rigor: <tier> — <why>`. The tier is the highest that any changed path, added-line
 signal or label reaches in the rigor file that Workflow → Rigor names, both read at the merge base,
-so a change never chooses its own gate. A change that touches that rigor file, or adds or removes a
-Rigor line in AGENTS.md, is critical (`config`). When the base has no Rigor line or lacks its file
+so a change never chooses its own gate. A change that touches that rigor file, adds or removes a
+Rigor line in AGENTS.md, or leaves a Workflow Rigor line naming another file or none, is critical
+(`config`). When the base has no Rigor line or lacks its file
 (first adoption), the working tree's is read, with a warning, and the change is critical too. Every
 unknown state prints `critical`: no Rigor line, a bad rigor file, or a git error.
 

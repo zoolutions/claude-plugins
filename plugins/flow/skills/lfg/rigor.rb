@@ -46,9 +46,10 @@
 #
 # Where the configuration comes from: --base reads AGENTS.md and the rigor file
 # at the merge base, --since at <sha> (`git cat-file`), so a change never
-# chooses its own gate. A change that touches that rigor file, or adds or
-# removes a `**Rigor:**` line in that AGENTS.md, is critical (a `config`
-# reason). When the base has no Rigor line, or lacks the file it names (first
+# chooses its own gate. A change that touches that rigor file, adds or removes
+# a `**Rigor:**` line in that AGENTS.md, or leaves a Rigor line under
+# ## Workflow that names another file or none (a heading moved above it), is
+# critical (a `config` reason). When the base has no Rigor line, or lacks the file it names (first
 # adoption), the working tree's configuration is read with a warning and the
 # change is critical too: a fallback never lowers the bar. A Rigor path that is
 # absolute or leaves the repository is critical. --files and an explicit
@@ -75,9 +76,10 @@ module FlowRigor
 
   Change = Struct.new(:path, :old_path, :added, :unscanned, :removed)
   # What a change must not touch: the rigor file paths and the AGENTS.md whose
-  # Rigor line was read (toplevel-relative), and the working-tree file read in
-  # a fallback.
-  Guard = Struct.new(:paths, :agents, :fallback)
+  # Rigor line was read (toplevel-relative), the working-tree file read in a
+  # fallback, and whether the Rigor line the change leaves names another file
+  # (or none), as a heading moved above it would.
+  Guard = Struct.new(:paths, :agents, :fallback, :moved)
   SignalRule = Struct.new(:source, :regexp, :scope)
   Result = Struct.new(:tier, :default, :config, :reasons, :warnings)
 
@@ -99,7 +101,7 @@ module FlowRigor
       if config
         config_path, rules = working_tree_config(root, config)
       else
-        config_path, rules, guard = config_at(root, top, ref, warnings)
+        config_path, rules, guard = config_at(root, top, ref, warnings, since ? "HEAD" : nil)
       end
       changes = since ? collect_commits(top, ref) : collect_changes(top, ref)
     end
@@ -156,7 +158,8 @@ module FlowRigor
   # Rigor line there, or without the file it names, the working tree's is read
   # and the guard marks it a fallback, which classifies as critical. A git
   # failure raises, and so prints critical; only a missing blob falls back.
-  def config_at(root, top, ref, warnings)
+  # `after` is where the change ends: HEAD for --since, nil for the working tree.
+  def config_at(root, top, ref, warnings, after)
     prefix = git(root, "rev-parse", "--show-prefix").strip
     agents = repo_path(prefix, "AGENTS.md")
     short = ref[0, 12]
@@ -165,7 +168,10 @@ module FlowRigor
     if line
       rel = repo_path(prefix, line)
       text = blob(top, ref, rel)
-      return [line, parse_config(text, "#{line} at #{short}"), Guard.new([rel], agents, nil)] if text
+      if text
+        moved = rigor_path(after_line(root, top, agents, after)) != rigor_path(line)
+        return [line, parse_config(text, "#{line} at #{short}"), Guard.new([rel], agents, nil, moved)]
+      end
 
       warnings << "#{line} is missing at #{short}: reading the working tree's configuration → #{FALLBACK}"
     else
@@ -174,7 +180,18 @@ module FlowRigor
 
     config_path, rules = working_tree_config(root, nil)
     fallback = repo_path(prefix, config_path)
-    [config_path, rules, Guard.new([fallback], agents, fallback)]
+    [config_path, rules, Guard.new([fallback], agents, fallback, false)]
+  end
+
+  def after_line(root, top, agents, after)
+    return config_path_from_agents(root) unless after
+
+    text = blob(top, after, agents)
+    text && rigor_line(text)
+  end
+
+  def rigor_path(line)
+    line && Pathname.new(line).cleanpath.to_s
   end
 
   # A Rigor path as git names it: toplevel-relative, from the root's prefix.
@@ -422,6 +439,7 @@ module FlowRigor
     return [] unless guard
 
     reasons = []
+    reasons << { tier: FALLBACK, kind: "config", match: "Rigor line", file: guard.agents } if guard.moved
     if guard.fallback
       reasons << { tier: FALLBACK, kind: "config", match: "read from the working tree", file: guard.fallback }
     end
