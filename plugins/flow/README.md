@@ -82,8 +82,17 @@ The rules:
 - Signals and labels only ever raise the tier.
 - Globs are `File.fnmatch` with `FNM_PATHNAME | FNM_EXTGLOB | FNM_DOTMATCH`. `dir/` and `dir/**` mean
   everything under `dir`.
-- Every unknown state prints `critical`: no Rigor line, a missing or invalid file, or a git error.
-  That is how flow validated before tiers existed, so an error never lowers the bar.
+- The configuration comes from the base, so a change never chooses its own gate. `--base` reads
+  AGENTS.md and the rigor file at `git merge-base <base> HEAD`; `--since <sha>` reads them at that
+  sha. `--files -` (planning, no diff yet) and an explicit `--config <path>` read the working tree.
+- A change to the gate is critical, with a `config` reason: one that touches the base's rigor file,
+  or adds or removes a `**Rigor:**` line in AGENTS.md.
+- First adoption: when the base has no Rigor line, or lacks the file it names, the working tree's
+  configuration is read with a warning, and the change is critical too. The fallback never lowers
+  the tier.
+- Every unknown state prints `critical`: no Rigor line, a missing or invalid file, a Rigor path
+  outside the repository, or a git error. That is how flow validated before tiers existed, so an
+  error never lowers the bar.
 - `/flow:lfg --rigor <tier>` raises the tier. A lower tier needs `--why`, and the reason goes into the
   PR body. An orchestrator never lowers the tier.
 

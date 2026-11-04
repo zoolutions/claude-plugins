@@ -156,6 +156,151 @@ class RigorTest < Minitest::Test
     assert_equal "light", classify(config: File.join(@dir, ".github/review-rigor.yml")).tier
   end
 
+  # --- the configuration comes from the base, so a change cannot pick its gate
+
+  LOOSE = "version: 1\ndefault: light\nlight:\n  paths: [\"**\"]\n"
+
+  def config_reasons(result)
+    result.reasons.select { |r| r[:kind] == "config" }
+  end
+
+  def test_a_repointed_rigor_line_still_reads_the_base_file
+    configure
+    write(".github/loose.yml", LOOSE)
+    write("AGENTS.md", AGENTS.sub(".github/review-rigor.yml", ".github/loose.yml"))
+    write("app/services/payments/charge.rb", "class Charge\n  def call; end\nend\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal ".github/review-rigor.yml", result.config
+    assert_equal "standard", result.default
+    assert(result.reasons.any? { |r| r[:kind] == "path" && r[:match] == "app/services/payments/" })
+    assert_includes config_reasons(result), { tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }
+  end
+
+  def test_an_edit_to_the_rigor_file_is_critical
+    configure
+    write(".github/review-rigor.yml", CONFIG.sub("default: standard", "default: light"))
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal "standard", result.default
+    assert_equal [{ tier: "critical", kind: "config", match: "rigor file", file: ".github/review-rigor.yml" }], config_reasons(result)
+  end
+
+  def test_a_deleted_rigor_file_is_critical
+    configure
+    git("rm", "-q", ".github/review-rigor.yml")
+    assert_equal "critical", classify.tier
+  end
+
+  def test_an_edit_to_the_rigor_line_is_critical
+    configure
+    write("AGENTS.md", AGENTS.sub("`.github/review-rigor.yml`", ".github/review-rigor.yml"))
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }], config_reasons(result)
+  end
+
+  def test_removing_the_rigor_line_is_critical
+    configure
+    write("AGENTS.md", AGENTS.sub("- **Rigor:** `.github/review-rigor.yml`\n", ""))
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal "standard", result.default
+    assert_equal [{ tier: "critical", kind: "config", match: "Rigor line", file: "AGENTS.md" }], config_reasons(result)
+  end
+
+  def test_an_unrelated_agents_md_edit_is_not_a_config_change
+    configure
+    write("AGENTS.md", "#{AGENTS}- **Base:** main\n")
+    result = classify
+    assert_equal "light", result.tier
+    assert_empty config_reasons(result)
+  end
+
+  def test_no_rigor_line_at_the_base_reads_the_working_tree_with_a_warning
+    configure(CONFIG, "# Project\n\n## Workflow\n\n- **Verify:** `bin/check`\n")
+    write("AGENTS.md", AGENTS)
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal ".github/review-rigor.yml", result.config
+    assert_equal "standard", result.default
+    assert_match(/no Rigor line in AGENTS\.md at \h+: reading the working tree/, result.warnings.join)
+    assert(config_reasons(result).any? { |r| r[:match] == "Rigor line" })
+
+    _, err, = Open3.capture3("ruby", script, "--base", "origin/main", chdir: @dir)
+    assert_match(/rigor\.rb: no Rigor line in AGENTS\.md at \h+/, err)
+  end
+
+  def test_a_rigor_file_missing_at_the_base_falls_back_without_lowering
+    configure(nil, AGENTS)
+    write(".github/review-rigor.yml", LOOSE)
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal "light", result.default
+    assert_match(/review-rigor\.yml is missing at \h+: reading the working tree/, result.warnings.join)
+    assert(config_reasons(result).any? { |r| r[:match] == "rigor file" })
+  end
+
+  def test_an_ignored_working_tree_rigor_file_never_lowers
+    write(".gitignore", ".github/review-rigor.yml\n")
+    configure(nil, AGENTS)
+    write(".github/review-rigor.yml", LOOSE)
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_equal "light", result.default
+    assert_includes config_reasons(result), { tier: "critical", kind: "config", match: "read from the working tree", file: ".github/review-rigor.yml" }
+  end
+
+  def test_a_rigor_line_naming_a_path_outside_the_repository_is_critical
+    configure(CONFIG, AGENTS.sub("`.github/review-rigor.yml`", "`../review-rigor.yml`"))
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_match(/outside the repository/, result.warnings.join)
+  end
+
+  def test_an_absolute_rigor_path_is_critical
+    configure(CONFIG, AGENTS.sub("`.github/review-rigor.yml`", "`#{File.join(@dir, '.github/review-rigor.yml')}`"))
+    write("docs/guide.md", "changed\n")
+    result = classify
+    assert_equal "critical", result.tier
+    assert_match(/outside the repository/, result.warnings.join)
+  end
+
+  def test_a_root_below_the_toplevel_reads_its_own_agents_md_at_the_base
+    write("pkg/AGENTS.md", AGENTS.sub(".github/review-rigor.yml", "rigor.yml"))
+    write("pkg/rigor.yml", CONFIG)
+    commit("pkg")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+    write("pkg/rigor.yml", LOOSE)
+    result = classify(root: File.join(@dir, "pkg"))
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "rigor file", file: "pkg/rigor.yml" }], config_reasons(result)
+  end
+
+  def test_planned_files_still_read_the_working_tree
+    configure
+    write(".github/review-rigor.yml", "version: 1\ndefault: standard\ncritical:\n  paths: [\"docs/**\"]\n")
+    result = classify(files: ["docs/x.md"])
+    assert_equal "critical", result.tier
+    assert_empty config_reasons(result)
+  end
+
+  def test_an_explicit_config_is_read_from_the_working_tree
+    configure
+    write(".github/review-rigor.yml", "version: 1\ndefault: light\n")
+    write("spec/user_spec.rb", "describe User do\nend\n")
+    result = classify(config: File.join(@dir, ".github/review-rigor.yml"))
+    assert_equal "light", result.tier
+    assert_empty config_reasons(result)
+  end
+
   # --- path rules ------------------------------------------------------------
 
   def test_an_empty_change_is_the_default
@@ -472,6 +617,30 @@ class RigorTest < Minitest::Test
     result = classify(since: "deadbeef")
     assert_equal "critical", result.tier
     assert_match(/deadbeef/, result.warnings.join)
+  end
+
+  def test_since_reads_the_configuration_at_the_validated_sha
+    configure
+    write(".github/review-rigor.yml", "version: 1\ndefault: standard\ncritical:\n  paths: [\"docs/**\"]\n")
+    commit("docs are critical now")
+    sha = git("rev-parse", "HEAD").strip
+    write("docs/guide.md", "changed\n")
+    git("add", "docs/guide.md")
+    git("commit", "-q", "-m", "docs")
+    write(".github/review-rigor.yml", CONFIG)
+    result = classify(since: sha)
+    assert_equal "critical", result.tier
+    assert(result.reasons.any? { |r| r[:kind] == "path" && r[:match] == "docs/**" && r[:tier] == "critical" })
+    assert_empty config_reasons(result)
+  end
+
+  def test_since_an_edit_to_the_rigor_file_is_critical
+    sha = validated_sha
+    write(".github/review-rigor.yml", CONFIG.sub("default: standard", "default: light"))
+    commit("loosen")
+    result = classify(since: sha)
+    assert_equal "critical", result.tier
+    assert_equal [{ tier: "critical", kind: "config", match: "rigor file", file: ".github/review-rigor.yml" }], config_reasons(result)
   end
 
   def test_since_on_the_command_line

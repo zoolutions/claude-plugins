@@ -160,6 +160,8 @@ keeps its lower tier only while the new tier is no higher than the one it was lo
   - A signal added inside a light path still counts.
   - A skill or config file in Markdown counts unless the rigor file lists it as light. Without a
     rigor file, everything counts.
+  - The rigor file and the Rigor line are read at that sha, not from the working tree. A commit that
+    touches either is critical.
 - There is no `Validator:` line, for any reason: the tier rose from light, the PR predates tiers,
   or someone opened it by hand.
 

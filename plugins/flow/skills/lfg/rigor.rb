@@ -43,10 +43,21 @@
 # `{a,b}` alternates, and `dir/` or `dir/**` means everything under dir.
 # Renames match on both paths; deleted files match too. Signals and labels only
 # ever raise a change.
+#
+# Where the configuration comes from: --base reads AGENTS.md and the rigor file
+# at the merge base, --since at <sha> (`git cat-file`), so a change never
+# chooses its own gate. A change that touches that rigor file, or adds or
+# removes a `**Rigor:**` line in that AGENTS.md, is critical (a `config`
+# reason). When the base has no Rigor line, or lacks the file it names (first
+# adoption), the working tree's configuration is read with a warning and the
+# change is critical too: a fallback never lowers the bar. A Rigor path that is
+# absolute or leaves the repository is critical. --files and an explicit
+# --config read the working tree, as before.
 
 require "json"
 require "open3"
 require "optparse"
+require "pathname"
 require "yaml"
 
 module FlowRigor
@@ -56,11 +67,17 @@ module FlowRigor
   SECTION_KEYS = %w[paths signals labels].freeze
   MAX_UNTRACKED_BYTES = 1_000_000
   SHOWN = 2
+  RIGOR_LINE = /\A\s*[-*]\s+\*\*Rigor:\*\*\s*`?([^`\s]+)`?/.freeze
+  RIGOR_EDIT = /\*\*Rigor:\*\*/.freeze
 
   class ConfigError < StandardError; end
   class GitError < StandardError; end
 
-  Change = Struct.new(:path, :old_path, :added, :unscanned)
+  Change = Struct.new(:path, :old_path, :added, :unscanned, :removed)
+  # What a change must not touch: the rigor file paths and the AGENTS.md whose
+  # Rigor line was read (toplevel-relative), and the working-tree file read in
+  # a fallback.
+  Guard = Struct.new(:paths, :agents, :fallback)
   SignalRule = Struct.new(:source, :regexp, :scope)
   Result = Struct.new(:tier, :default, :config, :reasons, :warnings)
 
@@ -71,27 +88,27 @@ module FlowRigor
   # labels have not changed, so neither counts; no commits at all is light.
   def classify(root:, base: "origin/main", files: nil, labels: [], config: nil, since: nil)
     warnings = []
-    config_path = config || config_path_from_agents(root)
-    unless config_path
-      raise ConfigError, "no Rigor line in AGENTS.md → ## Workflow"
-    end
-
-    rules = load_config(File.expand_path(config_path, root))
-    changes =
-      if files
-        warnings << "signals not checked: planned files have no diff yet"
-        files.map { |path| Change.new(path, nil, []) }
-      elsif since
-        collect_commits(root, since)
+    guard = nil
+    if files
+      config_path, rules = working_tree_config(root, config)
+      warnings << "signals not checked: planned files have no diff yet"
+      changes = files.map { |path| Change.new(path, nil, []) }
+    else
+      top = git(root, "rev-parse", "--show-toplevel").strip
+      ref = since ? resolve_commit(top, since) : git(top, "merge-base", base, "HEAD").strip
+      if config
+        config_path, rules = working_tree_config(root, config)
       else
-        collect_changes(root, base)
+        config_path, rules, guard = config_at(root, top, ref, warnings)
       end
+      changes = since ? collect_commits(top, ref) : collect_changes(top, ref)
+    end
     if since && changes.empty?
       return Result.new("light", rules[:default], config_path,
                         [{ tier: "light", kind: "none", match: "no commits of this PR since #{since}", file: nil }], warnings)
     end
 
-    reasons = reasons_for(rules, changes, since ? [] : labels)
+    reasons = reasons_for(rules, changes, since ? [] : labels) + config_reasons(guard, changes)
     tier = reasons.map { |reason| TIERS.index(reason[:tier]) }.max
     Result.new(TIERS[tier], rules[:default], config_path, reasons, warnings)
   rescue StandardError => e
@@ -109,24 +126,85 @@ module FlowRigor
     agents = File.join(root, "AGENTS.md")
     return nil unless File.file?(agents)
 
+    rigor_line(File.read(agents).force_encoding(Encoding::UTF_8).scrub)
+  end
+
+  def rigor_line(text)
     in_workflow = false
-    File.foreach(agents) do |line|
+    text.each_line do |line|
       if line.start_with?("## ")
         in_workflow = line.strip.casecmp?("## Workflow")
         next
       end
       next unless in_workflow
 
-      found = line[/\A\s*[-*]\s+\*\*Rigor:\*\*\s*`?([^`\s]+)`?/, 1]
+      found = line[RIGOR_LINE, 1]
       return found if found
     end
     nil
   end
 
+  # --files and an explicit --config: the working tree, as before tiers had a base.
+  def working_tree_config(root, config)
+    config_path = config || config_path_from_agents(root)
+    raise ConfigError, "no Rigor line in AGENTS.md → ## Workflow" unless config_path
+
+    [config_path, load_config(File.expand_path(config_path, root))]
+  end
+
+  # The configuration at `ref` (the merge base, or the --since sha). Without a
+  # Rigor line there, or without the file it names, the working tree's is read
+  # and the guard marks it a fallback, which classifies as critical. A git
+  # failure raises, and so prints critical; only a missing blob falls back.
+  def config_at(root, top, ref, warnings)
+    prefix = git(root, "rev-parse", "--show-prefix").strip
+    agents = repo_path(prefix, "AGENTS.md")
+    short = ref[0, 12]
+    agents_text = blob(top, ref, agents)
+    line = agents_text && rigor_line(agents_text)
+    if line
+      rel = repo_path(prefix, line)
+      text = blob(top, ref, rel)
+      return [line, parse_config(text, "#{line} at #{short}"), Guard.new([rel], agents, nil)] if text
+
+      warnings << "#{line} is missing at #{short}: reading the working tree's configuration → #{FALLBACK}"
+    else
+      warnings << "no Rigor line in AGENTS.md at #{short}: reading the working tree's configuration → #{FALLBACK}"
+    end
+
+    config_path, rules = working_tree_config(root, nil)
+    fallback = repo_path(prefix, config_path)
+    [config_path, rules, Guard.new([fallback], agents, fallback)]
+  end
+
+  # A Rigor path as git names it: toplevel-relative, from the root's prefix.
+  # An absolute path, or one that leaves the repository, has no blob at a sha.
+  def repo_path(prefix, path)
+    raise ConfigError, "#{path}: outside the repository" if path.start_with?("/")
+
+    joined = Pathname.new("#{prefix}#{path}").cleanpath.to_s
+    raise ConfigError, "#{path}: outside the repository" if joined == ".." || joined.start_with?("../")
+
+    joined
+  end
+
+  # The text of `path` at `ref`, or nil when there is no file there.
+  def blob(top, ref, path)
+    _, _, status = Open3.capture3("git", "-C", top, "cat-file", "-e", "#{ref}:#{path}")
+    return nil unless status.success?
+    return nil unless git(top, "cat-file", "-t", "#{ref}:#{path}").strip == "blob"
+
+    git(top, "cat-file", "blob", "#{ref}:#{path}")
+  end
+
   def load_config(path)
     raise ConfigError, "#{path}: no such file" unless File.file?(path)
 
-    data = YAML.safe_load(File.read(path), permitted_classes: [], aliases: false)
+    parse_config(File.read(path), path)
+  end
+
+  def parse_config(text, path)
+    data = YAML.safe_load(text, permitted_classes: [], aliases: false)
     raise ConfigError, "#{path}: not a mapping" unless data.is_a?(Hash)
     raise ConfigError, "#{path}: version #{data['version'].inspect}, want 1" unless data["version"] == 1
     unless TIERS.include?(data["default"])
@@ -202,32 +280,37 @@ module FlowRigor
   # Paths are toplevel-relative, so every git call runs at the toplevel, even
   # when the caller's root is a subdirectory. A rename is diffed on both paths
   # with -M, so only the lines it really adds count.
-  def collect_changes(root, base)
-    top = git(root, "rev-parse", "--show-toplevel").strip
-    merge_base = git(top, "merge-base", base, "HEAD").strip
+  def collect_changes(top, merge_base)
     changes = name_status(git_paths(top, "diff", "-M", "--name-status", "-z", merge_base)).map do |path, old_path|
       paths = [old_path, path].compact
-      Change.new(path, old_path, added_lines(git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", *paths)))
+      diff_change(path, old_path, git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", merge_base, "--", *paths))
     end
     name_list(git_paths(top, "ls-files", "--others", "--exclude-standard", "-z")).each do |path|
       lines, unscanned = untracked_lines(File.join(top, path))
-      changes << Change.new(path, nil, lines, unscanned)
+      changes << Change.new(path, nil, lines, unscanned, [])
     end
     changes.sort_by(&:path)
   end
 
-  # Each first-parent, non-merge commit since `since`, diffed against its own
+  def resolve_commit(top, since)
+    git(top, "rev-parse", "--verify", "--quiet", "#{since}^{commit}").strip
+  end
+
+  # Each first-parent, non-merge commit since `sha`, diffed against its own
   # parent: exactly what the PR wrote, never what a merge of main brought in.
-  def collect_commits(root, since)
-    top = git(root, "rev-parse", "--show-toplevel").strip
-    sha = git(top, "rev-parse", "--verify", "--quiet", "#{since}^{commit}").strip
+  def collect_commits(top, sha)
     commits = git(top, "rev-list", "--first-parent", "--no-merges", "#{sha}..HEAD").split
     commits.flat_map do |commit|
       name_status(git_paths(top, "diff", "-M", "--name-status", "-z", "#{commit}^", commit)).map do |path, old_path|
         paths = [old_path, path].compact
-        Change.new(path, old_path, added_lines(git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", "#{commit}^", commit, "--", *paths)))
+        diff_change(path, old_path, git(top, "diff", "-M", "-U0", "--no-color", "--no-ext-diff", "#{commit}^", commit, "--", *paths))
       end
     end.sort_by(&:path)
+  end
+
+  def diff_change(path, old_path, diff)
+    added, removed = diff_lines(diff)
+    Change.new(path, old_path, added, false, removed)
   end
 
   # A path that is not UTF-8 cannot be matched or diffed reliably: critical.
@@ -264,18 +347,23 @@ module FlowRigor
   # that, a `+` line is added content, even one that reads `+++ b/other`. With
   # -U0 every content line starts with `+` or `-`, so a line that starts with
   # `diff --git` is always the next section (a rename below the similarity
-  # threshold prints two).
-  def added_lines(diff)
+  # threshold prints two). Returns [added, removed].
+  def diff_lines(diff)
     in_hunk = false
-    diff.each_line.each_with_object([]) do |line, added|
+    added = []
+    removed = []
+    diff.each_line do |line|
       if line.start_with?("diff --git ")
         in_hunk = false
       elsif line.start_with?("@@")
         in_hunk = true
       elsif in_hunk && line.start_with?("+")
         added << line[1..-1].chomp
+      elsif in_hunk && line.start_with?("-")
+        removed << line[1..-1].chomp
       end
     end
+    [added, removed]
   end
 
   # A new text file is searched up to MAX_UNTRACKED_BYTES. A larger one is not
@@ -325,6 +413,28 @@ module FlowRigor
     end
     reasons << { tier: rules[:default], kind: "default", match: "no changed files", file: nil } if changes.empty?
     reasons
+  end
+
+  # A change to the gate itself is reviewed hardest: the rigor file that was
+  # read (either path of a rename, or a deletion), an added or removed Rigor
+  # line in that AGENTS.md, or a configuration read from the working tree.
+  def config_reasons(guard, changes)
+    return [] unless guard
+
+    reasons = []
+    if guard.fallback
+      reasons << { tier: FALLBACK, kind: "config", match: "read from the working tree", file: guard.fallback }
+    end
+    changes.each do |change|
+      candidates = [change.path, change.old_path].compact
+      hit = guard.paths.find { |path| candidates.include?(path) }
+      reasons << { tier: FALLBACK, kind: "config", match: "rigor file", file: hit } if hit
+      next unless candidates.include?(guard.agents)
+      next unless (change.added + Array(change.removed)).any? { |line| RIGOR_EDIT.match?(line) }
+
+      reasons << { tier: FALLBACK, kind: "config", match: "Rigor line", file: guard.agents }
+    end
+    reasons.uniq
   end
 
   def rules_by_tier(rules)
