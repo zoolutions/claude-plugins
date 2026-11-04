@@ -155,11 +155,15 @@ keeps its lower tier only while the new tier is no higher than the one it was lo
   or `critical`. The script diffs each of the PR's own first-parent, non-merge commits since that sha
   against its parent. It reads both paths of a rename and checks signals on added lines, and it
   prints `light` when there are no such commits.
-  - A merge of main is not this PR's work, so it never counts.
+  - A merge of main is not this PR's work, so it never counts. One exception: when the merge
+    changed the Rigor line, the next commit of the PR's own is critical, because the gate changed
+    under the validated sha.
   - A change the repository calls light, such as its docs, never triggers a run.
   - A signal added inside a light path still counts.
   - A skill or config file in Markdown counts unless the rigor file lists it as light. Without a
     rigor file, everything counts.
+  - The rigor file and the Rigor line are read at that sha, not from the working tree. A commit that
+    touches either is critical.
 - There is no `Validator:` line, for any reason: the tier rose from light, the PR predates tiers,
   or someone opened it by hand.
 
@@ -174,10 +178,13 @@ issue, the acceptance criteria from the PR body and the tier, as follows:
 
 After each run, write the new `Validator: <verdict> at <short sha>` line into the PR body.
 
-A re-run after a BLOCK is always due, on standard too. The once-per-invocation limit counts only
-runs that new work triggers, never the run that checks a BLOCK fix. After three answers that each made you change code (`/flow:lfg` 6.5),
+A re-run after a BLOCK is always due, on standard too, including after a BLOCK you rebutted
+without a code change. The once-per-invocation limit counts only
+runs that new work triggers, never the run that checks a BLOCK fix. After three answers that each
+made you change code, or after three BLOCKs in a row, whichever comes first (`/flow:lfg` 6.5),
 stop: report needs-user in default mode, or park in `automerge` mode (2f) with
-`validator still blocks <short sha>`.
+`validator still blocks <short sha>` when its last answer was a BLOCK, or
+`validator did not converge <short sha>` when it was a PASS WITH NOTES.
 
 Then the final numbers: `/flow:effort <PR> --write` (Skill tool) refreshes the body's
 `## Effort & cost`. Its **Where it went** line is the account of the session that did the work: if

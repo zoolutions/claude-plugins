@@ -88,7 +88,9 @@ edit, at the top of `implementation-notes.md`. `effort.rb` reads these row label
 - **Active time** is agent time as counted above, not a person's day. **Validation passes:**
   `flow:fable-validator` runs per the rigor tier (`/flow:lfg` Phase 6.5): light 0; standard 1, plus
   one per BLOCK; critical until it passes (a clean change: 1). Either stops after three answers that
-  each forced a code change, so 4 is the most. **Review rounds:** the first review
+  each forced a code change, so 4 is the most to estimate. Three BLOCKs in a row also stop it, so a
+  disputed BLOCK cannot loop. Rebutted BLOCKs between fixed notes can take a run past 4: that is a
+  deviation to explain, not something to estimate. **Review rounds:** the first review
   counts. **Files:** the final diff, specs and docs included.
 - **Calibrate** before estimating, from what recent PRs cost against their estimates:
 

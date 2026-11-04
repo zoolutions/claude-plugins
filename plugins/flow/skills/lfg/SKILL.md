@@ -57,8 +57,8 @@ never worked around silently: `/flow:plan upstream <owner/repo> <limitation>`, l
 
 **Rigor.** Classify the planned files:
 `printf '%s\n' <planned paths> | ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --files - --summary`.
-It prints `Rigor: <tier> — <why>` from the rigor file that Workflow → Rigor names, and `critical`
-when there is none. Log the line in `implementation-notes.md`, so a critical change is known before
+It prints `Rigor: <tier> — <why>` from the rigor file that Workflow → Rigor names in the working
+tree (there is no diff yet), and `critical` when there is none. Log the line in `implementation-notes.md`, so a critical change is known before
 the first edit. Phase 6.5 decides on the real diff.
 
 **Estimate.** The plan has an `## Estimate`: that is what this PR is measured against. None (a plan
@@ -98,8 +98,12 @@ the tests prove it?
 **The tier.** Run
 `ruby ${CLAUDE_PLUGIN_ROOT}/skills/lfg/rigor.rb --base origin/main --summary --labels <the issue's labels, comma-separated>`.
 It prints `Rigor: <tier> — <why>`. The tier is the highest that any changed path, added-line
-signal or label reaches in the rigor file that Workflow → Rigor names. Every unknown state prints
-`critical`: no Rigor line, a bad rigor file, or a git error.
+signal or label reaches in the rigor file that Workflow → Rigor names, both read at the merge base,
+so a change never chooses its own gate. A change that touches that rigor file, adds or removes a
+Rigor line in AGENTS.md, or leaves a Workflow Rigor line naming another file or none, is critical
+(`config`). When the base has no Rigor line or lacks its file
+(first adoption), the working tree's is read, with a warning, and the change is critical too. Every
+unknown state prints `critical`: no Rigor line, a bad rigor file, or a git error.
 
 **Overrides.**
 - `--rigor <tier>` in the arguments raises the tier.
@@ -119,12 +123,16 @@ own notes costs as much and rarely finds anything new, so only critical changes 
 **Running it, standard and critical.**
 - Spawn `flow:fable-validator` with the issue, the acceptance criteria, the base branch and the
   tier.
-- On either tier, BLOCK → fix every blocker (failing test first) and run it again.
+- On either tier, BLOCK → fix every blocker (failing test first) and run it again. A blocker you
+  dispute gets a one-line rebuttal in the PR body instead of a fix, and the validator runs again.
 - The loop ends on PASS. It also ends on a PASS WITH NOTES whose notes you rebutted without changing
   code, which on critical means every note was rebutted.
-- Stop after three answers that each made you change code:
-  - on standard, that means three BLOCKs;
-  - on critical, any mix of BLOCKs and PASS WITH NOTES whose notes you fixed.
+- Stop after three answers that each made you change code, or after three BLOCKs in a row,
+  whichever comes first:
+  - an answer that made you change code is a BLOCK you fixed or, on critical, a PASS WITH NOTES
+    whose notes you fixed;
+  - a BLOCK answered without a code change, such as a rebuttal, still counts toward three in a row,
+    so a disputed BLOCK cannot loop.
 
   Then ask (interactive) or park (orchestrator).
 - On standard and critical, no PR before PASS or PASS WITH NOTES with every note fixed or rebutted.

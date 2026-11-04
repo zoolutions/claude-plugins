@@ -59,8 +59,8 @@ and `/flow:finish-prs` 2e then spend validation by tier:
 | Tier | `flow:fable-validator` |
 |---|---|
 | light | none: Workflow → Verify and the review bot are the gate |
-| standard | one pass for a clean verdict. A BLOCK is re-validated. Notes are fixed or rebutted and never re-run. The validator does not call the advisor |
-| critical | the full loop: blockers and code-changing notes are fixed and re-validated. Notes rebutted without a code change end the loop. Stops after three code-changing answers |
+| standard | one pass for a clean verdict. A BLOCK is re-validated. Notes are fixed or rebutted and never re-run. Stops after three BLOCKs in a row. The validator does not call the advisor |
+| critical | the full loop: blockers and code-changing notes are fixed and re-validated. Notes rebutted without a code change end the loop. Stops after three code-changing answers or three BLOCKs in a row, whichever comes first |
 
 ```yaml
 version: 1
@@ -82,8 +82,18 @@ The rules:
 - Signals and labels only ever raise the tier.
 - Globs are `File.fnmatch` with `FNM_PATHNAME | FNM_EXTGLOB | FNM_DOTMATCH`. `dir/` and `dir/**` mean
   everything under `dir`.
-- Every unknown state prints `critical`: no Rigor line, a missing or invalid file, or a git error.
-  That is how flow validated before tiers existed, so an error never lowers the bar.
+- The configuration comes from the base, so a change never chooses its own gate. `--base` reads
+  AGENTS.md and the rigor file at `git merge-base <base> HEAD`; `--since <sha>` reads them at that
+  sha. `--files -` (planning, no diff yet) and an explicit `--config <path>` read the working tree.
+- A change to the gate is critical, with a `config` reason: one that touches the base's rigor file,
+  adds or removes a `**Rigor:**` line in AGENTS.md, or leaves a Workflow Rigor line that names
+  another file or none (say, after renaming the heading above it).
+- First adoption: when the base has no Rigor line, or lacks the file it names, the working tree's
+  configuration is read with a warning, and the change is critical too. The fallback never lowers
+  the tier.
+- Every unknown state prints `critical`: no Rigor line, a missing or invalid file, a Rigor path
+  outside the repository, or a git error. That is how flow validated before tiers existed, so an
+  error never lowers the bar.
 - `/flow:lfg --rigor <tier>` raises the tier. A lower tier needs `--why`, and the reason goes into the
   PR body. An orchestrator never lowers the tier.
 
