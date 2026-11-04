@@ -1,0 +1,29 @@
+plugins/flow/skills/finish-prs/SKILL.md
+  s_6cb43d5374992e::t_383e6f00cbf033 170-174
+  s_6cb43d5374992e::t_af94b1ec532201 133-136
+  s_6cb43d5374992e::t_0773f66f304325 156-157
+test/rigor_test.rb
+  s_6cb43d5374992e::t_4bb86f94348c4a 278-324
+  s_6cb43d5374992e::t_8d98ba4b445494 403
+plugins/flow/skills/lfg/rigor.rb
+  s_6cb43d5374992e::t_ae275222c915b5 172-173,175,178,182-185,188-189,191,197-211,227-228,230-235,240-241,243,245-246
+  s_6cb43d5374992e::t_c1c43b61687a62 361-367,369,372-378
+plugins/flow/skills/lfg/SKILL.md
+  s_6cb43d5374992e::t_b6061339b7a762 123-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "caa90d57dbb755d581809dfbff32272bae6e1fe8",
+  "prompts": {},
+  "sessions": {
+    "s_6cb43d5374992e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0bd9917-372c-4724-ae9e-5fefced10f62",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
