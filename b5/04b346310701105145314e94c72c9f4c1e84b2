@@ -1,0 +1,19 @@
+plugins/flow/README.md
+  s_02115d9911567e::t_44281feedc9846 65-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b504b346310701105145314e94c72c9f4c1e84b2",
+  "prompts": {},
+  "sessions": {
+    "s_02115d9911567e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "75202bc5-23fa-458c-8008-f65364d76ef9",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
