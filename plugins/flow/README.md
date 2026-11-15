@@ -21,6 +21,24 @@ claude plugin install flow@zoolutions
 | `/flow:review-pr <pr> [post]` | Bugs and rule breaches, confidence-scored |
 | `/flow:debug-flaky <run \| pr \| test>` | Root-cause an intermittent failure; never a retry or sleep |
 
+## Models
+
+Each skill pins the model its judgment needs: Fable plans (`/flow:plan`) and validates
+(`flow:fable-validator`), Opus orchestrates and implements, Sonnet runs the narrower steps. A
+**mechanical read** goes to an `Agent` with `model: haiku`: a read whose answer is a list, an excerpt,
+a count or a status, such as the failing lines of a CI log, every file that names a symbol, the run
+ids of a PR. The brief asks for the text verbatim, with paths, lines and ids, and no judgment.
+
+A read the model must judge stays with that model: code it is about to change (Claude Code's Edit
+refuses a file the session has not read), a diff under review, a failure being diagnosed. A summary
+drops the one detail a review turns on, so the judge reads the source, and an excerpt that leaves the
+question open sends it back to the source too.
+
+Skills that delegate this way: `/flow:lfg` Phase 2 and `/flow:plan` Phase 1 (broad sweeps),
+`/flow:github-review-failures` Phase 2 (CI logs), `/flow:debug-flaky` 1–2 (run logs).
+`/flow:review-pr` also scores its findings on `haiku`, but that is judgment, not a read: a cheap,
+independent second opinion that can only drop a finding, never add one.
+
 ## The `## Workflow` section
 
 Every fact the skills act on comes from the repository's `AGENTS.md`, one line per label. A missing

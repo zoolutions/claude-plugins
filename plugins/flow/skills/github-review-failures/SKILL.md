@@ -37,8 +37,22 @@ Nothing failing and no current eviction report → report and stop.
 
 ## Phase 2: Logs
 
-`gh run view <RUN_ID> --job <JOB_ID> --log-failed`; if that is unclear, the full `--log` for the job.
-Spec failures: also the run's artifacts (`gh api "repos/{owner}/{repo}/actions/runs/<RUN_ID>/artifacts" --jq '.artifacts[].name'`).
+A failed job's log is thousands of lines around a few that matter: a fetch, not a judgment
+(README → Models). One `Agent` per failed job (`model: haiku`), all in one message, each briefed:
+
+> Run `gh run view <RUN_ID> --job <JOB_ID> --log-failed` (the full `--log` only if that is empty).
+> Return, copied verbatim with no diagnosis: the failing step's name; each failure's test id or
+> `file:line`, error class and message; up to 15 backtrace lines per failure, the repository's own
+> frames first, and when you cut a trace say so (`cut at 15 of <n> lines`); every line naming a
+> seed, a time zone, a missing tool or a skip count. Say "none" for what the log does not have.
+> Never summarise a line you can copy.
+
+Spec failures: also the run's artifacts, once per run, yourself
+(`gh api "repos/{owner}/{repo}/actions/runs/<RUN_ID>/artifacts" --jq '.artifacts[].name'`).
+
+Read that job's log yourself when the excerpt has no error line, says it cut a trace whose failing
+frame it does not show, or otherwise leaves the failure unclear. Agent tool unavailable → read the
+logs yourself.
 
 ## Phase 3: Diagnose
 
