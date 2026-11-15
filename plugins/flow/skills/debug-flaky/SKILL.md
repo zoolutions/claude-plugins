@@ -42,8 +42,10 @@ own re-run of the failures, if any; the commit; the noise before the failure (st
 1. Run the failing tests 3× on the run's commit (fast loop, the seed). Red every time → a regression:
    `git log` the test **and** the code under test; often two PRs green apart collide together.
 2. Did the test **run** on the builds you believe were green? A split suite can mis-schedule files; a
-   missing tool turns tests into skips. Grep the green run's log for the file and read the skip count
-(a `haiku` agent, as in 1, returning the matching lines verbatim).
+   missing tool turns tests into skips. Grep the green run's log for the file and read the skip count:
+a `haiku` agent on the green run's job that ran the file's group (`gh run view <green run> --job <id>
+--log`; a green job has no `--log-failed`), returning the matching lines and the summary line
+verbatim.
 3. Main red on the same code (Workflow → Main health)? It predates this branch; still fixed (step 7).
 
 Any hit is the answer: say plainly it was never a flake, and fix the regression.

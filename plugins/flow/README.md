@@ -35,8 +35,9 @@ drops the one detail a review turns on, so the judge reads the source, and an ex
 question open sends it back to the source too.
 
 Skills that delegate this way: `/flow:lfg` Phase 2 and `/flow:plan` Phase 1 (broad sweeps),
-`/flow:github-review-failures` Phase 2 (CI logs), `/flow:debug-flaky` 1–2 (run logs),
-`/flow:review-pr` (confidence scoring).
+`/flow:github-review-failures` Phase 2 (CI logs), `/flow:debug-flaky` 1–2 (run logs).
+`/flow:review-pr` also scores its findings on `haiku`, but that is judgment, not a read: a cheap,
+independent second opinion that can only drop a finding, never add one.
 
 ## The `## Workflow` section
 
