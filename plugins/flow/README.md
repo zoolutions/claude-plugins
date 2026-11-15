@@ -62,6 +62,12 @@ and `/flow:finish-prs` 2e then spend validation by tier:
 | standard | one pass for a clean verdict. A BLOCK is re-validated. Notes are fixed or rebutted and never re-run. Stops after three BLOCKs in a row. The validator does not call the advisor |
 | critical | the full loop: blockers and code-changing notes are fixed and re-validated. Notes rebutted without a code change end the loop. Stops after three code-changing answers or three BLOCKs in a row, whichever comes first |
 
+On both tiers the validator reviews every changed file, never a sample; on critical it reads each
+one whole and follows every caller and every other writer of what changed. A repository that keeps
+review rules in a root `REVIEW.md` (severity, lenses, a do-not-file list, and the rule files it
+names) gets them applied too: read at the merge base, so a change cannot rewrite its own rules, and
+reported at their severity.
+
 ```yaml
 version: 1
 default: standard                    # a file no rule matches gets this tier
