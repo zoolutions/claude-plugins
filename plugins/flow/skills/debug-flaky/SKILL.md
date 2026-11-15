@@ -27,7 +27,8 @@ two runs are isolated), **CI** (jobs, where the full suite runs, the failure rep
 ## 1. Evidence
 
 `gh run view <run> --json jobs,headBranch,headSha,event`, then `--job <id> --log-failed` (`--log`
-when too thin). Extract: the failing tests; the seed or order key; every randomised value the suite
+when too thin), through one `Agent` per failed job (`model: haiku`, README → Models), briefed to copy
+the lines below verbatim, say "none" for each it cannot find, and diagnose nothing. Extract: the failing tests; the seed or order key; every randomised value the suite
 prints (time zone, locale, port); the job's file list when CI splits the suite; the matrix cell; CI's
 own re-run of the failures, if any; the commit; the noise before the failure (start-up, pulls, network).
 
@@ -41,7 +42,8 @@ own re-run of the failures, if any; the commit; the noise before the failure (st
 1. Run the failing tests 3× on the run's commit (fast loop, the seed). Red every time → a regression:
    `git log` the test **and** the code under test; often two PRs green apart collide together.
 2. Did the test **run** on the builds you believe were green? A split suite can mis-schedule files; a
-   missing tool turns tests into skips. Grep the green run's log for the file; read the skip count.
+   missing tool turns tests into skips. Grep the green run's log for the file and read the skip count
+(a `haiku` agent, as in 1, returning the matching lines verbatim).
 3. Main red on the same code (Workflow → Main health)? It predates this branch; still fixed (step 7).
 
 Any hit is the answer: say plainly it was never a flake, and fix the regression.
