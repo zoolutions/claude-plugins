@@ -702,7 +702,7 @@ module FlowEffort
   def range_text(range, unit = "")
     return "—" if range.nil?
 
-    low, high = range.map { |n| n == n.round ? n.round : n }
+    low, high = range.map { |n| n.round(2) }.map { |n| n == n.round ? n.round : n }
     (low == high ? low.to_s : "#{low}–#{high}") + unit
   end
 

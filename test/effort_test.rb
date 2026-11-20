@@ -465,6 +465,12 @@ class EffortTest < Minitest::Test
     assert_equal [2.0, 4.0], FlowEffort.range_of("**2–4** h (min 2)", hours: true)
   end
 
+  def test_a_range_in_minutes_prints_in_rounded_hours
+    assert_equal "0.33–0.67 h", FlowEffort.range_text(FlowEffort.range_of("20–40 min", hours: true), " h")
+    assert_equal "0.75–1.5 h", FlowEffort.range_text(FlowEffort.range_of("45 min–1.5 h", hours: true), " h")
+    assert_equal "2–4 h", FlowEffort.range_text([2.0, 4.0], " h")
+  end
+
   def test_an_inverted_range_is_no_estimate
     assert_nil FlowEffort.range_of("2 h–30 min", hours: true)
     assert_nil FlowEffort.range_of("8–5")
