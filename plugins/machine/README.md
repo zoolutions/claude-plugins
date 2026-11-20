@@ -25,7 +25,7 @@ to parse it:
 |---|---|
 | `report [--json] [--older-than AGE]` | One line per finding: class, pid, age, working directory, command |
 | `reap (--auto \| --kill CLASS...) [--dry-run]` | SIGTERM to the process group, SIGKILL after 5 s; prints what it killed. `--auto`: `orphan` and `stale-wait` only |
-| `govern [--dry-run]` | Running test processes to background QoS (`taskpolicy -b`; Linux `renice 10` + `ionice -c3`), once per process |
+| `govern [--dry-run]` | Running test processes to background QoS (`taskpolicy -b`; Linux `renice 10` + `ionice -c3`), once per process; an exempt run stays at normal QoS |
 | `status` | One line for a SessionStart hook when there is something, nothing otherwise; exit 0, well under 300 ms |
 
 Classes and their rules: [`skills/reap/SKILL.md`](skills/reap/SKILL.md). Never touched: the calling
@@ -44,6 +44,30 @@ A pattern matches a process that runs it (`rspec`, `bundle exec rspec`, `python 
 that names it in an argument (`tail -f log/rspec.log`). `govern` remembers what it demoted in `~/.cache/machine/governed.json` (pid and start time; a reused
 pid is demoted again). A suite that runs too slowly in the background to pass its own timeouts goes
 back with `taskpolicy -B -p <pid>`, or leave its pattern out of the config.
+
+### Keeping one run at normal QoS
+
+A timing-sensitive run (a benchmark that measures short sleeps: background QoS coalesces timers, so
+`sleep(0.006)` can take 200 ms) opts out without narrowing `govern_patterns` for every other run, in
+either of two ways:
+
+- `govern_exempt` in the same `config.json`: patterns matched by the same rule, so
+  `"rspec --tag bench"` matches `bundle exec rspec --tag bench` but `"bench"` does not match
+  `rspec spec/bench`. Default `[]`.
+
+  ```json
+  { "govern_exempt": ["rspec --tag bench"] }
+  ```
+
+- The word `--machine-normal-qos` anywhere on the process's command line, with no config. A runner
+  that rejects an unknown argument (`rspec`, `pytest`) carries it in its process title instead, set
+  before the first measurement: Ruby `Process.setproctitle("#{$0} --machine-normal-qos")`, Python's
+  `setproctitle` package. `govern` reads the title `ps` shows.
+
+`govern --dry-run` prints `exempt <pid> <command>` for each. An exemption is per process: a browser
+the run starts is still demoted when it matches a pattern itself, unless it is exempt too. It does
+not undo an earlier demotion: a run that gains the word after `govern` saw it goes back with
+`taskpolicy -B -p <pid>` (Linux `renice -n 0 -p <pid>`).
 
 ## Wiring a machine
 
