@@ -84,7 +84,9 @@ edit, at the top of `implementation-notes.md`. `effort.rb` reads these row label
 ```
 
 - **Size** by active hours: XS < 0.5 · S 0.5–2 · M 2–4 · L 4–8 · XL ≥ 8 (split an XL plan).
-- **Ranges:** `2–4 h`, `1-2`, `1 to 3`, `~6`, `45 min`.
+- **Ranges:** `2–4 h`, `1-2`, `1 to 3`, `~6`, `45 min`. A time range may mix `min` and `h`
+  (`45 min–1.5 h`); a bound without a unit takes the other bound's (`30–90 min`). A range whose low
+  end is above its high end is read as no estimate.
 - **Active time** is agent time as counted above, not a person's day. **Validation passes:**
   `flow:fable-validator` runs per the rigor tier (`/flow:lfg` Phase 6.5): light 0; standard 1, plus
   one per BLOCK; critical until it passes (a clean change: 1). Either stops after three answers that

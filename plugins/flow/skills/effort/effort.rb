@@ -454,14 +454,35 @@ module FlowEffort
     estimate.empty? ? nil : estimate
   end
 
-  # "2–4 h", "1 to 3", "6-10", "~2", "45 min" → [low, high].
-  def range_of(text, hours: false)
-    numbers = text.scan(/\d+(?:\.\d+)?/).map(&:to_f)
-    return nil if numbers.empty?
+  HOUR_UNIT = /hours?|hrs?|h/i
+  RANGE_UNIT = /minutes?|mins?|#{HOUR_UNIT}/i
+  # [[:space:]], not \s: a no-break space before the unit is still a space.
+  RANGE = /~?[[:space:]]*(\d+(?:\.\d+)?)(?:[[:space:]]*(#{RANGE_UNIT})\b)?
+           (?:[[:space:]]*(?:–|—|-|to)[[:space:]]*~?[[:space:]]*(\d+(?:\.\d+)?)(?:[[:space:]]*(#{RANGE_UNIT})\b)?)?/xi
 
-    high = text =~ /\d\s*(?:–|—|-|to)\s*~?\d/ ? numbers[1] : numbers[0]
-    scale = hours && text =~ /min/i && text !~ /\d\s*h\b|hour/i ? 1 / 60.0 : 1
-    [numbers[0] * scale, high * scale]
+  # "2–4 h", "1 to 3", "6-10", "~2", "45 min", "45 min–1.5 h" → [low, high].
+  # With hours: each bound in its own unit; a bound without one takes the
+  # other bound's (so "30–90 min" is minutes); when neither has one, minutes if
+  # the cell says min and no hour unit (as before), else hours.
+  # A range whose low end is above its high end is no estimate: nil.
+  def range_of(text, hours: false)
+    match = text.match(RANGE)
+    return nil unless match
+
+    low, low_unit, high, high_unit = match.captures
+    high ||= low
+    low_unit ||= high_unit || minutes_apart(text)
+    high_unit ||= low_unit
+    bounds = [[low, low_unit], [high, high_unit]].map do |number, unit|
+      hours && unit =~ /\Am/i ? number.to_f / 60 : number.to_f
+    end
+    bounds.first > bounds.last ? nil : bounds
+  end
+
+  # No unit right after either number ("45+ min", "**45** min"): minutes when
+  # the cell says min and names no hour unit anywhere.
+  def minutes_apart(text)
+    "min" if text =~ /\bmin/i && text !~ /\b(?:#{HOUR_UNIT})\b/i
   end
 
   def deviation(range, actual)
@@ -681,7 +702,7 @@ module FlowEffort
   def range_text(range, unit = "")
     return "—" if range.nil?
 
-    low, high = range.map { |n| n == n.round ? n.round : n }
+    low, high = range.map { |n| n.round(2) }.map { |n| n == n.round ? n.round : n }
     (low == high ? low.to_s : "#{low}–#{high}") + unit
   end
 
