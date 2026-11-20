@@ -1,0 +1,19 @@
+plugins/machine/skills/reap/machine.rb
+  s_f41c0e321fd926::t_d03bfd63a2a1b5 514-515
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "294a6e77170dfe13415d0fd61f8837d103683f4c",
+  "prompts": {},
+  "sessions": {
+    "s_f41c0e321fd926": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "412fa30d-6104-4070-a691-16b4bf4f1626",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
