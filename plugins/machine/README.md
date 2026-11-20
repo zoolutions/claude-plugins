@@ -66,14 +66,15 @@ either of two ways:
   set as early as the process can: Ruby `Process.setproctitle("#{$0} --machine-normal-qos")`,
   Python's `setproctitle` package. `govern` reads the title `ps` shows. A scheduled `govern` that
   runs before the title is set (during boot) has already demoted the process, so a run that sets
-  its title late either uses `govern_exempt` or restores itself before measuring (macOS
-  `setpriority(PRIO_DARWIN_PROCESS, 0, 0)`, Ruby `Process.setpriority(4, 0, 0)`).
+  its title late either uses `govern_exempt` or restores itself before measuring: on macOS
+  `taskpolicy -B -p <its own pid>` (Ruby `system("taskpolicy", "-B", "-p", Process.pid.to_s)`).
+  `setpriority(PRIO_DARWIN_PROCESS, 0, 0)` does not undo the `taskpolicy -b -p` that `govern` runs.
 
 `govern --dry-run` prints `exempt <pid> <command>` for each. An exemption is per process: a browser
 the run starts is still demoted when it matches a pattern itself, unless it is exempt too. It does
 not undo an earlier demotion, and `--dry-run` still prints `exempt` for a process demoted before it
 became exempt: on macOS it goes back with `taskpolicy -B -p <pid>`; on Linux lowering the nice value
-again needs root (`sudo renice -n 0 -p <pid>`, `sudo ionice -c2 -p <pid>`).
+again needs root (`sudo renice -n 0 -p <pid>`); `ionice -c2 -p <pid>` returns its I/O class.
 
 ## Wiring a machine
 
