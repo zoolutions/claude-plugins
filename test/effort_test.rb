@@ -449,7 +449,8 @@ class EffortTest < Minitest::Test
       "45 min–1.5 h" => [0.75, 1.5], "45 min to 1.5 h" => [0.75, 1.5], "~45 min – ~1.5 h" => [0.75, 1.5],
       "30–90 min" => [0.5, 1.5], "2–4 h" => [2.0, 4.0], "45 min" => [0.75, 0.75], "~6" => [6.0, 6.0],
       "1–2 hrs" => [1.0, 2.0], "45 min–90" => [0.75, 1.5], "90 minutes–2 hours" => [1.5, 2.0],
-      "20–40 min (1 h if CI is slow)" => [1 / 3.0, 2 / 3.0]
+      "20–40 min (1 h if CI is slow)" => [1 / 3.0, 2 / 3.0],
+      "45\u00a0min" => [0.75, 0.75], "30–90\u202fmin" => [0.5, 1.5], "45\u00a0min–1.5\u00a0h" => [0.75, 1.5]
     }.each do |text, expected|
       actual = FlowEffort.range_of(text, hours: true)
       assert_equal expected.map { |v| v.round(6) }, actual.map { |v| v.round(6) }, text

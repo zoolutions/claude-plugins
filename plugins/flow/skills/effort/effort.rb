@@ -455,8 +455,9 @@ module FlowEffort
   end
 
   RANGE_UNIT = /minutes?|mins?|hours?|hrs?|h/i
-  RANGE = /~?\s*(\d+(?:\.\d+)?)(?:\s*(#{RANGE_UNIT})\b)?
-           (?:\s*(?:–|—|-|to)\s*~?\s*(\d+(?:\.\d+)?)(?:\s*(#{RANGE_UNIT})\b)?)?/xi
+  # [[:space:]], not \s: a no-break space before the unit is still a space.
+  RANGE = /~?[[:space:]]*(\d+(?:\.\d+)?)(?:[[:space:]]*(#{RANGE_UNIT})\b)?
+           (?:[[:space:]]*(?:–|—|-|to)[[:space:]]*~?[[:space:]]*(\d+(?:\.\d+)?)(?:[[:space:]]*(#{RANGE_UNIT})\b)?)?/xi
 
   # "2–4 h", "1 to 3", "6-10", "~2", "45 min", "45 min–1.5 h" → [low, high].
   # With hours: each bound in its own unit; a bound without one takes the
