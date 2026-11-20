@@ -444,6 +444,39 @@ class EffortTest < Minitest::Test
     assert_nil FlowEffort.parse_estimate("## Summary\nNo estimate here.")
   end
 
+  def test_reads_each_bound_of_a_time_range_in_its_own_unit
+    {
+      "45 min–1.5 h" => [0.75, 1.5], "45 min to 1.5 h" => [0.75, 1.5], "~45 min – ~1.5 h" => [0.75, 1.5],
+      "30–90 min" => [0.5, 1.5], "2–4 h" => [2.0, 4.0], "45 min" => [0.75, 0.75], "~6" => [6.0, 6.0],
+      "1–2 hrs" => [1.0, 2.0], "45 min–90" => [0.75, 1.5], "90 minutes–2 hours" => [1.5, 2.0],
+      "20–40 min (1 h if CI is slow)" => [1 / 3.0, 2 / 3.0]
+    }.each do |text, expected|
+      actual = FlowEffort.range_of(text, hours: true)
+      assert_equal expected.map { |v| v.round(6) }, actual.map { |v| v.round(6) }, text
+    end
+  end
+
+  def test_an_inverted_range_is_no_estimate
+    assert_nil FlowEffort.range_of("2 h–30 min", hours: true)
+    assert_nil FlowEffort.range_of("8–5")
+  end
+
+  def test_counts_and_files_take_no_unit
+    assert_equal [5.0, 8.0], FlowEffort.range_of("5–8")
+    assert_equal [1.0, 2.0], FlowEffort.range_of("1–2")
+    assert_equal [1.0, 3.0], FlowEffort.range_of("1 to 3")
+    assert_equal [6.0, 10.0], FlowEffort.range_of("6–10 handlers")
+    assert_equal [2.0, 2.0], FlowEffort.range_of("~2")
+  end
+
+  def test_parses_a_mixed_unit_row_and_drops_an_inverted_one
+    mixed = FlowEffort.parse_estimate("## Estimate\n| Active time | 45 min–1.5 h |\n| Files | 5–8 |\n")
+    assert_equal({ active_hours: [0.75, 1.5], files: [5.0, 8.0] }, mixed)
+
+    inverted = FlowEffort.parse_estimate("## Estimate\n| Active time | 2 h–30 min |\n| Validation passes | 1–2 |\n")
+    assert_equal({ validation_passes: [1.0, 2.0] }, inverted)
+  end
+
   def test_deviation
     assert_equal "within", FlowEffort.deviation([2.0, 4.0], 3.1)
     assert_equal "+15 %", FlowEffort.deviation([2.0, 4.0], 4.6)

@@ -454,14 +454,26 @@ module FlowEffort
     estimate.empty? ? nil : estimate
   end
 
-  # "2–4 h", "1 to 3", "6-10", "~2", "45 min" → [low, high].
-  def range_of(text, hours: false)
-    numbers = text.scan(/\d+(?:\.\d+)?/).map(&:to_f)
-    return nil if numbers.empty?
+  RANGE_UNIT = /minutes?|mins?|hours?|hrs?|h/i
+  RANGE = /~?\s*(\d+(?:\.\d+)?)(?:\s*(#{RANGE_UNIT})\b)?
+           (?:\s*(?:–|—|-|to)\s*~?\s*(\d+(?:\.\d+)?)(?:\s*(#{RANGE_UNIT})\b)?)?/xi
 
-    high = text =~ /\d\s*(?:–|—|-|to)\s*~?\d/ ? numbers[1] : numbers[0]
-    scale = hours && text =~ /min/i && text !~ /\d\s*h\b|hour/i ? 1 / 60.0 : 1
-    [numbers[0] * scale, high * scale]
+  # "2–4 h", "1 to 3", "6-10", "~2", "45 min", "45 min–1.5 h" → [low, high].
+  # With hours: each bound in its own unit; a bound without one takes the
+  # other bound's (so "30–90 min" is minutes), and hours when neither has one.
+  # A range whose low end is above its high end is no estimate: nil.
+  def range_of(text, hours: false)
+    match = text.match(RANGE)
+    return nil unless match
+
+    low, low_unit, high, high_unit = match.captures
+    high ||= low
+    low_unit ||= high_unit
+    high_unit ||= low_unit
+    bounds = [[low, low_unit], [high, high_unit]].map do |number, unit|
+      hours && unit =~ /\Am/i ? number.to_f / 60 : number.to_f
+    end
+    bounds.first > bounds.last ? nil : bounds
   end
 
   def deviation(range, actual)
