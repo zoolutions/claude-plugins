@@ -38,7 +38,9 @@ skip to "Maintaining Stimulus": new behaviour is a Stimulus controller.
    it, and record the answer in the PR body under `## Interactivity decision`. An agent never makes
    this call; an unattended run parks the issue instead.
 
-Not gated: Hotwire Native `bridge--*` controllers, Turbo Frames, Turbo Drive navigation.
+Not gated: Hotwire Native `bridge--*` controllers, Turbo Frames, Turbo Drive navigation, and a
+stream shape Workflow → Interactivity names as confirmed (a list's page 2): follow that shape exactly,
+with no question, no upstream issue and no `## Interactivity decision` (the Workflow line records it).
 
 **Count the JavaScript** in an app that loads the reactive client lazily per page: a reactive root
 makes its page import the client, so a root in a layout, header or global dialog puts it on every

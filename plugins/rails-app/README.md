@@ -38,9 +38,9 @@ missing label means "none"). Each skill names the labels it reads.
 - **Specs:** … (generic line) + sign-in `<helper>`; host `<helper | none>`; wait after reactive `<helper | none>`; agent may run specs: <yes | no — print the command>
 - **Tenant:** root `<current_x>`; owned tables carry `<x>_id` (composite indexes lead with it); factory chain `<a> → <b> → <c>`
 - **Authorization:** <ActionPolicy | CanCanCan | before_action guards> — member `<call>`, collection `<call>`, reactive actions `<call>`
-- **Views:** <Phlex | Slim | ERB>; pages `<base>` in `<dir>`, components `<base>` in `<dir>`; streamable concern `<name>`; native variant `<resolver + dir | none>`
-- **UI kit:** <DaisyUI | Bootstrap N> through `<wrappers>`; forms `<Form(model:) | form_for>`; never `<forbidden forms>`
-- **Interactivity:** <phlex-reactive first; new Stimulus/Turbo Stream needs operator confirmation | Stimulus | legacy JS>
+- **Views:** <Phlex | Slim | ERB>; pages `<base>` in `<dir>`, components `<base>` in `<dir>`; streamable concern `<name>`; record ids `<helper | dom_id>`; native variant `<resolver + dir | none>`
+- **UI kit:** <DaisyUI | Bootstrap N> through `<wrappers>`; forms `<Form(model:) | form_for>`; never `<forbidden forms>`; lists owning their query `<component | none>`
+- **Interactivity:** <phlex-reactive first; new Stimulus/Turbo Stream needs operator confirmation | Stimulus | legacy JS>; confirmed stream shapes `<shape | none>`
 - **Jobs:** <pgbus | Sidekiq | both> in `<dirs>`; recurring `<schedule file>`
 - **Migrations:** safety gem `<name | none>`; version check `<command or cop>`
 - **N+1:** `<prosopite | bullet | none>` in specs

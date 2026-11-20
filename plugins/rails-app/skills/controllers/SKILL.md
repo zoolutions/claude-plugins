@@ -35,8 +35,9 @@ model: sonnet
 - Failed create/update: re-render with `status: :unprocessable_entity` (Turbo ignores a 200 form
   response). Successful write: redirect; after `destroy`, `redirect_to …, status: :see_other`.
 - Partial updates follow Workflow → Interactivity. With phlex-reactive the component's `action`
-  answers (`reply.morph`), not a new `respond_to … format.turbo_stream`; existing Turbo Stream code
-  is maintained, not extended (/rails-app:stimulus).
+  answers (`reply.morph`), not a new `respond_to … format.turbo_stream`, unless Workflow →
+  Interactivity names that stream shape as confirmed (a list's page 2); then follow that shape
+  exactly. Other existing Turbo Stream code is maintained, not extended (/rails-app:stimulus).
 - JSON: an explicit serializer or `as_json(only: …)`; `render json: record` leaks every column.
 - Errors: no `rescue => e` that renders `e.message` to the user.
 

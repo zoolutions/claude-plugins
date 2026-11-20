@@ -20,7 +20,9 @@ still holds.
   Components: under `app/components/`, inheriting the component base. Never a new ERB or HAML file in
   a Phlex app.
 - Everything the view prints comes in as keyword args. No queries in a view; a component iterating a
-  collection means the controller preloads it (/rails-app:database).
+  collection means the controller preloads it (/rails-app:database). A component Workflow → UI kit
+  or Views names as owning its query (a list component with its own authorized scope) keeps it
+  there, with its own preloads.
 - Reuse before writing: search `app/components/` for the wrapper or component first, and read its
   source before falling back to a Rails primitive.
 
@@ -53,9 +55,9 @@ still holds.
 
 ## Updates and interactivity
 
-- A component that a stream, a morph or a broadcast replaces has a stable `id` method
-  (`dom_id(record, :card)`), renders that `id:` on its root, and includes the streamable concern
-  Workflow → Views names.
+- A component that a stream, a morph or a broadcast replaces has a stable `id` method built with the
+  record-id helper Workflow → Views names (default `dom_id(record, :card)`), renders that `id:` on
+  its root, and includes the streamable concern Workflow → Views names.
 - Interactive behaviour follows Workflow → Interactivity (/rails-app:stimulus): phlex-reactive client
   ops and actions first. No inline `onclick` (CSP).
 - Native variant (when Workflow → Views names one): a separate native view class, never
