@@ -1,0 +1,22 @@
+plugins/rails-app/skills/views/SKILL.md
+  s_137b6d878f6cdd::t_a1de3f4e18ce61 22-25
+  s_137b6d878f6cdd::t_8a9b0590737f33 58-60
+plugins/rails-app/skills/controllers/SKILL.md
+  s_137b6d878f6cdd::t_43e0881384794b 38-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f9e68546b625e92e7c5b60eeedbfc9aeaf0bcf33",
+  "prompts": {},
+  "sessions": {
+    "s_137b6d878f6cdd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e95404b8-21a5-4995-afd4-6d2b8dd5a9c5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "mhenrixon <mikael@mhenrixon.com>"
+    }
+  }
+}
