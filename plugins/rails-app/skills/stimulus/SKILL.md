@@ -36,7 +36,8 @@ skip to "Maintaining Stimulus": new behaviour is a Stimulus controller.
 5. **Only then** a new Stimulus controller or new Turbo Stream code, and only after a **human
    operator confirms**: ask with AskUserQuestion, naming the upstream issue and why reactive cannot do
    it, and record the answer in the PR body under `## Interactivity decision`. An agent never makes
-   this call; an unattended run parks the issue instead.
+   this call; an unattended run parks the issue instead. A stream shape Workflow → Interactivity
+   names as confirmed (a list's page 2) is that confirmation already: follow it exactly, no question.
 
 Not gated: Hotwire Native `bridge--*` controllers, Turbo Frames, Turbo Drive navigation.
 

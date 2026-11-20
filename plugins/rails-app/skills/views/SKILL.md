@@ -19,10 +19,10 @@ still holds.
 - Pages: `Views::<Dir>::<Action>` in `app/views/<dir>/<action>.rb`, inheriting the page base.
   Components: under `app/components/`, inheriting the component base. Never a new ERB or HAML file in
   a Phlex app.
-- Everything the view prints comes in as keyword args. No ad-hoc queries in a page or presentational
-  component; a component iterating a collection means the controller preloads it
-  (/rails-app:database). A component Workflow → UI kit or Views names as owning its query (a list
-  component with its own authorized scope) keeps it there, with its own preloads.
+- Everything the view prints comes in as keyword args. No queries in a view; a component iterating a
+  collection means the controller preloads it (/rails-app:database). A component Workflow → UI kit
+  or Views names as owning its query (a list component with its own authorized scope) keeps it
+  there, with its own preloads.
 - Reuse before writing: search `app/components/` for the wrapper or component first, and read its
   source before falling back to a Rails primitive.
 
