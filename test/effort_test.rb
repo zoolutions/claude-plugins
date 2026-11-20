@@ -457,6 +457,14 @@ class EffortTest < Minitest::Test
     end
   end
 
+  def test_a_unit_set_apart_from_its_number_still_reads_minutes
+    { "45+ min" => [0.75, 0.75], "30–45+ min" => [0.5, 0.75], "45-min" => [0.75, 0.75], "**45** min" => [0.75, 0.75],
+      "`45` min" => [0.75, 0.75], "45 (min)" => [0.75, 0.75], "45 minimum" => [0.75, 0.75] }.each do |text, expected|
+      assert_equal expected, FlowEffort.range_of(text, hours: true), text
+    end
+    assert_equal [2.0, 4.0], FlowEffort.range_of("**2–4** h (min 2)", hours: true)
+  end
+
   def test_an_inverted_range_is_no_estimate
     assert_nil FlowEffort.range_of("2 h–30 min", hours: true)
     assert_nil FlowEffort.range_of("8–5")
