@@ -463,7 +463,7 @@ class MachineTest < Minitest::Test
   def test_an_exempt_process_already_recorded_is_not_demoted_again_or_kept
     Dir.mktmpdir do |dir|
       state = File.join(dir, "g.json")
-      File.write(state, JSON.generate("300" => 1))
+      File.write(state, JSON.generate("300" => (NOW - 86_400).to_i))
       text = PS.sub("ruby bin/rspec spec/models", "ruby bin/rspec spec/models --machine-normal-qos")
       calls = []
       exempt_governor(text: text, state: state, calls: calls).govern
@@ -665,6 +665,7 @@ class MachineTest < Minitest::Test
   # The README's examples.
   def test_an_exempt_pattern_needs_its_words_where_the_command_runs_them
     assert Machine.matcher(["rspec --tag bench"]).match?("bundle exec rspec --tag bench")
+    refute Machine.matcher(["rspec --tag bench"]).match?("bundle exec rspec spec/x --tag bench")
     refute Machine.matcher(["bench"]).match?("rspec spec/bench")
   end
 

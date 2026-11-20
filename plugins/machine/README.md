@@ -51,23 +51,29 @@ A timing-sensitive run (a benchmark that measures short sleeps: background QoS c
 `sleep(0.006)` can take 200 ms) opts out without narrowing `govern_patterns` for every other run, in
 either of two ways:
 
-- `govern_exempt` in the same `config.json`: patterns matched by the same rule, so
-  `"rspec --tag bench"` matches `bundle exec rspec --tag bench` but `"bench"` does not match
-  `rspec spec/bench`. Default `[]`.
+- `govern_exempt` in the same `config.json`: patterns matched by the same rule, word for word right
+  after the runner, so `"rspec --tag bench"` matches `bundle exec rspec --tag bench` but neither
+  `bundle exec rspec spec/x --tag bench` (the words are not next to the runner) nor, for `"bench"`,
+  `rspec spec/bench`. Default `[]`. It is race-free: it holds from the first `govern` that sees the
+  process.
 
   ```json
   { "govern_exempt": ["rspec --tag bench"] }
   ```
 
 - The word `--machine-normal-qos` anywhere on the process's command line, with no config. A runner
-  that rejects an unknown argument (`rspec`, `pytest`) carries it in its process title instead, set
-  before the first measurement: Ruby `Process.setproctitle("#{$0} --machine-normal-qos")`, Python's
-  `setproctitle` package. `govern` reads the title `ps` shows.
+  that rejects an unknown argument (`rspec`, `pytest`) can carry it in its process title instead,
+  set as early as the process can: Ruby `Process.setproctitle("#{$0} --machine-normal-qos")`,
+  Python's `setproctitle` package. `govern` reads the title `ps` shows. A scheduled `govern` that
+  runs before the title is set (during boot) has already demoted the process, so a run that sets
+  its title late either uses `govern_exempt` or restores itself before measuring (macOS
+  `setpriority(PRIO_DARWIN_PROCESS, 0, 0)`, Ruby `Process.setpriority(4, 0, 0)`).
 
 `govern --dry-run` prints `exempt <pid> <command>` for each. An exemption is per process: a browser
 the run starts is still demoted when it matches a pattern itself, unless it is exempt too. It does
-not undo an earlier demotion: a run that gains the word after `govern` saw it goes back with
-`taskpolicy -B -p <pid>` (Linux `renice -n 0 -p <pid>`).
+not undo an earlier demotion, and `--dry-run` still prints `exempt` for a process demoted before it
+became exempt: on macOS it goes back with `taskpolicy -B -p <pid>`; on Linux lowering the nice value
+again needs root (`sudo renice -n 0 -p <pid>`, `sudo ionice -c2 -p <pid>`).
 
 ## Wiring a machine
 

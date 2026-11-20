@@ -511,7 +511,8 @@ module Machine
         if dry_run
           @out.puts("would demote #{row.pid} #{Machine.truncate(row.command)}")
         # Recorded once the first command (taskpolicy, renice) succeeded:
-        # renice never runs twice for one process, with or without ionice.
+        # renice never runs twice for one process, with or without ionice,
+        # unless an exemption in between dropped its record.
         elsif commands(row.pid).map { |argv| @runner.call(*argv) }.first
           state[row.pid.to_s] = started
           @out.puts("demoted #{row.pid} #{Machine.truncate(row.command)}")
