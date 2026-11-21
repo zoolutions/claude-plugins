@@ -25,7 +25,7 @@ to parse it:
 |---|---|
 | `report [--json] [--older-than AGE]` | One line per finding: class, pid, age, working directory, command |
 | `reap (--auto \| --kill CLASS...) [--dry-run]` | SIGTERM to the process group, SIGKILL after 5 s; prints what it killed. `--auto`: `orphan` and `stale-wait` only |
-| `govern [--dry-run]` | Running test processes to background QoS (`taskpolicy -b`; Linux `renice 10` + `ionice -c3`), once per process; an exempt run stays at normal QoS |
+| `govern [--dry-run]` | Running test processes to background QoS (`taskpolicy -b`; Linux `renice 10` + `ionice -c3`), once per process; an exempt run is not demoted |
 | `status` | One line for a SessionStart hook when there is something, nothing otherwise; exit 0, well under 300 ms |
 
 Classes and their rules: [`skills/reap/SKILL.md`](skills/reap/SKILL.md). Never touched: the calling
@@ -43,7 +43,8 @@ process's ancestors, PID 1's system daemons, anything another user owns.
 A pattern matches a process that runs it (`rspec`, `bundle exec rspec`, `python -m pytest`), not one
 that names it in an argument (`tail -f log/rspec.log`). `govern` remembers what it demoted in `~/.cache/machine/governed.json` (pid and start time; a reused
 pid is demoted again). A suite that runs too slowly in the background to pass its own timeouts goes
-back with `taskpolicy -B -p <pid>`, or leave its pattern out of the config.
+back with `taskpolicy -B -p <pid>` (Linux: `sudo renice 0 -p <pid>` and `ionice -c2 -p <pid>`), or leave its
+pattern out of the config. Workers it forked while demoted inherit the demotion: restore each pid.
 
 ### Keeping one run at normal QoS
 
@@ -74,7 +75,8 @@ either of two ways:
 the run starts is still demoted when it matches a pattern itself, unless it is exempt too. It does
 not undo an earlier demotion, and `--dry-run` still prints `exempt` for a process demoted before it
 became exempt: on macOS it goes back with `taskpolicy -B -p <pid>`; on Linux lowering the nice value
-again needs root (`sudo renice -n 0 -p <pid>`); `ionice -c2 -p <pid>` returns its I/O class.
+again needs root (`sudo renice 0 -p <pid>`: without `-n`, so BusyBox's `renice`, which reads `-n` as an
+increment, resets it too); `ionice -c2 -p <pid>` returns its I/O class.
 
 ## Wiring a machine
 
