@@ -81,8 +81,9 @@ per thread, and a thread started while demoted inherits both, so the undo covers
 `ionice -c2` alone gives level 0):
 
 ```sh
-sudo renice 0 -p $(ls /proc/<pid>/task)
-for t in $(ls /proc/<pid>/task); do ionice -c2 -n 4 -p "$t"; done
+pid=12345   # the demoted process
+sudo renice 0 -p $(ls /proc/$pid/task)
+for t in $(ls /proc/$pid/task); do ionice -c2 -n 4 -p "$t"; done
 ```
 
 ## Wiring a machine
