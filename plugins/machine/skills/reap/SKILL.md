@@ -63,9 +63,11 @@ A runner is a process that runs the pattern (`rspec`, `bundle exec rspec`, `pyth
    password an agent has no terminal for: give the user that command to run.
    An `exempt` line is a run `govern` leaves alone on purpose (`govern_exempt` or
    `--machine-normal-qos`). It is not demoted from then on, but one demoted before it became exempt
-   stays demoted: put it back as above before it measures. On Linux check first
-   (`ps -L -o tid=,ni= -p <pid>` prints 10 for each demoted thread), so a nice value the user set is
-   kept; on macOS `taskpolicy -B` on a process that was never demoted changes nothing.
+   stays demoted: put it back as above before it measures. On Linux `ps -L -o tid=,ni= -p <pid>` shows
+   10 for a demoted thread, but `govern` does not record the value it replaced: a run started at
+   nice 10 looks the same, and one started at 5 goes back to 0. Restore a run you know started at 0,
+   and ask the user about any other. On macOS `taskpolicy -B` on a process that was never demoted
+   changes nothing.
 
 The schedule (`govern` every 60 s, `reap --auto --notify` every 30 min) and the SessionStart `status`
 line are wired per machine, not by this plugin: see the plugin's README. Every run is named
