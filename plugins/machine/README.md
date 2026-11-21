@@ -43,7 +43,7 @@ process's ancestors, PID 1's system daemons, anything another user owns.
 A pattern matches a process that runs it (`rspec`, `bundle exec rspec`, `python -m pytest`), not one
 that names it in an argument (`tail -f log/rspec.log`). `govern` remembers what it demoted in `~/.cache/machine/governed.json` (pid and start time; a reused
 pid is demoted again). A suite that runs too slowly in the background to pass its own timeouts goes
-back with `taskpolicy -B -p <pid>` (Linux: `sudo renice 0 -p <pid>` and `ionice -c2 -p <pid>`), or leave its
+back with `taskpolicy -B -p <pid>` (Linux: the undo under "Keeping one run at normal QoS"), or leave its
 pattern out of the config. Workers it forked while demoted inherit the demotion: restore each pid.
 
 ### Keeping one run at normal QoS
@@ -74,9 +74,16 @@ either of two ways:
 `govern --dry-run` prints `exempt <pid> <command>` for each. An exemption is per process: a browser
 the run starts is still demoted when it matches a pattern itself, unless it is exempt too. It does
 not undo an earlier demotion, and `--dry-run` still prints `exempt` for a process demoted before it
-became exempt: on macOS it goes back with `taskpolicy -B -p <pid>`; on Linux lowering the nice value
-again needs root (`sudo renice 0 -p <pid>`: without `-n`, so BusyBox's `renice`, which reads `-n` as an
-increment, resets it too); `ionice -c2 -p <pid>` returns its I/O class.
+became exempt: on macOS it goes back with `taskpolicy -B -p <pid>`. On Linux nice and I/O class are
+per thread, and a thread started while demoted inherits both, so the undo covers every thread in
+`/proc/<pid>/task`. Lowering the nice value needs root; `renice 0` without `-n`, because BusyBox's
+`renice` reads `-n` as an increment; `ionice -c2 -n 4`, the default best-effort level (BusyBox's
+`ionice -c2` alone gives level 0):
+
+```sh
+sudo renice 0 -p $(ls /proc/<pid>/task)
+for t in $(ls /proc/<pid>/task); do ionice -c2 -n 4 -p "$t"; done
+```
 
 ## Wiring a machine
 
