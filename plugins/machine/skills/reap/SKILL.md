@@ -56,8 +56,18 @@ A runner is a process that runs the pattern (`rspec`, `bundle exec rspec`, `pyth
    stop. Never kill a process this skill did not classify.
 5. `govern --dry-run` when a suite is running; `govern` demotes it (`taskpolicy -b` on macOS,
    `renice 10` + `ionice -c3` on Linux). A demoted suite that trips its own timeouts is put back with
-   `taskpolicy -B -p <pid>` (macOS) or `sudo renice -n 0 -p <pid>`. An `exempt` line is a run kept at
-   normal QoS on purpose (`govern_exempt` or `--machine-normal-qos`): leave it.
+   `taskpolicy -B -p <pid>` (macOS). On Linux nice and I/O class are per thread, so restore every
+   thread, from one listing of `/proc/<pid>/task`: `sudo renice 0 -p <those tids>`, then
+   `ionice -c2 -n 4 -p <tid>` for each of them (`renice 0` without `-n`: BusyBox reads `-n` as an increment). On both, do the same for each
+   worker it forked while demoted: `/proc/<pid>/task` lists threads, not children. `sudo` needs a
+   password an agent has no terminal for: give the user that command to run.
+   An `exempt` line is a run `govern` leaves alone on purpose (`govern_exempt` or
+   `--machine-normal-qos`). It is not demoted from then on, but one demoted before it became exempt
+   stays demoted: put it back as above before it measures. On Linux `ps -L -o tid=,ni= -p <pid>` shows
+   10 for a demoted thread, but `govern` does not record the value it replaced: a run started at
+   nice 10 looks the same, and one started at 5 goes back to 0. Restore a run you know started at 0,
+   and ask the user about any other. On macOS `taskpolicy -B` on a process that was never demoted
+   changes nothing.
 
 The schedule (`govern` every 60 s, `reap --auto --notify` every 30 min) and the SessionStart `status`
 line are wired per machine, not by this plugin: see the plugin's README. Every run is named
