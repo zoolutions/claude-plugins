@@ -57,8 +57,8 @@ A runner is a process that runs the pattern (`rspec`, `bundle exec rspec`, `pyth
 5. `govern --dry-run` when a suite is running; `govern` demotes it (`taskpolicy -b` on macOS,
    `renice 10` + `ionice -c3` on Linux). A demoted suite that trips its own timeouts is put back with
    `taskpolicy -B -p <pid>` (macOS). On Linux nice and I/O class are per thread, so restore every
-   thread: `sudo renice 0 -p $(ls /proc/<pid>/task)`, then `ionice -c2 -n 4 -p <tid>` for each tid
-   there (`renice 0` without `-n`: BusyBox reads `-n` as an increment). On both, do the same for each
+   thread, from one listing of `/proc/<pid>/task`: `sudo renice 0 -p <those tids>`, then
+   `ionice -c2 -n 4 -p <tid>` for each of them (`renice 0` without `-n`: BusyBox reads `-n` as an increment). On both, do the same for each
    worker it forked while demoted: `/proc/<pid>/task` lists threads, not children. `sudo` needs a
    password an agent has no terminal for: give the user that command to run.
    An `exempt` line is a run `govern` leaves alone on purpose (`govern_exempt` or

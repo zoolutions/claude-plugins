@@ -82,8 +82,9 @@ per thread, and a thread started while demoted inherits both, so the undo covers
 
 ```sh
 pid=12345   # the demoted process
-sudo renice 0 -p $(ls /proc/$pid/task)
-for t in $(ls /proc/$pid/task); do ionice -c2 -n 4 -p "$t"; done
+tids=$(ls /proc/$pid/task)   # one list for both, so no thread gets only one of them
+sudo renice 0 -p $tids
+for t in $tids; do ionice -c2 -n 4 -p "$t"; done
 ```
 
 ## Wiring a machine
