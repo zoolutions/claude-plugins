@@ -408,6 +408,70 @@ class MachineTest < Minitest::Test
     refute_includes pids, "501"
   end
 
+  def exempt_governor(text: PS, exempt: [], state:, out: StringIO.new, calls: [])
+    Machine::Governor.new(rows: rows(text), uid: UID, self_pid: SELF, patterns: Machine::GOVERN_PATTERNS,
+                          exempt: exempt, platform: :macos, runner: ->(*argv) { calls << argv && "" },
+                          state_path: state, now: NOW, out: out)
+  end
+
+  def test_govern_leaves_a_process_matching_govern_exempt_alone
+    Dir.mktmpdir do |dir|
+      state = File.join(dir, "g.json")
+      calls = []
+      out = StringIO.new
+      exempt_governor(exempt: ["chrome-headless-shell"], state: state, calls: calls, out: out).govern
+      assert_equal [%w[taskpolicy -b -p 300]], calls
+      assert_equal %w[300], JSON.parse(File.read(state)).keys
+      refute_match(/exempt/, out.string)
+    end
+  end
+
+  def test_govern_dry_run_names_each_exempt_process
+    Dir.mktmpdir do |dir|
+      out = StringIO.new
+      exempt_governor(exempt: ["rspec spec/models"], state: File.join(dir, "g.json"), out: out).govern(dry_run: true)
+      lines = out.string.lines.map(&:chomp)
+      assert_equal ["exempt 300 ruby bin/rspec spec/models"], lines.grep(/\Aexempt /)
+      assert_equal 1, lines.grep(/\Awould demote 500 /).size
+      assert_equal 2, lines.size
+    end
+  end
+
+  def test_an_exempt_pattern_matches_where_the_command_runs_it_not_an_argument
+    Dir.mktmpdir do |dir|
+      calls = []
+      exempt_governor(exempt: ["models"], state: File.join(dir, "g.json"), calls: calls).govern
+      assert_equal [300, 500].map { |pid| ["taskpolicy", "-b", "-p", pid.to_s] }, calls
+    end
+  end
+
+  def test_the_normal_qos_word_on_a_command_line_exempts_it_wherever_it_stands
+    late = "ruby bin/rspec spec/a spec/b spec/c spec/d spec/e spec/f spec/g --machine-normal-qos"
+    text = PS.sub("ruby bin/rspec spec/models", late)
+             .sub("chrome-headless-shell --headless", "chrome-headless-shell --headless --machine-normal-qos-x")
+    Dir.mktmpdir do |dir|
+      calls = []
+      out = StringIO.new
+      exempt_governor(text: text, state: File.join(dir, "g.json"), calls: calls, out: out).govern(dry_run: true)
+      assert_equal 1, out.string.lines.grep(/\Aexempt 300 /).size
+      assert_equal 1, out.string.lines.grep(/\Awould demote 500 /).size
+      exempt_governor(text: text, state: File.join(dir, "g.json"), calls: calls).govern
+      assert_equal [%w[taskpolicy -b -p 500]], calls
+    end
+  end
+
+  def test_an_exempt_process_already_recorded_is_not_demoted_again_or_kept
+    Dir.mktmpdir do |dir|
+      state = File.join(dir, "g.json")
+      File.write(state, JSON.generate("300" => (NOW - 86_400).to_i))
+      text = PS.sub("ruby bin/rspec spec/models", "ruby bin/rspec spec/models --machine-normal-qos")
+      calls = []
+      exempt_governor(text: text, state: state, calls: calls).govern
+      assert_equal [%w[taskpolicy -b -p 500]], calls
+      assert_equal %w[500], JSON.parse(File.read(state)).keys
+    end
+  end
+
   # lsof exits 1 when one of the pids it was given has exited, and still
   # prints the others.
   def test_capture_keeps_the_output_of_a_command_that_fails
@@ -445,7 +509,7 @@ class MachineTest < Minitest::Test
 
   # --- the command line -----------------------------------------------------
 
-  def cli(*argv, clean: false, platform: :macos)
+  def cli(*argv, clean: false, platform: :macos, config: nil)
     out = StringIO.new
     calls = []
     signals = FakeSignals.new([])
@@ -456,6 +520,10 @@ class MachineTest < Minitest::Test
       end
     end.new(Machine.parse_ps(text), CWDS)
     Dir.mktmpdir do |dir|
+      if config
+        FileUtils.mkdir_p(File.join(dir, "machine"))
+        File.write(File.join(dir, "machine", "config.json"), JSON.generate(config))
+      end
       ctx = Machine::Context.new(table: table, uid: UID, self_pid: SELF, platform: platform, signals: signals,
                                  runner: ->(*call) { calls << call && "" }, state_dir: dir, config_dir: dir, now: NOW,
                                  out: out, load: -> { 28.4 }, cores: 12, dir_exists: ->(path) { path != GONE })
@@ -576,5 +644,42 @@ class MachineTest < Minitest::Test
       assert_equal ["vite"], Machine.govern_patterns(dir)
       assert_equal Machine::GOVERN_PATTERNS, Machine.govern_patterns(File.join(dir, "none"))
     end
+  end
+
+  def test_govern_exempt_comes_from_the_config_file_and_falls_back_on_its_own
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "machine"))
+      config = File.join(dir, "machine", "config.json")
+      File.write(config, JSON.generate("govern_exempt" => ["rspec --tag bench"]))
+      assert_equal ["rspec --tag bench"], Machine.govern_exempt(dir)
+      assert_equal Machine::GOVERN_PATTERNS, Machine.govern_patterns(dir)
+      File.write(config, JSON.generate("govern_patterns" => ["vite"], "govern_exempt" => "rspec"))
+      assert_equal [], Machine.govern_exempt(dir)
+      assert_equal ["vite"], Machine.govern_patterns(dir)
+      File.write(config, "{")
+      assert_equal [], Machine.govern_exempt(dir)
+      assert_equal [], Machine.govern_exempt(File.join(dir, "none"))
+    end
+  end
+
+  # The README's examples.
+  def test_an_exempt_pattern_needs_its_words_where_the_command_runs_them
+    assert Machine.matcher(["rspec --tag bench"]).match?("bundle exec rspec --tag bench")
+    refute Machine.matcher(["rspec --tag bench"]).match?("bundle exec rspec spec/x --tag bench")
+    refute Machine.matcher(["bench"]).match?("rspec spec/bench")
+  end
+
+  def test_a_blank_pattern_matches_nothing
+    refute Machine.matcher(["", "  "]).match?("ruby bin/rspec spec/models")
+    assert Machine.matcher(["", "rspec"]).match?("ruby bin/rspec spec/models")
+  end
+
+  def test_govern_dry_run_from_the_command_line_reads_govern_exempt
+    out, code, _, calls = cli("govern", "--dry-run", config: { "govern_exempt" => ["chrome-headless-shell"] })
+    assert_equal 0, code
+    assert_empty calls
+    assert_equal 1, out.lines.grep(/\Aexempt 500 /).size
+    assert_equal 1, out.lines.grep(/\Awould demote 300 /).size
+    assert_equal 2, out.lines.size
   end
 end

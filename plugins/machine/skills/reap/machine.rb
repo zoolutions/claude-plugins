@@ -61,6 +61,9 @@ module Machine
   LAUNCHER = /\A(?:env|time|nice|nohup|exec|bundle|be|ruby|node|python[\d.]*|Python|npx|pnpm|pnpx|yarn|npm|run|bun|
                  bunx|deno|uv|poetry|pipenv|xvfb-run|sh|bash|zsh)\z/x.freeze
   LEAD_WORDS = 8
+  # A word on a command line that keeps the process at normal QoS: `govern`
+  # never demotes it.
+  NORMAL_QOS = "--machine-normal-qos"
   CLAUDE = %r{\A(?:\S*/)?claude(?:\s|\z)|\A.*/claude-code/[^/]+/claude(?:\s|\z)|\A\S*node\S*\s+\S*claude-code/cli\.m?js}.freeze
   SNAPSHOT = "shell-snapshots/snapshot-"
   WAIT = /(?:\A|[\s;&|(])(?:until|while|sleep)\s/.freeze
@@ -186,7 +189,7 @@ module Machine
   class Patterns
     def initialize(patterns)
       @names = patterns
-      @patterns = patterns.map(&:split)
+      @patterns = patterns.map(&:split).reject(&:empty?)
     end
 
     def match?(command)
@@ -474,16 +477,19 @@ module Machine
   # --- governing ------------------------------------------------------------
 
   # Test processes to background QoS, once each; the pids done are remembered
-  # with their start time, so a reused pid is demoted again.
+  # with their start time, so a reused pid is demoted again. A process that
+  # matches `exempt`, or carries NORMAL_QOS on its command line, is left alone.
   class Governor
     include Guard
     SAME_START = 5
 
-    def initialize(rows:, uid:, self_pid:, patterns:, platform:, runner:, state_path:, now:, out:)
+    def initialize(rows:, uid:, self_pid:, patterns:, platform:, runner:, state_path:, now:, out:, exempt: [])
       by_pid = rows.map { |r| [r.pid, r] }.to_h
       protected = ancestors(by_pid, self_pid)
       match = Machine.matcher(patterns)
-      @rows = rows.select { |r| r.pid > 1 && r.uid == uid && !protected.include?(r.pid) && match.match?(r.command) }
+      skip = Machine.matcher(exempt)
+      governed = rows.select { |r| r.pid > 1 && r.uid == uid && !protected.include?(r.pid) && match.match?(r.command) }
+      @exempt, @rows = governed.partition { |r| r.command.split.include?(NORMAL_QOS) || skip.match?(r.command) }
       @all = rows
       @platform = platform
       @runner = runner
@@ -494,6 +500,10 @@ module Machine
 
     def govern(dry_run: false)
       state = live(read_state)
+      @exempt.each do |row|
+        state.delete(row.pid.to_s)
+        @out.puts("exempt #{row.pid} #{Machine.truncate(row.command)}") if dry_run
+      end
       @rows.each do |row|
         started = (@now - row.age).to_i
         next if state.key?(row.pid.to_s) && (state[row.pid.to_s] - started).abs <= SAME_START
@@ -501,7 +511,8 @@ module Machine
         if dry_run
           @out.puts("would demote #{row.pid} #{Machine.truncate(row.command)}")
         # Recorded once the first command (taskpolicy, renice) succeeded:
-        # renice never runs twice for one process, with or without ionice.
+        # renice never runs twice for one process, with or without ionice,
+        # unless an exemption in between dropped its record.
         elsif commands(row.pid).map { |argv| @runner.call(*argv) }.first
           state[row.pid.to_s] = started
           @out.puts("demoted #{row.pid} #{Machine.truncate(row.command)}")
@@ -595,11 +606,20 @@ module Machine
   end
 
   def govern_patterns(config_dir)
+    config_list(config_dir, "govern_patterns", GOVERN_PATTERNS)
+  end
+
+  def govern_exempt(config_dir)
+    config_list(config_dir, "govern_exempt", [])
+  end
+
+  # A list of strings from config.json, or the fallback when it sets none.
+  def config_list(config_dir, key, fallback)
     data = JSON.parse(File.read(File.join(config_dir, "machine", "config.json")))
-    patterns = data.is_a?(Hash) && data["govern_patterns"]
-    patterns.is_a?(Array) && patterns.all? { |p| p.is_a?(String) } ? patterns : GOVERN_PATTERNS
+    list = data.is_a?(Hash) && data[key]
+    list.is_a?(Array) && list.all? { |p| p.is_a?(String) } ? list : fallback
   rescue SystemCallError, JSON::ParserError
-    GOVERN_PATTERNS
+    fallback
   end
 
   # --- the command line -----------------------------------------------------
@@ -718,8 +738,9 @@ module Machine
 
   def govern(ctx, opts)
     Governor.new(rows: ctx.table.rows, uid: ctx.uid, self_pid: ctx.self_pid, patterns: govern_patterns(ctx.config_dir),
-                 platform: ctx.platform, runner: ctx.runner, state_path: File.join(ctx.state_dir, "governed.json"),
-                 now: ctx.now, out: ctx.out).govern(dry_run: opts[:dry_run])
+                 exempt: govern_exempt(ctx.config_dir), platform: ctx.platform, runner: ctx.runner,
+                 state_path: File.join(ctx.state_dir, "governed.json"), now: ctx.now, out: ctx.out)
+            .govern(dry_run: opts[:dry_run])
     0
   end
 end
