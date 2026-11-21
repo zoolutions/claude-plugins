@@ -56,8 +56,10 @@ A runner is a process that runs the pattern (`rspec`, `bundle exec rspec`, `pyth
    stop. Never kill a process this skill did not classify.
 5. `govern --dry-run` when a suite is running; `govern` demotes it (`taskpolicy -b` on macOS,
    `renice 10` + `ionice -c3` on Linux). A demoted suite that trips its own timeouts is put back with
-   `taskpolicy -B -p <pid>` (macOS) or `sudo renice -n 0 -p <pid>`. An `exempt` line is a run kept at
-   normal QoS on purpose (`govern_exempt` or `--machine-normal-qos`): leave it.
+   `taskpolicy -B -p <pid>` (macOS) or `sudo renice -n 0 -p <pid>` and `ionice -c2 -p <pid>` (Linux).
+   An `exempt` line is a run `govern` leaves alone on purpose (`govern_exempt` or
+   `--machine-normal-qos`). It is not demoted from then on, but one demoted before it became exempt
+   stays demoted: put it back as above before it measures.
 
 The schedule (`govern` every 60 s, `reap --auto --notify` every 30 min) and the SessionStart `status`
 line are wired per machine, not by this plugin: see the plugin's README. Every run is named
