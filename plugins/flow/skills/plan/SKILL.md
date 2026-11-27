@@ -126,7 +126,8 @@ this repository, its product, its customers or its domain.
    about the library (bytes, ms, request counts), drop where they were measured.
 4. **Design the ask** in the library's own conventions: the proposed API, the alternatives and why
    they lose, the files to touch, the tests to add, the compatibility story — enough for an agent with
-   only the library checkout. Interview only when the API choice is genuinely open (never under
+   only the library checkout. The ask covers every defect the investigation finds in that code path:
+   one issue, never a second one for a sibling found along the way. Interview only when the API choice is genuinely open (never under
    `--unattended`: take the most conservative API and say so).
 5. **Draft** to `docs/plans/YYYY-MM-DD-upstream-<repo>-<slug>.md`: Summary, Environment (versions),
    Reproduction, Observed / Expected, Proposed API, Implementation notes, Acceptance criteria,

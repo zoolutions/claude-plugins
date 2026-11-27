@@ -164,7 +164,9 @@ what isolates your worktree (databases, ports, a dev server); respect it.
    link both in the PR, and add them to your final JSON. Do not implement the library fix yourself.
 5. Never ask a question or offer a choice. A finding, failing check, queue eviction or validator note
    is work: fix it now, in this PR, whatever its severity (a validator note that is wrong is answered
-   with a one-line rebuttal in the PR body, which /flow:lfg 6.5 counts as done). Park only for a blocker outside the
+   with a one-line rebuttal in the PR body, which /flow:lfg 6.5 counts as done). A defect you find in
+   the code you touch or the path you fix is this PR's work too, even when the scope grows: never a
+   follow-up issue (/flow:lfg Phase 4 → Everything found). Park only for a blocker outside the
    repository (an outage, missing credentials, a GitHub permission, a red main under a merge queue),
    or where AGENTS.md says a human must decide: comment on the PR (on issue #<N> if no PR exists) with
    the blocker and what removes it, then stop. Agent tool unavailable → park
@@ -205,7 +207,8 @@ missing). Spawn one `opus` agent there, `description: "upstream <repo>#<issue>"`
 that checkout — `cd <absolute library path>` in every Bash call (the shell's directory resets
 between calls, and `{owner}/{repo}` resolves from it), pass `-R <owner/repo>` to every `gh` call, and
 read `<absolute library path>/AGENTS.md`, never this repository's; run its
-`/flow:follow-through <issue>` (it has the flow plugin like every repository);
+`/flow:follow-through <issue>` (it has the flow plugin like every repository); every defect found in
+that path is fixed in the same PR, never filed as a follow-up, so the release ships the whole fix;
 once merged, cut a patch release with the library's Workflow → Release (`/ruby-gem:release patch` for
 a gem); final message one JSON object `{"repo", "issue", "pr", "state": "released"|"needs-user",
 "version", "reason"}`. Never spawn two for the same issue.

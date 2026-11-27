@@ -76,6 +76,13 @@ add one line to `implementation-notes.md` at the repo root: deviation (planned X
 discovery (a fact the plan did not know), or judgment call (a choice the user might have made
 differently). Take the conservative option and keep going. Never commit the file.
 
+**Everything found is this PR's work.** A defect the work turns up in the code it touches or the
+path it fixes is fixed in this PR with its own failing test, even when the scope grows: a sibling
+of the bug, a second way the same thing fails, a broken caller, a gap the validator or a reviewer
+names. Never a follow-up issue for it, and never "found while …, out of scope" in the PR body. Log it
+as a discovery. Only a defect in an unrelated subsystem gets its own issue, and the PR says why it
+is unrelated. A half fix costs a second branch, review, CI run and release for the same path.
+
 Per logical unit: a failing test first (run it, see it fail for the right reason) → the minimum code
 to pass → refactor green → Workflow → Verify on the changed files. `/flow:tdd` is the long form.
 
@@ -83,7 +90,8 @@ to pass → refactor green → Workflow → Verify on the changed files. `/flow:
 
 Trace the failing value back to where it was created; `git log -S` / `git blame` for why the code is
 the way it is; map every caller; five whys to the earliest point the error could be prevented, and
-fix there. Never `rescue nil`, a blind `&.`, a presence guard, `find` → `find_by`, or an early return
+fix there. Every caller or sibling the trace shows broken the same way is fixed here too
+(Phase 4 → Everything found). Never `rescue nil`, a blind `&.`, a presence guard, `find` → `find_by`, or an early return
 that hides the cause.
 
 ## Phase 6: Verify
@@ -91,7 +99,7 @@ that hides the cause.
 All of Workflow → Verify, and the local gate of `/flow:tdd` → Done: the tests for what changed
 (Workflow → Specs → changed, else each changed file's tests) when CI runs the full suite, else the
 full suite. Then re-read the request: would the requester call it done; is it the root cause; do
-the tests prove it?
+the tests prove it; is every defect found along the way fixed here, none left to a follow-up?
 
 ## Phase 6.5: Fable validation by rigor
 

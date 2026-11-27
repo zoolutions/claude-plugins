@@ -40,6 +40,7 @@ Start with one line: **PASS**, **PASS WITH NOTES** or **BLOCK**.
 Then, most severe first, each with `file:line`, what goes wrong, and the concrete input or situation that makes it go wrong; a finding under the review rules also names their severity and the lens that caught it:
 
 - **Blockers**: must be fixed before the pull request opens or merges. A Blocker names one of three things: a defect a caller can hit (with the input that hits it), an acceptance criterion that is not met, or a finding the repository's review rules rank as one to fix before merging.
+- A defect next to the change (the same path, a sibling of the bug, a caller) is a finding for this pull request like any other, ranked by what it breaks. Never recommend a follow-up issue for it; only a defect in an unrelated subsystem is out of scope, and you say why.
 - **Risks**: should be fixed or consciously accepted; say which you would accept. A finding the review rules rank lower (a nit) is a Risk.
 - **Not verified**: what you could not check, and how it could be; and every process or contract item you noticed (step 3), with its fix.
 
